@@ -1,0 +1,125 @@
+-- PaySmallSmall schema. MariaDB-compatible SQL only.
+-- All money columns are pesewas (integers). Never floats.
+
+CREATE DATABASE IF NOT EXISTS paysmallsmall
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE paysmallsmall;
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name VARCHAR(120) NOT NULL,
+  phone VARCHAR(12) NOT NULL,              -- 233XXXXXXXXX
+  pin_hash VARCHAR(255) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_users_phone (phone)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS merchants (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  shop_name VARCHAR(160) NOT NULL,
+  owner_name VARCHAR(120) NOT NULL,
+  phone VARCHAR(12) NOT NULL,
+  location VARCHAR(160) NOT NULL DEFAULT '',
+  password_hash VARCHAR(255) NOT NULL,
+  payout_channel ENUM('momo','bank') NOT NULL DEFAULT 'momo',
+  payout_number VARCHAR(30) NOT NULL DEFAULT '',
+  status ENUM('pending','approved','suspended') NOT NULL DEFAULT 'pending',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_merchants_phone (phone)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS products (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  merchant_id INT UNSIGNED NOT NULL,
+  name VARCHAR(160) NOT NULL,
+  description TEXT NOT NULL,
+  photo VARCHAR(255) NOT NULL DEFAULT '',
+  cash_price_pesewas INT UNSIGNED NOT NULL,
+  category VARCHAR(60) NOT NULL DEFAULT 'general',
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_products_merchant (merchant_id),
+  CONSTRAINT fk_products_merchant FOREIGN KEY (merchant_id) REFERENCES merchants(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS plans (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id INT UNSIGNED NOT NULL,
+  customer_id INT UNSIGNED NOT NULL,
+  total_pesewas INT UNSIGNED NOT NULL,
+  installment_pesewas INT UNSIGNED NOT NULL,
+  frequency ENUM('daily','weekly') NOT NULL DEFAULT 'weekly',
+  installments_total SMALLINT UNSIGNED NOT NULL,
+  installments_paid SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  -- pending: created, first payment not yet confirmed. No payment, no plan.
+  status ENUM('pending','active','completed','cancelled','defaulted') NOT NULL DEFAULT 'pending',
+  grace_state ENUM('ok','grace','flagged') NOT NULL DEFAULT 'ok',
+  grace_notified_at DATETIME DEFAULT NULL,
+  payout_transaction_id INT UNSIGNED DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME DEFAULT NULL,
+  PRIMARY KEY (id),
+  KEY idx_plans_customer (customer_id),
+  KEY idx_plans_product (product_id),
+  KEY idx_plans_status (status),
+  CONSTRAINT fk_plans_product FOREIGN KEY (product_id) REFERENCES products(id),
+  CONSTRAINT fk_plans_customer FOREIGN KEY (customer_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS installments (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  plan_id INT UNSIGNED NOT NULL,
+  number SMALLINT UNSIGNED NOT NULL,
+  amount_pesewas INT UNSIGNED NOT NULL,
+  due_date DATE NOT NULL,
+  paid_at DATETIME DEFAULT NULL,
+  transaction_id INT UNSIGNED DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_installments_plan_number (plan_id, number),
+  KEY idx_installments_due (due_date),
+  CONSTRAINT fk_installments_plan FOREIGN KEY (plan_id) REFERENCES plans(id)
+) ENGINE=InnoDB;
+
+-- Append-only money ledger. Rows are inserted, then only status/raw_payload
+-- are updated when the provider confirms. Never deleted.
+CREATE TABLE IF NOT EXISTS transactions (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  type ENUM('collection','disbursement','refund') NOT NULL,
+  status ENUM('pending','success','failed') NOT NULL DEFAULT 'pending',
+  amount_pesewas INT UNSIGNED NOT NULL,
+  phone VARCHAR(12) NOT NULL DEFAULT '',
+  plan_id INT UNSIGNED DEFAULT NULL,
+  installment_id INT UNSIGNED DEFAULT NULL,
+  merchant_id INT UNSIGNED DEFAULT NULL,
+  provider_ref VARCHAR(64) NOT NULL,       -- our unique reference sent to Moolre
+  external_ref VARCHAR(64) NOT NULL DEFAULT '',  -- Moolre's transaction id
+  raw_payload TEXT,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_transactions_ref (provider_ref),
+  KEY idx_transactions_plan (plan_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS sms_log (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  recipient VARCHAR(12) NOT NULL,
+  body VARCHAR(480) NOT NULL,
+  status ENUM('queued','sent','failed') NOT NULL DEFAULT 'queued',
+  provider_ref VARCHAR(64) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;
+
+-- USSD session state (gateway sends session id + accumulated input each hop)
+CREATE TABLE IF NOT EXISTS ussd_sessions (
+  id VARCHAR(64) NOT NULL,
+  phone VARCHAR(12) NOT NULL,
+  state VARCHAR(40) NOT NULL DEFAULT 'menu',
+  context TEXT,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB;
