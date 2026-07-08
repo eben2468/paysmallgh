@@ -1,17 +1,22 @@
 <section class="hero">
-  <div class="wrap hero-grid">
-    <div>
+  <div class="wrap hero-grid hero-grid-two">
+    <div class="hero-panel">
       <span class="hero-kicker">For shop owners</span>
       <h1>Stop watching customers
-        <span class="squiggle">walk away<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 Q 20 2, 40 8 T 78 8 T 116 9 T 154 7 T 198 9" fill="none" stroke="#E8590C" stroke-width="4" stroke-linecap="round"/></svg></span>
+        <span class="squiggle">walk away<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 Q 20 2, 40 8 T 78 8 T 116 9 T 154 7 T 198 9" fill="none" stroke="#F2B705" stroke-width="4" stroke-linecap="round"/></svg></span>
         over price.</h1>
       <p class="hero-lead">Customers who can't pay GHS 1,200 today can pay GHS 100 every Friday. You still make the sale.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="<?= url('/merchant/register') ?>">Register your shop</a>
-        <a class="btn" href="<?= url('/merchant/login') ?>">Merchant log in</a>
+        <a class="btn btn-ghost" href="<?= url('/merchant/login') ?>">Merchant log in</a>
+      </div>
+      <div class="hero-chips" aria-hidden="true">
+        <span class="chip">No monthly fee</span>
+        <span class="chip">No listing fee</span>
+        <span class="chip chip-more">5% only when you sell</span>
       </div>
     </div>
-    <div class="hero-card-col">
+    <div class="hero-side">
       <div class="plan-card">
         <div class="plan-card-head">
           <h3>Your payout, in plain numbers</h3>

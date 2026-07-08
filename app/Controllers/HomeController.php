@@ -10,7 +10,7 @@ final class HomeController extends Controller
 {
     public function index(): void
     {
-        $products = array_slice(Product::browse(), 0, 8);
+        $products = array_slice(Product::browse(), 0, 10);
         $this->render('home/index', [
             'title' => 'PaySmallSmall — Pay small small, own it proper',
             'products' => $products,

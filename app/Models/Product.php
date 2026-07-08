@@ -17,8 +17,8 @@ final class Product
         )->fetch() ?: null;
     }
 
-    /** Active products from approved merchants, optionally filtered by category. */
-    public static function browse(?string $category = null): array
+    /** Active products from approved merchants, filtered by category and/or search term. */
+    public static function browse(?string $category = null, ?string $q = null): array
     {
         $sql = "SELECT p.*, m.shop_name, m.location AS merchant_location
                 FROM products p JOIN merchants m ON m.id = p.merchant_id
@@ -28,8 +28,24 @@ final class Product
             $sql .= ' AND p.category = ?';
             $params[] = $category;
         }
+        if ($q !== null && trim($q) !== '') {
+            $sql .= ' AND (p.name LIKE ? OR p.description LIKE ? OR m.shop_name LIKE ?)';
+            $like = '%' . trim($q) . '%';
+            array_push($params, $like, $like, $like);
+        }
         $sql .= ' ORDER BY p.created_at DESC';
         return DB::run($sql, $params)->fetchAll();
+    }
+
+    /** Category => product count, for nav and tiles. */
+    public static function categoryCounts(): array
+    {
+        return DB::run(
+            "SELECT p.category, COUNT(*) AS n FROM products p
+             JOIN merchants m ON m.id = p.merchant_id
+             WHERE p.active = 1 AND m.status = 'approved'
+             GROUP BY p.category ORDER BY n DESC, p.category"
+        )->fetchAll(\PDO::FETCH_KEY_PAIR);
     }
 
     public static function categories(): array

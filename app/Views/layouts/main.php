@@ -1,4 +1,15 @@
-<?php use App\Core\Auth; use App\Core\Config; ?>
+<?php
+use App\Core\Auth;
+use App\Core\Config;
+
+// Categories for the header nav — tolerate a missing DB so error pages still render.
+try {
+    $navCats = \App\Models\Product::categoryCounts();
+} catch (\Throwable) {
+    $navCats = [];
+}
+$currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,30 +25,53 @@
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
 
+<div class="topbar">
+  <div class="wrap topbar-row">
+    <span class="topbar-note"><?= svg_icon('shield', 15) ?> Money held in escrow till you finish — nobody can chop it</span>
+    <span class="topbar-ussd">No smartphone? Dial <b><?= e(Config::get('USSD_CODE', '*920*77#')) ?></b></span>
+  </div>
+</div>
+
 <header class="site-header">
   <div class="wrap header-row">
+    <button class="nav-toggle" aria-label="Menu" aria-expanded="false" data-nav-toggle><?= svg_icon('menu', 22) ?></button>
+
     <a class="logo" href="<?= url('/') ?>">
       Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span>
     </a>
-    <nav class="site-nav" id="site-nav">
-      <a href="<?= url('/shop') ?>">Browse</a>
+
+    <form class="search" action="<?= url('/shop') ?>" method="get" role="search">
+      <input type="search" name="q" value="<?= e($_GET['q'] ?? '') ?>"
+             placeholder="Search phones, beds, kaba…" aria-label="Search products">
+      <button type="submit" aria-label="Search"><?= svg_icon('search', 18) ?></button>
+    </form>
+
+    <nav class="header-actions" id="site-nav">
       <a href="<?= url('/how-it-works') ?>">How it works</a>
-      <a href="<?= url('/merchant') ?>">For shops</a>
+      <a href="<?= url('/merchant') ?>"><?= svg_icon('store', 17) ?> For shops</a>
       <?php if (Auth::userId()): ?>
-        <a class="nav-cta" href="<?= url('/plans') ?>">My plans</a>
+        <a class="nav-cta" href="<?= url('/plans') ?>"><?= svg_icon('plans', 17) ?> My plans</a>
         <a href="<?= url('/logout') ?>">Log out</a>
       <?php elseif (Auth::merchantId()): ?>
-        <a class="nav-cta" href="<?= url('/merchant/dashboard') ?>">Dashboard</a>
+        <a class="nav-cta" href="<?= url('/merchant/dashboard') ?>"><?= svg_icon('store', 17) ?> Dashboard</a>
         <a href="<?= url('/merchant/logout') ?>">Log out</a>
       <?php else: ?>
-        <a href="<?= url('/login') ?>">Log in</a>
+        <a href="<?= url('/login') ?>"><?= svg_icon('user', 17) ?> Log in</a>
         <a class="nav-cta" href="<?= url('/register') ?>">Start</a>
       <?php endif; ?>
     </nav>
-    <button class="nav-toggle" aria-label="Menu" aria-expanded="false" data-nav-toggle>
-      <span></span><span></span><span></span>
-    </button>
   </div>
+
+  <nav class="cat-bar" aria-label="Categories">
+    <div class="wrap cat-bar-row">
+      <a class="<?= $currentPath === '/shop' && empty($_GET['category']) ? 'active' : '' ?>" href="<?= url('/shop') ?>"><?= svg_icon('grid', 16) ?> All products</a>
+      <?php foreach ($navCats as $cat => $n): ?>
+        <a class="<?= ($_GET['category'] ?? '') === $cat ? 'active' : '' ?>"
+           href="<?= url('/shop?category=' . urlencode((string) $cat)) ?>"><?= category_icon((string) $cat, 16) ?> <?= e(ucfirst((string) $cat)) ?></a>
+      <?php endforeach; ?>
+      <a class="cat-bar-sell" href="<?= url('/merchant/register') ?>">Sell on PaySmallSmall</a>
+    </div>
+  </nav>
 </header>
 
 <?php if ($msg = flash('success')): ?>
@@ -73,6 +107,18 @@
     <p>Payments and SMS run on Moolre. Built in Ghana. &copy; <?= date('Y') ?> PaySmallSmall.</p>
   </div>
 </footer>
+
+<nav class="bottom-nav" aria-label="Quick navigation">
+  <a href="<?= url('/') ?>" class="<?= $currentPath === '/' ? 'active' : '' ?>"><?= svg_icon('home', 21) ?><span>Home</span></a>
+  <a href="<?= url('/shop') ?>" class="<?= str_starts_with($currentPath, '/shop') || str_starts_with($currentPath, '/product') ? 'active' : '' ?>"><?= svg_icon('grid', 21) ?><span>Browse</span></a>
+  <?php if (Auth::merchantId()): ?>
+    <a href="<?= url('/merchant/dashboard') ?>" class="<?= str_starts_with($currentPath, '/merchant') ? 'active' : '' ?>"><?= svg_icon('store', 21) ?><span>Shop</span></a>
+    <a href="<?= url('/merchant/payouts') ?>"><?= svg_icon('receipt', 21) ?><span>Payouts</span></a>
+  <?php else: ?>
+    <a href="<?= url('/plans') ?>" class="<?= str_starts_with($currentPath, '/plan') ? 'active' : '' ?>"><?= svg_icon('plans', 21) ?><span>My plans</span></a>
+    <a href="<?= Auth::userId() ? url('/logout') : url('/login') ?>"><?= svg_icon('user', 21) ?><span><?= Auth::userId() ? 'Log out' : 'Log in' ?></span></a>
+  <?php endif; ?>
+</nav>
 
 <script src="<?= url('/assets/js/app.js') ?>"></script>
 </body>

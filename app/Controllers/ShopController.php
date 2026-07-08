@@ -11,11 +11,13 @@ final class ShopController extends Controller
     public function index(): void
     {
         $category = isset($_GET['category']) ? (string) $_GET['category'] : null;
+        $q = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
         $this->render('shop/index', [
-            'title' => 'Browse products — PaySmallSmall',
-            'products' => Product::browse($category),
+            'title' => ($q ? "\"{$q}\" — search" : 'Browse products') . ' — PaySmallSmall',
+            'products' => Product::browse($category, $q),
             'categories' => Product::categories(),
             'current' => $category,
+            'q' => $q,
         ]);
     }
 
