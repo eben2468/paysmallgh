@@ -1,0 +1,5 @@
+# Local XAMPP/Apache dev only. Production is Nginx (see DEPLOY.md).
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L]
