@@ -24,13 +24,15 @@ final class Plan
 
     public static function forCustomer(int $customerId): array
     {
+        // Includes 'pending' plans (first payment not yet confirmed) so the
+        // customer can come back and finish/check them. Awaiting-payment first.
         return DB::run(
             "SELECT pl.*, pr.name AS product_name, pr.photo AS product_photo, m.shop_name
              FROM plans pl
              JOIN products pr ON pr.id = pl.product_id
              JOIN merchants m ON m.id = pr.merchant_id
-             WHERE pl.customer_id = ? AND pl.status <> 'pending'
-             ORDER BY pl.created_at DESC",
+             WHERE pl.customer_id = ?
+             ORDER BY (pl.status = 'pending') DESC, pl.created_at DESC",
             [$customerId]
         )->fetchAll();
     }

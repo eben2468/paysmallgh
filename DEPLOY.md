@@ -124,21 +124,52 @@ mkdir -p public/uploads && chmod 755 public/uploads
 - Cloudflare SSL mode: **Full (strict)** with the CloudPanel-issued Let's Encrypt cert.
 - The app reads `X-Forwarded-Proto` for HTTPS detection (secure cookies) — no extra config needed, but keep Cloudflare's default header pass-through on.
 
-## 7. Cron: grace-period reminders
+## 7. Cron: reminders + payment reconciliation
 
-Run the reminder sweep daily at 08:00 as the site user (CloudPanel → Site → Cron Jobs):
+Two cron jobs, both as the site user (CloudPanel → Site → Cron Jobs):
 
 ```
+# Grace-period reminders, once a day
 0 8 * * * cd /home/paysmallsmall/htdocs/paysmallsmall.com && php scripts/reminders.php >> ~/reminders.log 2>&1
+
+# Settle pending payments — safety net for any webhook Moolre couldn't deliver
+*/2 * * * * cd /home/paysmallsmall/htdocs/paysmallsmall.com && php scripts/reconcile.php >> ~/reconcile.log 2>&1
 ```
 
-## 8. Moolre dashboard settings
+The reconcile job polls Moolre for every still-pending transaction and applies
+the result exactly as a webhook would (credit installment, pay out, SMS). It is
+idempotent, so a webhook and the cron settling the same payment cannot
+double-credit. Admins can also trigger it by hand at **Admin → All plans →
+Reconcile pending payments**.
+
+## 8. Going live with Moolre (do this carefully)
+
+The app ships in `PAYMENTS_MODE=mock`. Before switching to `sandbox`/`live`,
+**confirm every wire-format value against docs.moolre.com** — these are the only
+things the code cannot verify for you, and they all live in `.env` (nothing is
+hardcoded):
+
+| `.env` key | Confirm on docs.moolre.com |
+|---|---|
+| `MOOLRE_PATH_COLLECT` / `_DISBURSE` / `_STATUS` / `_SMS` | exact endpoint paths |
+| `MOOLRE_CHANNEL_MOMO` / `_BANK` | numeric channel/network codes |
+| `MOOLRE_CURRENCY` | currency code (GHS) |
+| request field names | `payer`/`receiver`/`amount`/`externalref`/`accountnumber`/`callbackurl` — adjust in `app/Services/MoolreService.php` if the docs differ |
+| webhook payload fields | confirm `externalref` + status field names in `app/Controllers/WebhookController.php` and `MoolreService::readState()` |
+
+Then set the credentials (`MOOLRE_API_USER`, `MOOLRE_API_KEY`,
+`MOOLRE_API_PUBKEY`, `MOOLRE_VAS_KEY`, `MOOLRE_ACCOUNT_NUMBER`),
+`MOOLRE_CALLBACK_URL=https://paysmallsmall.com/webhook/moolre`, a strong
+`MOOLRE_WEBHOOK_SECRET`, and flip `PAYMENTS_MODE`. Test one real GHS 1 collection
+end-to-end (approve prompt → SMS receipt → ledger row `success`) before opening up.
+
+## 9. Moolre dashboard settings
 
 Point these URLs at the app once you have live credentials:
 
 - Payment webhook/callback: `https://paysmallsmall.com/webhook/moolre`
 - USSD callback: `https://paysmallsmall.com/webhook/ussd`
-- Set the same webhook secret you put in `.env`.
+- Set the same webhook secret you put in `.env` (`MOOLRE_WEBHOOK_SECRET`).
 
 ## Quick smoke test after deploy
 

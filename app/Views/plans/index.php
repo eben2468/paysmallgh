@@ -22,8 +22,11 @@
               <h3><a href="<?= url('/plan/' . $plan['id']) ?>"><?= e($plan['product_name']) ?></a></h3>
               <span class="plan-shop"><?= e($plan['shop_name']) ?></span>
             </div>
-            <span class="tag tag-<?= e($plan['status']) ?>"><?= e($plan['status']) ?></span>
+            <span class="tag tag-<?= e($plan['status']) ?>"><?= $plan['status'] === 'pending' ? 'awaiting payment' : e($plan['status']) ?></span>
           </div>
+          <?php if ($plan['status'] === 'pending'): ?>
+            <p class="small muted"><?= svg_icon('clock', 15) ?> First payment not confirmed yet. <a href="<?= url('/plan/' . $plan['id']) ?>">Finish or check it</a>.</p>
+          <?php else: ?>
           <div>
             <div class="progress <?= $plan['status'] === 'completed' ? 'progress-done' : '' ?>" style="--pct: <?= $pct ?>%"></div>
             <div class="progress-row">
@@ -31,6 +34,7 @@
               <span><?= $plan['status'] === 'completed' ? 'Fully paid!' : '<strong>' . ghs($left) . '</strong> to go' ?></span>
             </div>
           </div>
+          <?php endif; ?>
         </div>
       <?php endforeach; ?>
     </div>

@@ -2,6 +2,15 @@
 
 Running log of choices made where the brief was ambiguous. Newest last.
 
+## 2026-07-09 — Real payments (async lifecycle)
+
+- **Live/sandbox payments are asynchronous, with a status-check safety net.** In mock mode a collection is instant. In sandbox/live, `collect()`/`disburse()` only *accept* the request; the final result arrives via the webhook (`/webhook/moolre`) or by polling `status()`. Both paths funnel through the same idempotent `PlanService::applyCollectionSuccess()` / `finalizePayout()`, so a webhook and a status-check settling the same payment can't double-credit (guarded by `installments.paid_at` + transaction status).
+- **Three ways a payment can settle**, in order of speed: (1) Moolre webhook, (2) customer taps "I've paid — check now" on the plan page, (3) `scripts/reconcile.php` cron sweep / admin "Reconcile pending payments" button. This means a demo never dead-ends even if webhooks aren't reachable (e.g. localhost).
+- **Pending plans are now visible to the customer.** `Plan::forCustomer` includes `pending` plans (awaiting-payment first) so a customer can return and finish/confirm the first payment. The merchant view still excludes pending — a not-yet-started plan is not the merchant's concern.
+- **`readState()` parses provider status defensively** and defaults to `pending` on anything ambiguous, so an unexpected response shape is retried rather than wrongly credited or failed. Exact field names/codes are still to be confirmed against docs.moolre.com (see DEPLOY.md §8).
+- **All Moolre wire-format details moved to `.env`** (channel codes, currency, callback URL) — nothing about the provider's format is hardcoded, so going live is a config exercise, not a code change (unless field names differ).
+- **SMS never breaks a payment.** `MoolreService::sms()` swallows its own errors and always writes an `sms_log` row (`sent`/`failed`); a failed receipt can't roll back a confirmed installment.
+
 ## 2026-07-08 — Initial build
 
 - **Moolre endpoints are config-driven placeholders.** docs.moolre.com is a JS app that can't be scraped, and the brief forbids inventing endpoints from memory. The auth header scheme (`X-API-USER`, `X-API-KEY`, `X-API-PUBKEY`, `X-API-VASKEY`) is confirmed from Moolre's public materials; the endpoint *paths* live in `.env` (`MOOLRE_PATH_*`) and MUST be checked against docs.moolre.com before flipping `PAYMENTS_MODE` to `sandbox` or `live`. Mock mode is complete and is the demo path.

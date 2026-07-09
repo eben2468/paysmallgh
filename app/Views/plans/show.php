@@ -26,7 +26,17 @@
 
     <p class="mt-3 plan-math"><?= ghs((int) $plan['installment_pesewas']) ?> &times; <?= $total ?> weeks = <?= ghs((int) $plan['installment_pesewas'] * $total) ?></p>
 
-    <?php if ($plan['status'] === 'active'): ?>
+    <?php if (!empty($pendingTx)): ?>
+      <?php $firstEver = $plan['status'] === 'pending'; ?>
+      <div class="pay-pending mt-3">
+        <p class="pay-pending-title"><?= svg_icon('clock', 18) ?> Waiting for your MoMo approval</p>
+        <p class="small">We sent a prompt for <strong><?= ghs((int) $pendingTx['amount_pesewas']) ?></strong> to <?= e(pretty_phone($plan['customer_phone'])) ?>. Approve it on your phone, then tap below.<?= $firstEver ? ' Your plan starts the moment it clears.' : '' ?></p>
+        <form method="post" action="<?= url('/plan/' . $plan['id'] . '/check') ?>" class="mt-2">
+          <?= Csrf::field() ?>
+          <button class="btn btn-green" type="submit"><?= svg_icon('arrow', 16) ?> I've paid — check now</button>
+        </form>
+      </div>
+    <?php elseif ($plan['status'] === 'active'): ?>
       <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-2">
         <?= Csrf::field() ?>
         <button class="btn btn-primary" type="submit">Pay this week's <?= ghs((int) $plan['installment_pesewas']) ?></button>
@@ -36,6 +46,15 @@
         <?= Csrf::field() ?>
         <button class="btn btn-quiet btn-sm" type="submit">Cancel plan &amp; refund me</button>
       </form>
+    <?php elseif ($plan['status'] === 'pending'): ?>
+      <div class="pay-pending mt-3">
+        <p class="pay-pending-title"><?= svg_icon('clock', 18) ?> This plan hasn't started yet</p>
+        <p class="small">The first payment wasn't completed. Start it now to lock in your plan.</p>
+        <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-2">
+          <?= Csrf::field() ?>
+          <button class="btn btn-primary" type="submit">Pay first <?= ghs((int) $plan['installment_pesewas']) ?> now</button>
+        </form>
+      </div>
     <?php elseif ($plan['status'] === 'completed'): ?>
       <p class="mt-3"><strong>This one's done — go collect it from <?= e($plan['shop_name']) ?>.</strong> Show them the SMS we sent you.</p>
     <?php endif; ?>

@@ -200,6 +200,71 @@ final class PlanService
     }
 
     /**
+     * Status-check fallback for a single pending transaction. Used by the
+     * customer "check payment" button, the admin reconcile button and the cron.
+     * Polls Moolre for the final state and applies the SAME confirmation path a
+     * webhook would. Idempotent and safe to call repeatedly.
+     * Returns 'active'|'completed'|'pending'|'failed'|'success'.
+     */
+    public function reconcileTransaction(array $tx): string
+    {
+        if (($tx['status'] ?? '') !== 'pending') {
+            return (string) ($tx['status'] ?? 'failed');
+        }
+
+        $res = $this->moolre->status((string) $tx['provider_ref']);
+        if (!$res['ok']) {
+            return 'pending'; // provider unreachable — leave pending, try again later
+        }
+
+        if ($res['state'] === 'success') {
+            Transaction::setStatus((int) $tx['id'], 'success', $res['external_ref'], json_encode($res['raw']));
+            if ($tx['type'] === 'collection') {
+                return $this->applyCollectionSuccess((int) $tx['id']);
+            }
+            if ($tx['type'] === 'disbursement' && $tx['plan_id']) {
+                $this->finalizePayout((int) $tx['plan_id'], (int) $tx['id']);
+                return 'completed';
+            }
+            return 'success'; // refund confirmed; plan already cancelled
+        }
+
+        if ($res['state'] === 'failed') {
+            Transaction::setStatus((int) $tx['id'], 'failed', $res['external_ref'], json_encode($res['raw']));
+            return 'failed';
+        }
+
+        return 'pending';
+    }
+
+    /** Customer-facing: reconcile the latest pending collection on a plan. */
+    public function checkPlanPayment(int $planId): string
+    {
+        $tx = Transaction::latestPendingForPlan($planId, 'collection');
+        if (!$tx) {
+            $plan = Plan::find($planId);
+            return (string) ($plan['status'] ?? 'failed');
+        }
+        return $this->reconcileTransaction($tx);
+    }
+
+    /**
+     * Sweep every pending transaction (older than a grace window) and reconcile
+     * it. Belt-and-braces for missed webhooks; run from cron and the admin UI.
+     */
+    public function reconcilePending(int $olderThanMinutes = 0): array
+    {
+        $actions = [];
+        foreach (Transaction::pendingOlderThan($olderThanMinutes) as $tx) {
+            $result = $this->reconcileTransaction($tx);
+            if ($result !== 'pending') {
+                $actions[] = "Tx #{$tx['id']} ({$tx['type']}) -> {$result}";
+            }
+        }
+        return $actions;
+    }
+
+    /**
      * Cancel a plan and refund the customer minus the cancellation fee.
      */
     public function cancel(int $planId): bool

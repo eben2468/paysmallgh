@@ -1,7 +1,9 @@
 <?php use App\Core\Csrf; ?>
 <section class="page-head wrap">
   <h1>All plans</h1>
-  <p>Payments mode: <span class="mode-banner"><?= e($mode) ?></span></p>
+  <p>Payments mode: <span class="mode-banner"><?= e($mode) ?></span>
+    <?php if (($pending ?? 0) > 0): ?> &middot; <strong><?= (int) $pending ?></strong> payment<?= $pending === 1 ? '' : 's' ?> awaiting confirmation<?php endif; ?>
+  </p>
 </section>
 
 <section class="wrap" style="padding-bottom:3rem">
@@ -10,6 +12,10 @@
     <form class="inline-form" method="post" action="<?= url('/admin/run-reminders') ?>">
       <?= Csrf::field() ?>
       <button class="btn btn-sm" type="submit">Run reminder sweep</button>
+    </form>
+    <form class="inline-form" method="post" action="<?= url('/admin/reconcile') ?>">
+      <?= Csrf::field() ?>
+      <button class="btn btn-sm" type="submit">Reconcile pending payments<?= ($pending ?? 0) > 0 ? ' (' . (int) $pending . ')' : '' ?></button>
     </form>
   </div>
 

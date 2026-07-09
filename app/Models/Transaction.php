@@ -49,6 +49,29 @@ final class Transaction
         return DB::run("SELECT * FROM transactions ORDER BY id DESC LIMIT {$limit}")->fetchAll();
     }
 
+    /** The most recent still-pending transaction of a type on a plan, if any. */
+    public static function latestPendingForPlan(int $planId, string $type = 'collection'): ?array
+    {
+        return DB::run(
+            "SELECT * FROM transactions WHERE plan_id = ? AND type = ? AND status = 'pending' ORDER BY id DESC LIMIT 1",
+            [$planId, $type]
+        )->fetch() ?: null;
+    }
+
+    /** All pending transactions at least $minutes old — the reconcile queue. */
+    public static function pendingOlderThan(int $minutes): array
+    {
+        return DB::run(
+            "SELECT * FROM transactions WHERE status = 'pending' AND created_at <= (NOW() - INTERVAL ? MINUTE) ORDER BY id ASC",
+            [max(0, $minutes)]
+        )->fetchAll();
+    }
+
+    public static function pendingCount(): int
+    {
+        return (int) DB::run("SELECT COUNT(*) FROM transactions WHERE status = 'pending'")->fetchColumn();
+    }
+
     public static function payoutsForMerchant(int $merchantId): array
     {
         return DB::run(

@@ -66,6 +66,7 @@ final class AdminController extends Controller
             'title' => 'All plans — Admin',
             'plans' => Plan::all(),
             'mode' => (new MoolreService())->mode(),
+            'pending' => Transaction::pendingCount(),
         ]);
     }
 
@@ -105,6 +106,16 @@ final class AdminController extends Controller
         Csrf::check();
         $actions = (new PlanService())->runReminders();
         flash('success', $actions ? implode(' · ', $actions) : 'Nothing overdue — all plans on track.');
+        redirect('/admin/plans');
+    }
+
+    /** Status-check every pending payment now (fallback for missed webhooks). */
+    public function reconcile(): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $actions = (new PlanService())->reconcilePending(0);
+        flash('success', $actions ? implode(' · ', $actions) : 'No pending payments needed settling.');
         redirect('/admin/plans');
     }
 }

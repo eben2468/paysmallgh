@@ -29,6 +29,7 @@ $router->post('/plan/start', PlanController::class, 'start');
 $router->get('/plans', PlanController::class, 'index');
 $router->get('/plan/{id}', PlanController::class, 'show');
 $router->post('/plan/{id}/pay', PlanController::class, 'pay');
+$router->post('/plan/{id}/check', PlanController::class, 'check');
 $router->post('/plan/{id}/cancel', PlanController::class, 'cancel');
 
 // Merchant
@@ -56,6 +57,7 @@ $router->get('/admin/plans', AdminController::class, 'plans');
 $router->get('/admin/ledger', AdminController::class, 'ledger');
 $router->post('/admin/simulate-payment/{plan_id}', AdminController::class, 'simulatePayment');
 $router->post('/admin/run-reminders', AdminController::class, 'runReminders');
+$router->post('/admin/reconcile', AdminController::class, 'reconcile');
 
 // Webhooks (no CSRF — external callers)
 $router->post('/webhook/moolre', WebhookController::class, 'moolre');

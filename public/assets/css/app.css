@@ -709,6 +709,18 @@ table.data tr:last-child td { border-bottom: none; }
 .detail-grid { display: grid; gap: 2rem; padding-block: 2.5rem; }
 @media (min-width: 56rem) { .detail-grid { grid-template-columns: 1.2fr .8fr; align-items: start; } }
 
+.pay-pending {
+  border: var(--line); border-left-width: 5px; border-radius: var(--radius);
+  background: #FFF7E6;
+  padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+.pay-pending-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem;
+  display: flex; align-items: center; gap: .4rem; margin-bottom: .25rem;
+}
+.pay-pending-title .ic { color: var(--orange); }
+
 .schedule li {
   display: flex; justify-content: space-between; gap: 1rem;
   padding: .55rem 0; border-bottom: 1px dashed #D8CFC0;
