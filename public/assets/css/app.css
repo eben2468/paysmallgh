@@ -22,8 +22,11 @@
   --line-soft: 1px solid #E0D8C9;
   --shadow: 4px 4px 0 var(--ink);
   --shadow-sm: 3px 3px 0 var(--ink);
-  --radius: 3px;
-  --font-display: "Fraunces", Georgia, serif;
+  --radius: 4px;
+  --radius-lg: 10px;
+  --shadow-soft: 0 10px 30px -18px rgba(26, 23, 20, .5);
+  /* Bold geometric display à la the reference; Space Grotesk is the loaded fallback. */
+  --font-display: "Clash Display", "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   --font-body: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -48,10 +51,11 @@ a:hover { color: var(--orange); }
 
 h1, h2, h3 {
   font-family: var(--font-display);
-  font-weight: 600;
-  line-height: 1.08;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
 }
+h1 { font-weight: 700; }
 
 .wrap { width: min(76rem, 100% - 2rem); margin-inline: auto; }
 
@@ -829,3 +833,115 @@ table.data tr:last-child td { border-bottom: none; }
 .nowrap { white-space: nowrap; }
 .right { text-align: right; }
 .inline-form { display: inline; }
+
+/* ============================================================
+   v2 VISUAL PASS — decorative graphics + modern polish
+   Display type is now Clash Display (bold geometric). Added
+   on-brand graphics: printed dot texture, halftone accents,
+   poster star marks, arched photo frames. No gradients as
+   colour transitions, no blobs, no emoji — per the brief.
+   ============================================================ */
+
+/* Faint printed dot texture on the paper — hand-made feel, not flat SaaS white. */
+body {
+  background-color: var(--paper);
+  background-image: radial-gradient(rgba(26, 23, 20, .045) 1.1px, transparent 1.2px);
+  background-size: 22px 22px;
+  background-position: -11px -11px;
+}
+
+/* Headline sizing loves the heavier Clash weight — a touch more air + tighter tracking. */
+.hero-panel h1 { letter-spacing: -0.035em; }
+.section-bar h2, .section-head h2, .page-head h1, .product-title { letter-spacing: -0.03em; }
+.logo { letter-spacing: -0.04em; }
+
+/* Poster star before every section-bar title. */
+.section-bar h2 { display: inline-flex; align-items: center; gap: .55rem; }
+.section-bar h2::before {
+  content: "";
+  width: .62em; height: .62em; flex-shrink: 0;
+  background: var(--orange);
+  clip-path: polygon(50% 0, 63% 37%, 100% 37%, 70% 60%, 82% 100%, 50% 74%, 18% 100%, 30% 60%, 0 37%, 37% 37%);
+}
+
+/* Section headline gets a small hand-drawn accent rule under it. */
+.section-head h2 { position: relative; display: inline-block; }
+.section-head h2::after {
+  content: "";
+  display: block; height: 5px; width: 3.2rem; margin-top: .55rem;
+  background: var(--yellow);
+  border: 1.5px solid var(--ink); border-radius: 3px;
+}
+
+/* Printed-texture placeholder for products awaiting a real photo. */
+.product-photo {
+  background-color: var(--paper-dim);
+  background-image: radial-gradient(rgba(26, 23, 20, .07) 1.3px, transparent 1.4px);
+  background-size: 15px 15px;
+}
+.photo-placeholder .ic { color: var(--green); opacity: .55; }
+
+/* Halftone corner inside the green hero panel for depth. */
+.hero-panel::before {
+  content: "";
+  position: absolute; left: -22px; bottom: 58px; width: 150px; height: 120px;
+  background-image: radial-gradient(rgba(255, 255, 255, .16) 2px, transparent 2.2px);
+  background-size: 15px 15px;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
+/* Card hover: a touch more lift, still the hard poster shadow. */
+.product-card:hover { transform: translate(-3px, -3px); box-shadow: 6px 6px 0 var(--ink); }
+.cat-tile:hover { transform: translate(-3px, -3px); box-shadow: var(--shadow); }
+
+/* Category tiles: give the icon a bordered chip so tiles read as graphic, not text rows. */
+.cat-tile .ic {
+  width: 44px; height: 44px; padding: 9px; box-sizing: border-box;
+  border: var(--line); border-radius: 999px;
+  background: var(--paper-dim); color: var(--green);
+}
+.cat-tile:nth-child(4n+1) .ic { background: #E7F0EA; }
+.cat-tile:nth-child(4n+2) .ic { background: #FBE9DD; color: var(--orange); }
+.cat-tile:nth-child(4n+3) .ic { background: #FCF1CE; }
+.cat-tile:nth-child(4n+4) .ic { background: #E7F0EA; }
+
+/* Arched, editorial photo frame on the product page. */
+.product-hero .product-photo {
+  border-radius: 120px 120px var(--radius) var(--radius);
+}
+
+/* Animated underline on desktop nav links — modern, subtle. */
+@media (min-width: 60rem) {
+  .header-actions a:not(.nav-cta) { position: relative; }
+  .header-actions a:not(.nav-cta)::after {
+    content: ""; position: absolute; left: 0; right: 100%; bottom: -3px;
+    height: 2px; background: var(--orange); transition: right .18s ease;
+  }
+  .header-actions a:not(.nav-cta):hover::after { right: 0; }
+}
+
+/* Big confident hero on wide screens — closer to the reference proportions. */
+@media (min-width: 64rem) {
+  .hero-panel h1 { font-size: clamp(3rem, 4vw, 4.3rem); }
+}
+
+/* A slim printed-dot divider you can drop between sections. */
+.dot-divider {
+  height: 0; border: 0; border-top: 2px dotted #C9BFAD;
+  width: min(76rem, 100% - 2rem); margin: 0 auto;
+}
+
+/* Poster sparks flanking the USSD code. */
+.ussd-spark { display: inline-flex; align-items: center; gap: .5rem; }
+.ussd-spark .ic { color: var(--orange); }
+.hero-kicker .ic { color: var(--orange); vertical-align: -0.12em; margin-right: .1rem; }
+
+/* Rounded "pill" primary CTA option for a modern touch where wanted. */
+.btn-pill { border-radius: 999px; }
+
+/* Chunkier, friendlier form controls. */
+.field input, .field select, .field textarea { border-radius: var(--radius); }
+.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--green); }
+
+/* Reduce-motion: kill the marquee + underline animations already handled; nothing else moves. */

@@ -1,7 +1,7 @@
 <section class="hero">
   <div class="wrap hero-grid hero-grid-two">
     <div class="hero-panel">
-      <span class="hero-kicker">For shop owners</span>
+      <span class="hero-kicker"><?= svg_icon('spark', 13) ?> For shop owners</span>
       <h1>Stop watching customers
         <span class="squiggle">walk away<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 Q 20 2, 40 8 T 78 8 T 116 9 T 154 7 T 198 9" fill="none" stroke="#F2B705" stroke-width="4" stroke-linecap="round"/></svg></span>
         over price.</h1>

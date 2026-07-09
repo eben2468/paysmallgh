@@ -23,7 +23,7 @@ try {
     </aside>
 
     <div class="hero-panel">
-      <span class="hero-kicker">Lay-away, the MoMo way</span>
+      <span class="hero-kicker"><?= svg_icon('spark', 13) ?> Lay-away, the MoMo way</span>
       <h1>Big things, paid
         <span class="squiggle">small small<svg viewBox="0 0 200 14" preserveAspectRatio="none" aria-hidden="true"><path d="M2 9 Q 20 2, 40 8 T 78 8 T 116 9 T 154 7 T 198 9" fill="none" stroke="#F2B705" stroke-width="4" stroke-linecap="round"/></svg></span>
       </h1>
@@ -159,7 +159,7 @@ try {
 
 <section class="ussd-callout">
   <div class="wrap">
-    <p class="small muted">Any phone works — yam phone included.</p>
+    <p class="small muted ussd-spark"><?= svg_icon('spark', 15) ?> Any phone works — yam phone included <?= svg_icon('spark', 15) ?></p>
     <div class="ussd-code"><?= e(Config::get('USSD_CODE', '*920*77#')) ?></div>
     <p class="small">Dial it to check your plan, see what's left, or pay this week's installment. Under a minute, no data needed.</p>
   </div>

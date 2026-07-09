@@ -100,6 +100,11 @@ function svg_icon(string $name, int $size = 20): string
         'arrow' => '<path d="M4 12h15"/><path d="M13 5.5L19.5 12 13 18.5"/>',
         'store' => '<path d="M4.5 9.5L6 4h12l1.5 5.5"/><path d="M4.5 9.5h15V11a3 3 0 0 1-5 2.2A3 3 0 0 1 12 13a3 3 0 0 1-2.5.2A3 3 0 0 1 4.5 11z"/><path d="M6 13.5V20h12v-6.5"/><path d="M10 20v-4h4v4"/>',
         'menu' => '<path d="M4 6.5h16M4 12h16M4 17.5h16"/>',
+        // decorative motifs (poster / editorial flourishes)
+        'spark' => '<path d="M12 2c.6 4.8 2.2 6.4 7 7-4.8.6-6.4 2.2-7 7-.6-4.8-2.2-6.4-7-7 4.8-.6 6.4-2.2 7-7z"/>',
+        'burst' => '<path d="M12 2v5M12 17v5M2 12h5M17 12h5M5 5l3.5 3.5M15.5 15.5L19 19M19 5l-3.5 3.5M8.5 15.5L5 19"/>',
+        'check' => '<path d="M4 12.5l5 5 11-11"/>',
+        'tag' => '<path d="M3.5 12.5V4.5h8l9 9-7.5 7.5-9-9z"/><circle cx="7.5" cy="8.5" r="1.4"/>',
     ];
     $p = $paths[$name] ?? $paths['box'];
     return '<svg class="ic" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
