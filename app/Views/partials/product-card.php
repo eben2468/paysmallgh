@@ -2,15 +2,18 @@
 /** Expects $p (product row with shop_name). */
 $weekly12 = (int) ceil((int) $p['cash_price_pesewas'] / 12);
 $cat = $p['category'] ?? 'general';
+$placeholder = '<div class="photo-placeholder"' . (!empty($p['photo']) ? ' style="display:none"' : '') . '>'
+    . micon(product_micon($cat), ['size' => 40]) . '<b>' . e($p['name']) . '</b>'
+    . '<span class="small">photo coming from the shop</span></div>';
 ?>
 <a class="product-card" href="<?= url('/product/' . $p['id']) ?>">
   <div class="product-photo">
     <span class="card-badge"><?= ghs($weekly12) ?>/wk</span>
     <?php if (!empty($p['photo'])): ?>
-      <img src="<?= url('/' . $p['photo']) ?>" alt="<?= e($p['name']) ?>" loading="lazy">
-    <?php else: ?>
-      <div class="photo-placeholder"><?= micon(product_micon($cat), ['size' => 40]) ?><b><?= e($p['name']) ?></b><span class="small">photo coming from the shop</span></div>
+      <img src="<?= url('/' . $p['photo']) ?>" alt="<?= e($p['name']) ?>" loading="lazy"
+           onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='';">
     <?php endif; ?>
+    <?= $placeholder ?>
   </div>
   <div class="product-body">
     <span class="product-cat"><?= e(ucfirst((string) $cat)) ?></span>

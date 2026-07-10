@@ -11,7 +11,9 @@
     <?php if (!empty($images)): ?>
       <div class="gallery" data-gallery>
         <div class="gallery-main">
-          <img src="<?= url('/' . $images[0]['path']) ?>" alt="<?= e($product['name']) ?>" data-gallery-main>
+          <img src="<?= url('/' . $images[0]['path']) ?>" alt="<?= e($product['name']) ?>" data-gallery-main
+               onerror="this.onerror=null;this.style.display='none';this.parentElement.querySelector('.photo-placeholder').style.display='';">
+          <div class="photo-placeholder" style="display:none"><?= micon(product_micon($product['category']), ['size' => 48]) ?><b><?= e($product['name']) ?></b><span class="small">photo coming from the shop</span></div>
           <?php if (count($images) > 1): ?>
             <span class="gallery-count"><?= micon('photo_library', ['size' => 15]) ?> <?= count($images) ?> photos</span>
           <?php endif; ?>
@@ -21,7 +23,8 @@
             <?php foreach ($images as $i => $img): ?>
               <button type="button" class="gallery-thumb <?= $i === 0 ? 'active' : '' ?>" data-gallery-thumb
                       data-full="<?= url('/' . $img['path']) ?>" aria-label="View photo <?= $i + 1 ?>">
-                <img src="<?= url('/' . $img['path']) ?>" alt="<?= e($product['name']) ?> photo <?= $i + 1 ?>" loading="lazy">
+                <img src="<?= url('/' . $img['path']) ?>" alt="<?= e($product['name']) ?> photo <?= $i + 1 ?>" loading="lazy"
+                     onerror="this.onerror=null;this.closest('.gallery-thumb').style.display='none';">
               </button>
             <?php endforeach; ?>
           </div>
