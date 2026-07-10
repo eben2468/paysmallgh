@@ -9,7 +9,10 @@
   </div>
 
   <?php if (empty($payouts)): ?>
-    <p class="muted">No payouts yet. The first one lands when a customer completes their plan.</p>
+    <div class="empty-card">
+      <h2>No payouts yet</h2>
+      <p>The first one lands when a customer completes their plan.</p>
+    </div>
   <?php else: ?>
     <div class="table-scroll">
       <table class="data">
@@ -17,10 +20,10 @@
         <tbody>
           <?php foreach ($payouts as $t): ?>
             <tr>
-              <td><?= date('j M Y', strtotime($t['created_at'])) ?></td>
+              <td class="nowrap"><?= date('j M Y', strtotime($t['created_at'])) ?></td>
               <td><?= e($t['product_name'] ?? '—') ?></td>
               <td><strong><?= ghs((int) $t['amount_pesewas']) ?></strong></td>
-              <td class="small muted"><?= e($t['provider_ref']) ?></td>
+              <td class="small muted mono"><?= e($t['provider_ref']) ?></td>
               <td><span class="tag tag-<?= e($t['status']) ?>"><?= e($t['status']) ?></span></td>
             </tr>
           <?php endforeach; ?>

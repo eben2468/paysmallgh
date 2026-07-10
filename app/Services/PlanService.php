@@ -23,9 +23,10 @@ final class PlanService
     }
 
     /**
-     * Create a plan and charge the first installment. No payment, no plan:
-     * the plan stays 'pending' until the first collection is confirmed.
-     * Returns [planId, 'active'|'awaiting_payment'|'failed'].
+     * Create a plan and set up its first installment as a hosted checkout. No
+     * payment, no plan: the plan stays 'pending' until the first collection is
+     * confirmed. Returns [planId, ['status' => ..., 'redirect' => ?url]] — the
+     * caller redirects the browser to `redirect` (Moolre's payment page).
      */
     public function startPlan(array $user, array $product, int $installmentPesewas, string $frequency, int $count): array
     {
@@ -39,8 +40,49 @@ final class PlanService
         ]);
         Installment::createSchedule($planId, $count, $installmentPesewas, $frequency);
 
-        $result = $this->collectInstallment($planId);
+        $result = $this->checkoutInstallment($planId);
         return [$planId, $result];
+    }
+
+    /**
+     * Set up the next unpaid installment as a hosted Moolre checkout and return
+     * the payment-page URL for the browser to open. This is the WEB path (MoMo /
+     * bank / card, chosen on Moolre's page). USSD/feature phones use
+     * collectInstallment() instead (direct MoMo prompt).
+     *
+     * Returns ['status' => 'awaiting_payment'|'failed', 'redirect' => ?url].
+     * The installment is only credited later, when the payment is confirmed via
+     * the webhook or status poll (applyCollectionSuccess) — same as before.
+     */
+    public function checkoutInstallment(int $planId): array
+    {
+        $plan = Plan::find($planId);
+        $inst = Installment::nextUnpaid($planId);
+        if (!$plan || !$inst) {
+            return ['status' => 'failed', 'redirect' => null];
+        }
+
+        $ref = sprintf('PSS-C-%d-%d-%s', $planId, $inst['number'], strtoupper(bin2hex(random_bytes(3))));
+        $txId = Transaction::create([
+            'type' => 'collection',
+            'amount_pesewas' => (int) $inst['amount_pesewas'],
+            'phone' => $plan['customer_phone'],
+            'plan_id' => $planId,
+            'installment_id' => (int) $inst['id'],
+            'provider_ref' => $ref,
+        ]);
+
+        $desc = sprintf('%s — payment %d of %d', $plan['product_name'], $inst['number'], $plan['installments_total']);
+        $redirectBack = rtrim((string) Config::get('APP_URL', ''), '/') . '/plan/' . $planId;
+        $link = $this->moolre->paymentLink((int) $inst['amount_pesewas'], $ref, $desc, $redirectBack);
+
+        if (!$link['ok']) {
+            Transaction::setStatus($txId, 'failed', $link['external_ref'], json_encode($link['raw']));
+            return ['status' => 'failed', 'redirect' => null];
+        }
+
+        Transaction::setStatus($txId, 'pending', $link['external_ref'], json_encode($link['raw']));
+        return ['status' => 'awaiting_payment', 'redirect' => $link['url']];
     }
 
     /**

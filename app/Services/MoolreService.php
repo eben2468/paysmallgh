@@ -64,6 +64,57 @@ final class MoolreService
     }
 
     /**
+     * Generate a hosted Moolre payment page (Web POS) for a collection and
+     * return its URL. The customer opens that URL and pays there with mobile
+     * money, bank transfer or card — Moolre handles the whole entry form.
+     *
+     * Endpoint: POST /embed/link (auth: X-API-USER + X-API-PUBKEY). Async like
+     * collect() — final success arrives via the webhook/redirect and status
+     * polling. Success envelope: status 1, code POS09, data.authorization_url.
+     *
+     * Returns ['ok' => bool, 'url' => string, 'external_ref' => string, 'raw' => array].
+     */
+    public function paymentLink(int $amountPesewas, string $reference, string $description, string $redirectUrl): array
+    {
+        if ($this->isMock()) {
+            // Mock: send them to a local stand-in checkout so the redirect flow
+            // demos end-to-end without spending money. Return a root-relative
+            // path (not APP_URL) so it works on whatever host/port the app is
+            // actually served from — the controller resolves it against the
+            // current request.
+            return [
+                'ok' => true,
+                'url' => '/checkout/mock?ref=' . urlencode($reference),
+                'external_ref' => '',
+                'raw' => ['mode' => 'mock'],
+            ];
+        }
+
+        $res = $this->call(Config::get('MOOLRE_PATH_LINK', '/embed/link'), [
+            'type' => 1,
+            'amount' => $this->toCedis($amountPesewas),
+            'email' => Config::get('MOOLRE_BUSINESS_EMAIL', ''),
+            'externalref' => $reference,
+            'reference' => $description,
+            'callback' => Config::get('MOOLRE_CALLBACK_URL', ''),
+            'redirect' => $redirectUrl,
+            'reusable' => '0', // one plan payment per link
+            'expiration_time' => Config::int('MOOLRE_LINK_EXPIRY_MIN', 60),
+            'currency' => Config::get('MOOLRE_CURRENCY', 'GHS'),
+            'accountnumber' => Config::get('MOOLRE_ACCOUNT_NUMBER', ''),
+            'metadata' => ['ref' => $reference],
+        ]);
+
+        $url = (string) ($res['raw']['data']['authorization_url'] ?? '');
+        return [
+            'ok' => $res['ok'] && $url !== '',
+            'url' => $url,
+            'external_ref' => (string) ($res['raw']['data']['reference'] ?? ''),
+            'raw' => $res['raw'],
+        ];
+    }
+
+    /**
      * Send money out (Disbursements) — merchant payouts and customer refunds.
      * $channel is our own 'momo'|'bank'; mapped to Moolre's numeric code here.
      */
@@ -91,28 +142,139 @@ final class MoolreService
     }
 
     /**
-     * Send an SMS. Always logged to sms_log. Never throws — an SMS failure must
-     * not break a payment flow. Returns true if the provider accepted it.
+     * Whether SMS is sent for real. Independent of PAYMENTS_MODE so real SMS can
+     * run while collections/disbursements stay in mock:
+     *   SMS_MODE=live  -> always send real SMS (needs MOOLRE_VAS_KEY + sender ID)
+     *   SMS_MODE=mock  -> never send, just log
+     *   unset          -> follow PAYMENTS_MODE
      */
-    public function sms(string $phone, string $body): bool
+    public function smsIsLive(): bool
     {
-        if ($this->isMock()) {
-            SmsLog::create($phone, $body, 'sent', 'MOCK-S-' . strtoupper(bin2hex(random_bytes(4))));
+        $mode = strtolower(trim((string) Config::get('SMS_MODE', '')));
+        if ($mode === 'live') {
+            return true;
+        }
+        if ($mode === 'mock') {
+            return false;
+        }
+        return !$this->isMock();
+    }
+
+    /** Approved Moolre Sender ID (max 11 chars). */
+    public function smsSender(): string
+    {
+        $s = trim((string) Config::get('MOOLRE_SMS_SENDER', ''));
+        if ($s === '') {
+            $s = 'PaySmall';
+        }
+        return substr($s, 0, 11);
+    }
+
+    /**
+     * Send an SMS via Moolre (POST /open/sms/send). Always logged to sms_log.
+     * Never throws — an SMS failure must not break a payment flow. Returns true
+     * if the provider accepted it (response status == 1 / SMS01).
+     *
+     * $forceLive lets the admin "send test SMS" tool hit the real API even when
+     * SMS_MODE is mock, so the integration can be verified on demand.
+     */
+    public function sms(string $phone, string $body, bool $forceLive = false): bool
+    {
+        $ref = 'SMS-' . strtoupper(bin2hex(random_bytes(6)));
+
+        if (!$forceLive && !$this->smsIsLive()) {
+            SmsLog::create($phone, $body, 'sent', 'MOCK-' . $ref);
             return true;
         }
 
         try {
-            $res = $this->call(Config::get('MOOLRE_PATH_SMS', ''), [
-                'sender' => Config::get('APP_NAME', 'PaySmallSmall'),
-                'recipient' => $phone,
-                'message' => $body,
+            $res = $this->call(Config::get('MOOLRE_PATH_SMS', '/open/sms/send'), [
+                'type' => 1,
+                'senderid' => $this->smsSender(),
+                'messages' => [
+                    ['recipient' => $phone, 'message' => $body, 'ref' => $ref],
+                ],
             ], vas: true);
-            SmsLog::create($phone, $body, $res['ok'] ? 'sent' : 'failed', $res['external_ref']);
+            SmsLog::create($phone, $body, $res['ok'] ? 'sent' : 'failed', $ref);
             return $res['ok'];
         } catch (\Throwable $e) {
             SmsLog::create($phone, $body, 'failed', '');
             return false;
         }
+    }
+
+    /**
+     * Query delivery status of previously-sent messages by their refs
+     * (POST /open/sms/status, type 5). Safe — sends nothing. Used by the admin
+     * connectivity check and the delivery-status poll below.
+     */
+    public function smsStatus(array $refs): array
+    {
+        return $this->call(Config::get('MOOLRE_PATH_SMS_STATUS', '/open/sms/status'), [
+            'type' => 5,
+            'ref' => array_values($refs),
+        ], vas: true);
+    }
+
+    /**
+     * Poll Moolre for the delivery outcome of accepted-but-not-final SMS and
+     * write it back to sms_log. Moolre per-message status codes:
+     *   0 = Unknown, 1 = Sent, 2 = Delivered, 3 = Failed.
+     * Returns a summary of what changed. Never throws.
+     */
+    public function refreshSmsDelivery(int $limit = 100): array
+    {
+        $summary = ['checked' => 0, 'delivered' => 0, 'failed' => 0, 'pending' => 0];
+
+        if (!$this->smsIsLive() || Config::get('MOOLRE_VAS_KEY', '') === '') {
+            return $summary;
+        }
+
+        $rows = SmsLog::pendingDelivery($limit);
+        if (!$rows) {
+            return $summary;
+        }
+
+        try {
+            $res = $this->smsStatus(array_column($rows, 'provider_ref'));
+        } catch (\Throwable $e) {
+            return $summary;
+        }
+
+        // Index the returned {ref, status} items by ref.
+        $byRef = [];
+        foreach ((array) ($res['raw']['data'] ?? []) as $item) {
+            if (isset($item['ref'])) {
+                $byRef[(string) $item['ref']] = (int) ($item['status'] ?? 0);
+            }
+        }
+
+        foreach ($rows as $row) {
+            $ref = (string) $row['provider_ref'];
+            if (!array_key_exists($ref, $byRef)) {
+                $summary['pending']++;
+                continue;
+            }
+            $summary['checked']++;
+            switch ($byRef[$ref]) {
+                case 2:
+                    SmsLog::setStatusByRef($ref, 'delivered');
+                    $summary['delivered']++;
+                    break;
+                case 3:
+                    SmsLog::setStatusByRef($ref, 'failed');
+                    $summary['failed']++;
+                    break;
+                case 1:
+                    SmsLog::setStatusByRef($ref, 'sent');
+                    $summary['pending']++;
+                    break;
+                default: // 0 = unknown — leave as-is and retry next sweep
+                    $summary['pending']++;
+            }
+        }
+
+        return $summary;
     }
 
     /**
@@ -125,10 +287,24 @@ final class MoolreService
             return ['ok' => true, 'state' => 'success', 'external_ref' => '', 'raw' => ['mode' => 'mock']];
         }
 
+        // Confirmed against the live API: status queries need type=1 and an
+        // idtype (1 = look up by our externalref). Without both, the API rejects
+        // the request (SS04) and nothing ever reconciles.
         $res = $this->call(Config::get('MOOLRE_PATH_STATUS', ''), [
-            'externalref' => $reference,
+            'type' => 1,
+            'idtype' => Config::int('MOOLRE_STATUS_IDTYPE', 1),
+            'id' => $reference,
             'accountnumber' => Config::get('MOOLRE_ACCOUNT_NUMBER', ''),
         ]);
+
+        // "Transaction not found" (SS07) comes back as status:1 with txstatus:3.
+        // That must NOT be read as a failure — the transaction may simply not be
+        // queryable yet. Leave it pending so we retry, never wrongly fail it.
+        if (strtoupper((string) ($res['raw']['code'] ?? '')) === 'SS07') {
+            $res['state'] = 'pending';
+            return $res;
+        }
+
         $res['state'] = $this->readState($res['raw']);
         return $res;
     }
@@ -166,8 +342,12 @@ final class MoolreService
             ?? ''
         )));
 
+        // Moolre txstatus numeric codes: 1 = success, 2 = pending/processing,
+        // 3 = failed. Only ever credit on an explicit success and only ever fail
+        // on an explicit failure — anything else (2, 0, unknown) stays pending so
+        // it is retried, never wrongly credited or wrongly failed.
         $success = ['1', 'success', 'successful', 'paid', 'completed', 'complete', 'approved'];
-        $failed = ['0', '2', 'failed', 'failure', 'declined', 'cancelled', 'canceled', 'reversed', 'expired', 'rejected'];
+        $failed = ['3', 'failed', 'failure', 'declined', 'cancelled', 'canceled', 'reversed', 'expired', 'rejected'];
 
         if (in_array($raw, $success, true)) {
             return 'success';
@@ -201,11 +381,12 @@ final class MoolreService
         $headers = [
             'Content-Type: application/json',
             'Accept: application/json',
-            'X-API-USER: ' . Config::get('MOOLRE_API_USER', ''),
         ];
         if ($vas) {
+            // SMS / VAS endpoints authenticate with the VAS key only (per docs).
             $headers[] = 'X-API-VASKEY: ' . Config::get('MOOLRE_VAS_KEY', '');
         } else {
+            $headers[] = 'X-API-USER: ' . Config::get('MOOLRE_API_USER', '');
             $headers[] = 'X-API-PUBKEY: ' . Config::get('MOOLRE_API_PUBKEY', '');
             $headers[] = 'X-API-KEY: ' . Config::get('MOOLRE_API_KEY', '');
         }

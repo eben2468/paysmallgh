@@ -30,7 +30,11 @@ $router->get('/plans', PlanController::class, 'index');
 $router->get('/plan/{id}', PlanController::class, 'show');
 $router->post('/plan/{id}/pay', PlanController::class, 'pay');
 $router->post('/plan/{id}/check', PlanController::class, 'check');
+$router->get('/plan/{id}/status', PlanController::class, 'status');
 $router->post('/plan/{id}/cancel', PlanController::class, 'cancel');
+// Mock-mode stand-in for Moolre's hosted payment page (demo without real money).
+$router->get('/checkout/mock', PlanController::class, 'mockCheckout');
+$router->post('/checkout/mock/confirm', PlanController::class, 'mockConfirm');
 
 // Merchant
 $router->get('/merchant', MerchantController::class, 'landing');
@@ -53,6 +57,8 @@ $router->get('/admin/login', AdminController::class, 'loginForm');
 $router->post('/admin/login', AdminController::class, 'login');
 $router->get('/admin', AdminController::class, 'dashboard');
 $router->post('/admin/merchant/{id}/approve', AdminController::class, 'approveMerchant');
+$router->post('/admin/test-sms', AdminController::class, 'testSms');
+$router->post('/admin/poll-sms', AdminController::class, 'pollSms');
 $router->get('/admin/plans', AdminController::class, 'plans');
 $router->get('/admin/ledger', AdminController::class, 'ledger');
 $router->post('/admin/simulate-payment/{plan_id}', AdminController::class, 'simulatePayment');

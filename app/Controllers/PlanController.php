@@ -9,6 +9,7 @@ use App\Models\Installment;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Services\MoolreService;
 use App\Services\PlanService;
 
 final class PlanController extends Controller
@@ -31,16 +32,32 @@ final class PlanController extends Controller
         $svc = new PlanService();
         [$planId, $result] = $svc->startPlan($user, $product, $per, 'weekly', $weeks);
 
-        if ($result === 'failed') {
-            flash('error', 'The first payment didn\'t go through, so no plan was started. Check your MoMo balance and try again.');
+        if ($result['status'] === 'failed') {
+            flash('error', 'Couldn\'t open the payment page, so no plan was started. Try again in a moment.');
             redirect('/product/' . $product['id']);
         }
-        if ($result === 'awaiting_payment') {
-            flash('success', 'Almost there — approve the MoMo prompt on your phone to start the plan.');
-        } else {
-            flash('success', 'First payment received — your plan don start!');
+        // Send the customer to the payment page (Moolre hosted URL, or the local
+        // mock checkout). Absolute URLs go out as-is; relative ones resolve
+        // against the current host.
+        if (!empty($result['redirect'])) {
+            $this->goToCheckout($result['redirect']);
         }
+        // Fallback (shouldn't normally happen): payment already settled.
+        flash('success', 'First payment received — your plan don start!');
         redirect('/plan/' . $planId);
+    }
+
+    /**
+     * Redirect to a checkout URL. An absolute Moolre URL (https://pos.moolre…)
+     * goes out as-is; a relative mock path resolves against the current host so
+     * it works on any port/base the app is served from.
+     */
+    private function goToCheckout(string $to): never
+    {
+        if (str_starts_with($to, 'http://') || str_starts_with($to, 'https://')) {
+            redirect_external($to);
+        }
+        redirect($to);
     }
 
     public function index(): void
@@ -88,14 +105,18 @@ final class PlanController extends Controller
         }
 
         $svc = new PlanService();
-        $result = $svc->collectInstallment((int) $plan['id']);
+        $result = $svc->checkoutInstallment((int) $plan['id']);
 
-        match ($result) {
-            'completed' => flash('success', 'That was your last payment — the item is fully yours! Check your SMS.'),
-            'active' => flash('success', 'Payment received. Check your SMS receipt.'),
-            'awaiting_payment' => flash('success', 'Approve the MoMo prompt on your phone, then tap "I\'ve paid" to confirm.'),
-            default => flash('error', 'Payment didn\'t go through. Check your MoMo balance and try again.'),
-        };
+        if ($result['status'] === 'failed') {
+            flash('error', 'Couldn\'t open the payment page. Give it a moment and try again.');
+            redirect('/plan/' . $plan['id']);
+        }
+        // Send the customer to the payment page (Moolre hosted URL, or the local
+        // mock checkout).
+        if (!empty($result['redirect'])) {
+            $this->goToCheckout($result['redirect']);
+        }
+        flash('success', 'Payment received. Check your SMS receipt.');
         redirect('/plan/' . $plan['id']);
     }
 
@@ -119,6 +140,95 @@ final class PlanController extends Controller
             'failed' => flash('error', 'That payment didn\'t go through. You can try paying again.'),
             default => flash('error', 'Nothing to confirm on this plan right now.'),
         };
+        if (in_array($result, ['active', 'completed'], true)) {
+            flash('stamped', '1'); // fire the PAID stamp on the receipt
+        }
+        redirect('/plan/' . $plan['id']);
+    }
+
+    /**
+     * Background poll for the plan page (JSON). Reconciles the latest pending
+     * collection against Moolre and reports where the plan stands, so the UI can
+     * confirm a payment the moment it clears without the customer tapping "I've
+     * paid". Idempotent — same reconcile path as check(), safe to call on a timer.
+     */
+    public function status(string $id): void
+    {
+        $user = $this->requireUser();
+        $plan = Plan::find((int) $id);
+        if (!$plan || (int) $plan['customer_id'] !== (int) $user['id']) {
+            $this->json(['ok' => false], 404);
+        }
+
+        $pending = Transaction::latestPendingForPlan((int) $plan['id'], 'collection');
+        $result = $pending ? (new PlanService())->reconcileTransaction($pending) : (string) $plan['status'];
+
+        // "confirmed" = money landed and the UI should refresh to show it.
+        $confirmed = in_array($result, ['active', 'completed', 'success'], true);
+        if ($confirmed && $pending !== null) {
+            // Fire the PAID stamp + receipt message on the reload the JS triggers.
+            flash('stamped', '1');
+            flash('success', $result === 'completed'
+                ? 'Payment confirmed — that was the last one! The item is fully yours.'
+                : 'Payment confirmed — your plan is up to date. Check your SMS receipt.');
+        }
+        $this->json([
+            'ok' => true,
+            'state' => $result,
+            'pending' => !$confirmed && $pending !== null,
+            'confirmed' => $confirmed,
+        ]);
+    }
+
+    /**
+     * Local stand-in for Moolre's hosted payment page — mock mode only. Lets the
+     * full redirect checkout be demoed end-to-end without spending money.
+     */
+    public function mockCheckout(): void
+    {
+        $user = $this->requireUser();
+        if (!(new MoolreService())->isMock()) {
+            redirect('/plans');
+        }
+        $ref = (string) ($_GET['ref'] ?? '');
+        $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
+        $plan = $tx ? Plan::find((int) $tx['plan_id']) : null;
+        if (!$tx || !$plan || (int) $plan['customer_id'] !== (int) $user['id']) {
+            flash('error', 'That checkout link is not valid.');
+            redirect('/plans');
+        }
+        $this->render('checkout/mock', [
+            'title' => 'Complete payment — PaySmallSmall',
+            'tx' => $tx,
+            'plan' => $plan,
+            'ref' => $ref,
+        ]);
+    }
+
+    /** Confirm the mock payment and bounce back to the plan. Mock mode only. */
+    public function mockConfirm(): void
+    {
+        $user = $this->requireUser();
+        Csrf::check();
+        if (!(new MoolreService())->isMock()) {
+            redirect('/plans');
+        }
+        $ref = (string) ($_POST['ref'] ?? '');
+        $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
+        $plan = $tx ? Plan::find((int) $tx['plan_id']) : null;
+        if (!$tx || !$plan || (int) $plan['customer_id'] !== (int) $user['id']) {
+            flash('error', 'That checkout link is not valid.');
+            redirect('/plans');
+        }
+
+        if ($tx['status'] === 'pending') {
+            Transaction::setStatus((int) $tx['id'], 'success', 'MOCK-' . strtoupper(bin2hex(random_bytes(4))), json_encode(['mode' => 'mock']));
+            $result = (new PlanService())->applyCollectionSuccess((int) $tx['id']);
+            flash('stamped', '1');
+            flash('success', $result === 'completed'
+                ? 'That was your last payment — the item is fully yours! Check your SMS.'
+                : 'Payment received. Check your SMS receipt.');
+        }
         redirect('/plan/' . $plan['id']);
     }
 

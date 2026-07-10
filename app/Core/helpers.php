@@ -9,10 +9,22 @@ function e(?string $s): string
     return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-/** App URL for a path, e.g. url('/shop'). */
+/**
+ * Root-relative app URL for a path, e.g. url('/shop').
+ *
+ * The base is derived from the current request (the same way the Router strips
+ * it), so links and assets resolve whether the app is served from a dev-server
+ * root (php -S localhost:8080) or an Apache subdirectory
+ * (http://localhost/payss/public). Root-relative paths also inherit the page's
+ * scheme/host, so they work behind Cloudflare HTTPS in production with no config.
+ */
 function url(string $path = '/'): string
 {
-    $base = rtrim(Config::get('APP_URL', ''), '/');
+    static $base = null;
+    if ($base === null) {
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        $base = ($scriptDir === '/' || $scriptDir === '.' || $scriptDir === '') ? '' : rtrim($scriptDir, '/');
+    }
     return $base . '/' . ltrim($path, '/');
 }
 
@@ -20,6 +32,16 @@ function url(string $path = '/'): string
 function redirect(string $path): never
 {
     header('Location: ' . url($path));
+    exit;
+}
+
+/**
+ * Redirect to an absolute external URL (e.g. Moolre's hosted payment page) and
+ * stop. Unlike redirect(), the URL is used as-is — no app base is prepended.
+ */
+function redirect_external(string $absoluteUrl): never
+{
+    header('Location: ' . $absoluteUrl);
     exit;
 }
 
@@ -108,6 +130,74 @@ function svg_icon(string $name, int $size = 20): string
     ];
     $p = $paths[$name] ?? $paths['box'];
     return '<svg class="ic" width="' . $size . '" height="' . $size . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $p . '</svg>';
+}
+
+/**
+ * Material Symbols (Outlined) icon — the icon system for the new UI.
+ * $opts: ['size' => 20, 'fill' => true, 'class' => 'text-primary']
+ */
+function micon(string $name, array $opts = []): string
+{
+    $cls = 'material-symbols-outlined';
+    if (!empty($opts['fill'])) {
+        $cls .= ' fill';
+    }
+    if (!empty($opts['class'])) {
+        $cls .= ' ' . $opts['class'];
+    }
+    $style = '';
+    if (!empty($opts['size'])) {
+        $style = ' style="font-size:' . (int) $opts['size'] . 'px"';
+    }
+    return '<span class="' . $cls . '"' . $style . ' aria-hidden="true">' . e($name) . '</span>';
+}
+
+/**
+ * Flat, softly-rounded progress bar (fintech style). $pct is 0–100.
+ * $variant: primary (green) | warn (gold) | success. Animates in via JS.
+ */
+function progress_bar(int $pct, string $variant = 'primary'): string
+{
+    $pct = max(0, min(100, $pct));
+    $v = in_array($variant, ['primary', 'warn', 'success'], true) ? $variant : 'primary';
+    return '<div class="progress" role="progressbar" aria-valuenow="' . $pct . '" aria-valuemin="0" aria-valuemax="100">'
+        . '<div class="progress-fill progress-fill--' . $v . '" data-pct="' . $pct . '" style="width:' . $pct . '%"></div>'
+        . '</div>';
+}
+
+/**
+ * Marker-stroke progress bar (matches the receipt motif). $pct is 0–100.
+ * $flag rides the tip (e.g. "GHS 735 to go"); $done paints it green.
+ */
+function marker_bar(int $pct, string $flag = '', bool $done = false): string
+{
+    $pct = max(0, min(100, $pct));
+    $cls = 'marker-bar' . ($done ? ' done' : '');
+    $d = 'M8 12 C 70 7, 110 17, 170 12 S 250 8, 292 13';
+    $flagHtml = $flag !== '' ? '<span class="marker-flag">' . e($flag) . '</span>' : '';
+    return '<div class="' . $cls . '" style="--pct: ' . $pct . '">'
+        . '<svg viewBox="0 0 300 22" preserveAspectRatio="none" aria-hidden="true">'
+        . '<path class="track" d="' . $d . '" pathLength="100"/>'
+        . '<path class="fill" d="' . $d . '" pathLength="100"/>'
+        . '</svg>' . $flagHtml . '</div>';
+}
+
+/** Material Symbol name for a product category (used with micon()). */
+function product_micon(string $category): string
+{
+    $map = [
+        'phones' => 'smartphone',
+        'smartphones' => 'smartphone',
+        'electronics' => 'devices_other',
+        'appliances' => 'kitchen',
+        'home appliances' => 'kitchen',
+        'furniture' => 'chair',
+        'fashion' => 'checkroom',
+        'school' => 'school',
+        'school items' => 'school',
+        'general' => 'inventory_2',
+    ];
+    return $map[strtolower($category)] ?? 'inventory_2';
 }
 
 /** Icon for a product category. */

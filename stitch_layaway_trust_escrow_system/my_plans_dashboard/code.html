@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Plans - Reliant</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#e9edff",
+                        "secondary": "#785900",
+                        "surface": "#f9f9ff",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "surface-bright": "#f9f9ff",
+                        "surface-dim": "#d2daf0",
+                        "primary-fixed": "#afefdd",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#3f4945",
+                        "outline": "#707975",
+                        "error-container": "#ffdad6",
+                        "on-secondary-container": "#6c5000",
+                        "surface-container-low": "#f1f3ff",
+                        "background": "#f9f9ff",
+                        "secondary-container": "#fdc003",
+                        "secondary-fixed-dim": "#fabd00",
+                        "surface-tint": "#29695b",
+                        "tertiary": "#003608",
+                        "on-background": "#141b2c",
+                        "tertiary-fixed-dim": "#88d982",
+                        "on-surface": "#141b2c",
+                        "on-tertiary-container": "#72c26e",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#261a00",
+                        "tertiary-fixed": "#a3f69c",
+                        "primary": "#00342b",
+                        "primary-fixed-dim": "#94d3c1",
+                        "on-primary-fixed-variant": "#065043",
+                        "inverse-surface": "#293041",
+                        "on-primary-fixed": "#00201a",
+                        "inverse-on-surface": "#edf0ff",
+                        "inverse-primary": "#94d3c1",
+                        "surface-variant": "#dbe2f9",
+                        "secondary-fixed": "#ffdf9e",
+                        "outline-variant": "#bfc9c4",
+                        "on-primary-container": "#7ebdac",
+                        "surface-container-highest": "#dbe2f9",
+                        "surface-container-high": "#e0e8ff",
+                        "tertiary-container": "#004f11",
+                        "on-tertiary-fixed": "#002204",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#004d40",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "container-margin": "20px",
+                        "unit": "4px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "body-md": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "currency-display": ["Hanken Grotesk"],
+                        "title-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "currency-display": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body-md text-body-md min-h-screen flex flex-col pb-24 md:pb-0">
+<!-- TopNavBar (Hidden on mobile, visible on desktop) -->
+<header class="hidden md:flex flex justify-between items-center w-full px-container-margin py-md max-w-7xl mx-auto bg-surface dark:bg-surface-dim shadow-sm shadow-[0px_4px_20px_rgba(16,24,40,0.05)] docked full-width top-0 sticky z-50">
+<div class="flex items-center gap-lg">
+<h1 class="text-title-md font-headline-lg font-bold text-primary dark:text-primary-fixed">Akwaaba Pay</h1>
+<nav class="flex gap-md">
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">Browse</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">How it Works</a>
+<a class="text-primary dark:text-primary-fixed font-bold border-b-2 border-primary dark:border-primary-fixed pb-1 hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">My Plans</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">Merchant Portal</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<button class="flex items-center justify-center p-sm rounded-full hover:bg-surface-variant transition-colors text-primary">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<button class="flex items-center justify-center p-sm rounded-full hover:bg-surface-variant transition-colors text-primary relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg font-body-md font-medium hover:opacity-90 transition-opacity">Sign In</button>
+</div>
+</header>
+<!-- BottomNavBar (Visible on mobile, hidden on desktop) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface dark:bg-inverse-surface shadow-lg shadow-[0px_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-label-sm font-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+<span class="text-label-sm font-label-sm mt-1">Store</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-5 py-1 hover:text-primary dark:hover:text-primary-fixed-dim transition-all opacity-80 scale-[0.98]" href="#">
+<span class="material-symbols-outlined fill" data-icon="receipt_long">receipt_long</span>
+<span class="text-label-sm font-label-sm mt-1">My Plans</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-label-sm font-label-sm mt-1">Account</span>
+</a>
+</nav>
+<main class="flex-grow max-w-7xl mx-auto w-full px-container-margin py-xl md:grid md:grid-cols-12 md:gap-gutter">
+<!-- Header -->
+<div class="col-span-12 mb-lg">
+<h2 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg-mobile md:font-headline-lg text-primary mb-2">My Active Plans</h2>
+<p class="text-on-surface-variant">Manage your layaway progress and upcoming payments.</p>
+</div>
+<!-- Plan Cards (Bento Grid Style) -->
+<div class="col-span-12 md:col-span-8 flex flex-col gap-lg">
+<!-- Plan Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-md md:p-lg shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-surface-variant relative overflow-hidden group">
+<div class="absolute top-0 right-0 p-4">
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-primary-container text-on-primary-container text-label-sm font-label-sm">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                        On Track
+                    </span>
+</div>
+<div class="flex flex-col md:flex-row gap-lg">
+<div class="w-full md:w-1/3 aspect-square rounded-lg overflow-hidden bg-surface-container flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="A sleek modern smart refrigerator with French doors in a brightly lit contemporary kitchen setting. Clean corporate modern aesthetic, soft white light, subtle ambient shadows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuACqWliH92EfquhTqX5anYsPb5X8V1hSCzWO1kEfBDIICMf-3sFWUcyLD7VHtNPXlYHO5tB2NO9jYTD_spajt6gtAMskDHVs5BVkloEqEhtRKdZmA_fLHm54GTCkuFG_FlvZ6GBqosKWzYOxJBXL1zRzgXqh4wYHDBef71r6OSPjnRO5OrU5_FyJalGLa-frot9Q24LJiFyG1K6a0qQ-389n1Kvlrtd11um9sPfIH9XzTwQMQZgOW7LFw"/>
+</div>
+<div class="flex-grow flex flex-col justify-between">
+<div>
+<h3 class="text-title-md font-title-md text-on-surface mb-1">Samsung Smart Refrigerator</h3>
+<p class="text-on-surface-variant text-sm mb-4">Kojo's Electronics</p>
+<div class="flex justify-between items-end mb-2">
+<div>
+<span class="text-label-sm font-label-sm text-outline block mb-1">Remaining Balance</span>
+<span class="text-currency-display font-currency-display text-primary">GHS 500.00</span>
+</div>
+<div class="text-right">
+<span class="text-label-sm font-label-sm text-outline block mb-1">Total Price</span>
+<span class="text-body-md font-body-md font-medium">GHS 1,200.00</span>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="mb-4">
+<div class="flex justify-between text-label-sm font-label-sm mb-1">
+<span class="text-primary font-bold">7 of 12 paid</span>
+<span class="text-on-surface-variant">58%</span>
+</div>
+<div class="w-full h-2 bg-primary-fixed-dim rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 58%;"></div>
+</div>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row gap-sm mt-4">
+<button class="flex-1 bg-secondary-container text-on-secondary-fixed font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-secondary-fixed-dim transition-colors">
+<span class="material-symbols-outlined" data-icon="phone_iphone">phone_iphone</span>
+                                Pay via MoMo
+                            </button>
+<button class="flex-1 border border-primary text-primary font-medium py-3 px-4 rounded-lg hover:bg-surface-container-low transition-colors">
+                                View Schedule
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Plan Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-md md:p-lg shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-surface-variant relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4">
+<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-secondary-fixed text-on-secondary-fixed text-label-sm font-label-sm">
+<span class="material-symbols-outlined text-[14px]" data-icon="warning">warning</span>
+                        Payment Due Soon
+                    </span>
+</div>
+<div class="flex flex-col md:flex-row gap-lg">
+<div class="w-full md:w-1/3 aspect-square rounded-lg overflow-hidden bg-surface-container flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="A high-end modern laptop resting on a clean wooden desk with a small potted plant nearby. Bright natural lighting, corporate modern aesthetic, sharp details." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDilZykStNObgVFyzeIUT2xQVkSEgk1SB4sgI3J74L_aWq6opchyUaYu4ouRmkU5VZ9iSHfCbfvB4-5e9RCMwMNF8VWD92upYQz2ap9CHFGh9ofblaOlQesbUmC2Yl2DZEoNtk5vxHMOmO8I3stWj3PBdqxUZcIU9r3uAHbmjUHpVp3x-7TftzCM6K8XpGdPNkG4_kF3BHMVKr0P7MYtQe_Rx2bH-4xPwD15a0a3ytXKMNduPNjNSjvvA"/>
+</div>
+<div class="flex-grow flex flex-col justify-between">
+<div>
+<h3 class="text-title-md font-title-md text-on-surface mb-1">MacBook Air M2</h3>
+<p class="text-on-surface-variant text-sm mb-4">TechHub Ghana</p>
+<div class="flex justify-between items-end mb-2">
+<div>
+<span class="text-label-sm font-label-sm text-outline block mb-1">Remaining Balance</span>
+<span class="text-currency-display font-currency-display text-primary">GHS 8,500.00</span>
+</div>
+<div class="text-right">
+<span class="text-label-sm font-label-sm text-outline block mb-1">Total Price</span>
+<span class="text-body-md font-body-md font-medium">GHS 12,000.00</span>
+</div>
+</div>
+<!-- Progress Bar -->
+<div class="mb-4">
+<div class="flex justify-between text-label-sm font-label-sm mb-1">
+<span class="text-secondary-fixed-dim font-bold">2 of 6 paid</span>
+<span class="text-on-surface-variant">29%</span>
+</div>
+<div class="w-full h-2 bg-primary-fixed-dim rounded-full overflow-hidden">
+<div class="h-full bg-secondary-fixed-dim rounded-full" style="width: 29%;"></div>
+</div>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row gap-sm mt-4">
+<button class="flex-1 bg-primary text-on-primary font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                                Pay Installment
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Sidebar / Contextual Info -->
+<div class="col-span-12 md:col-span-4 flex flex-col gap-lg mt-lg md:mt-0">
+<!-- Trust Policy / Grace Period -->
+<div class="bg-surface-container-low rounded-xl p-md border border-outline-variant flex gap-4 items-start">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" data-icon="shield">shield</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface mb-1">The Akwaaba Grace Period</h4>
+<p class="text-sm text-on-surface-variant leading-relaxed">Life happens. If you miss a payment, your funds are safe. You have a 14-day grace period to catch up without penalties. Cancel anytime for a full refund minus a 5% processing fee.</p>
+</div>
+</div>
+<!-- USSD Reminder -->
+<div class="bg-surface-container rounded-xl p-md text-center">
+<span class="material-symbols-outlined text-primary text-3xl mb-2" data-icon="dialpad">dialpad</span>
+<h4 class="font-bold text-on-surface mb-2">Offline? Pay via USSD</h4>
+<p class="text-sm text-on-surface-variant mb-4">Dial our shortcode from any network to make quick payments without internet.</p>
+<div class="inline-block bg-surface border border-outline-variant rounded px-4 py-2 font-label-sm text-lg font-bold text-primary tracking-wider">
+                    *713*55#
+                </div>
+</div>
+<!-- Payment History Snippet -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-surface-variant">
+<div class="flex justify-between items-center mb-4 border-b border-outline-variant pb-2">
+<h4 class="font-bold text-on-surface">Recent Payments</h4>
+<button class="text-primary text-sm font-medium hover:underline">View All</button>
+</div>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<p class="text-sm font-medium">Smart Fridge (Installment 7)</p>
+<p class="text-xs text-on-surface-variant">Oct 12, 2023 • MTN MoMo</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">GHS 100</span>
+<button class="text-outline hover:text-primary transition-colors" title="Download Receipt">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[16px]" data-icon="check_circle">check_circle</span>
+</div>
+<div>
+<p class="text-sm font-medium">MacBook Air (Installment 2)</p>
+<p class="text-xs text-on-surface-variant">Sep 28, 2023 • Visa ****4242</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-bold text-sm">GHS 500</span>
+<button class="text-outline hover:text-primary transition-colors" title="Download Receipt">
+<span class="material-symbols-outlined text-[18px]" data-icon="download">download</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full py-xl bg-surface-container-lowest dark:bg-surface-dim border-t border-outline-variant dark:border-outline mt-auto hidden md:block">
+<div class="max-w-7xl mx-auto px-container-margin flex flex-col md:flex-row justify-between items-center gap-md">
+<div class="text-headline-lg font-bold text-primary">Akwaaba Pay</div>
+<div class="flex gap-md">
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all text-body-md font-body-md" href="#">Terms</a>
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all text-body-md font-body-md" href="#">Privacy</a>
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all text-body-md font-body-md" href="#">Merchant FAQ</a>
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all text-body-md font-body-md" href="#">Contact</a>
+</div>
+<div class="text-on-surface-variant text-label-sm font-label-sm">© 2024 Akwaaba Pay. Secure Layaway for Ghana.</div>
+</div>
+</footer>
+</body></html>

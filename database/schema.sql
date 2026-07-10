@@ -45,6 +45,19 @@ CREATE TABLE IF NOT EXISTS products (
   CONSTRAINT fk_products_merchant FOREIGN KEY (merchant_id) REFERENCES merchants(id)
 ) ENGINE=InnoDB;
 
+-- Extra photos per product. products.photo stays the cover image (first one),
+-- so cards and older single-photo products keep working unchanged.
+CREATE TABLE IF NOT EXISTS product_images (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id INT UNSIGNED NOT NULL,
+  path VARCHAR(255) NOT NULL,
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_product_images_product (product_id),
+  CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS plans (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   product_id INT UNSIGNED NOT NULL,
@@ -108,7 +121,7 @@ CREATE TABLE IF NOT EXISTS sms_log (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   recipient VARCHAR(12) NOT NULL,
   body VARCHAR(480) NOT NULL,
-  status ENUM('queued','sent','failed') NOT NULL DEFAULT 'queued',
+  status ENUM('queued','sent','delivered','failed') NOT NULL DEFAULT 'queued',
   provider_ref VARCHAR(64) NOT NULL DEFAULT '',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id)

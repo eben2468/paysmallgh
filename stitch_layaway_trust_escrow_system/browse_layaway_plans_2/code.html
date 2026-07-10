@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Browse Plans - Reliant</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container": "#e9edff",
+                        "secondary": "#785900",
+                        "surface": "#f9f9ff",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#5b4300",
+                        "surface-bright": "#f9f9ff",
+                        "surface-dim": "#d2daf0",
+                        "primary-fixed": "#afefdd",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#005312",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#3f4945",
+                        "outline": "#707975",
+                        "error-container": "#ffdad6",
+                        "on-secondary-container": "#6c5000",
+                        "surface-container-low": "#f1f3ff",
+                        "background": "#f9f9ff",
+                        "secondary-container": "#fdc003",
+                        "secondary-fixed-dim": "#fabd00",
+                        "surface-tint": "#29695b",
+                        "tertiary": "#003608",
+                        "on-background": "#141b2c",
+                        "tertiary-fixed-dim": "#88d982",
+                        "on-surface": "#141b2c",
+                        "on-tertiary-container": "#72c26e",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#261a00",
+                        "tertiary-fixed": "#a3f69c",
+                        "primary": "#00342b",
+                        "primary-fixed-dim": "#94d3c1",
+                        "on-primary-fixed-variant": "#065043",
+                        "inverse-surface": "#293041",
+                        "on-primary-fixed": "#00201a",
+                        "inverse-on-surface": "#edf0ff",
+                        "inverse-primary": "#94d3c1",
+                        "surface-variant": "#dbe2f9",
+                        "secondary-fixed": "#ffdf9e",
+                        "outline-variant": "#bfc9c4",
+                        "on-primary-container": "#7ebdac",
+                        "surface-container-highest": "#dbe2f9",
+                        "surface-container-high": "#e0e8ff",
+                        "tertiary-container": "#004f11",
+                        "on-tertiary-fixed": "#002204",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#004d40",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "container-margin": "20px",
+                        "unit": "4px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "gutter": "16px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Hanken Grotesk"],
+                        "headline-lg": ["Hanken Grotesk"],
+                        "label-sm": ["JetBrains Mono"],
+                        "body-md": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Hanken Grotesk"],
+                        "currency-display": ["Hanken Grotesk"],
+                        "title-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "currency-display": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md min-h-screen pb-24 md:pb-0">
+<!-- Top Navigation App Bar -->
+<header class="bg-surface dark:bg-surface-dim shadow-[0px_4px_20px_rgba(16,24,40,0.05)] docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center w-full px-container-margin py-md max-w-7xl mx-auto">
+<div class="flex items-center gap-xl">
+<span class="text-title-md font-headline-lg font-bold text-primary dark:text-primary-fixed">Akwaaba Pay</span>
+<!-- Desktop Nav -->
+<nav class="hidden md:flex items-center gap-md">
+<a class="text-primary dark:text-primary-fixed font-bold border-b-2 border-primary dark:border-primary-fixed pb-1 hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">Browse</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">How it Works</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">My Plans</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200" href="#">Merchant Portal</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<div class="hidden md:flex relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low rounded-full border-none focus:ring-2 focus:ring-primary text-body-md w-64 text-on-background" placeholder="Search products..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined" data-icon="account_balance_wallet">account_balance_wallet</span>
+</button>
+<button class="hidden md:block bg-primary text-on-primary px-4 py-2 rounded-lg font-medium hover:bg-primary-container transition-colors">Sign In</button>
+<img alt="User profile" class="w-10 h-10 rounded-full object-cover border-2 border-surface-container md:hidden" data-alt="A close up headshot of an everyday Ghanaian professional woman smiling warmly in bright, natural light. She is wearing modern, stylish clothing suitable for an office or casual setting. The background is softly out of focus, featuring warm, inviting colors that match the corporate modern aesthetic of the site." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrmpXjGIO_eW6NmKE0nu43oi-R3Rw-DsNTjaKYYeozNSQPIIKUCe2H0yH2lAjesH7uUInRSscBE4nuMqv63Iwhx0X_Pd-XxrvAXekkGWOSHuyWgco9WmvdA2v9W1UuhenwnIta45c4Q_M7f_bwbgcWxDBgFH5guCeLh48i1CGTL7sC2VdOraFVODK8722pQfySPEWyczqhneBVltTWDvh2jEE1CTI7WQDUhepWEUxTR7w0n0Y1RSCDgQ"/>
+</div>
+</div>
+<!-- Mobile Search -->
+<div class="md:hidden px-container-margin pb-md">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-surface-container-low rounded-lg border-none focus:ring-2 focus:ring-primary text-body-md text-on-background" placeholder="Search products..." type="text"/>
+</div>
+</div>
+</header>
+<main class="max-w-7xl mx-auto px-container-margin py-lg md:py-xl flex flex-col md:flex-row gap-lg">
+<!-- Sidebar Filters -->
+<aside class="w-full md:w-64 flex-shrink-0 flex flex-col gap-lg">
+<div>
+<h3 class="text-title-md font-title-md text-on-background mb-md">Categories</h3>
+<div class="flex flex-col gap-sm">
+<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+<input checked="" class="text-primary focus:ring-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-md">All Products</span>
+</label>
+<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="text-primary focus:ring-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-md">Smartphones</span>
+</label>
+<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="text-primary focus:ring-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-md">Home Appliances</span>
+</label>
+<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="text-primary focus:ring-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-md">Furniture</span>
+</label>
+<label class="flex items-center gap-3 p-2 rounded-lg hover:bg-surface-container-low cursor-pointer transition-colors">
+<input class="text-primary focus:ring-primary rounded border-outline-variant" type="checkbox"/>
+<span class="text-body-md">School Items</span>
+</label>
+</div>
+</div>
+<div class="hidden md:block h-px w-full bg-outline-variant/30"></div>
+<div class="hidden md:block">
+<h3 class="text-title-md font-title-md text-on-background mb-md">Max Duration</h3>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-3 text-body-md focus:ring-primary focus:border-primary">
+<option>Any duration</option>
+<option>4 Weeks</option>
+<option>8 Weeks</option>
+<option>16 Weeks</option>
+<option>24 Weeks</option>
+</select>
+</div>
+</aside>
+<!-- Product Grid -->
+<section class="flex-1">
+<div class="mb-lg flex justify-between items-end">
+<div>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile md:text-headline-lg md:font-headline-lg text-on-background">Explore Plans</h1>
+<p class="text-on-surface-variant text-body-md mt-2">Find what you need and pay at your own pace.</p>
+</div>
+<div class="hidden md:flex items-center gap-2">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Sort by:</span>
+<select class="bg-transparent border-none text-body-md font-medium text-primary focus:ring-0 cursor-pointer">
+<option>Recommended</option>
+<option>Price: Low to High</option>
+<option>Price: High to Low</option>
+</select>
+</div>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-md md:gap-lg">
+<!-- Product Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-[0px_4px_20px_rgba(16,24,40,0.05)] hover:border-primary/30 transition-all duration-300 flex flex-col h-full group">
+<div class="aspect-square w-full rounded-lg bg-surface-container-low mb-md overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A sleek, modern smartphone lying angled on a clean white surface. Soft studio lighting highlights the glass back and metallic edges. Minimalist composition, corporate modern fintech visual style, bright and trustworthy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcGXoBFLSpDpT_wZQaMjSuKu6w7sDvzfGPYB7jtG91W9mwFxTDcDFOJ5bEHSDfVNnjNND7njwsb0dmYvFJ0IWxlDPydtDfP8ffrGy-IrifvqNV8PGKB1vmVz6QcM2aRYCpDxLLYJc1L51pvpYF2yvpu-uBQcRgYMOtFTmwvioVx2nadHDLmgN-_JQcsn98hzrUpWno-yjwJuHPB1PabjeJ-zXMINwDTBf2vNYt1SluIt2qwvxnmyYnzw"/>
+<div class="absolute top-2 right-2 bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-label-sm font-label-sm font-bold">Popular</div>
+</div>
+<div class="flex-1 flex flex-col">
+<span class="text-label-sm font-label-sm text-outline mb-1 uppercase tracking-wider">Smartphones</span>
+<h3 class="text-title-md font-title-md text-on-background mb-2 line-clamp-2">Samsung Galaxy A54 5G</h3>
+<div class="flex items-baseline gap-2 mb-4">
+<span class="text-currency-display font-currency-display text-primary">GHS 4,500</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Cash Price</span>
+</div>
+<div class="bg-surface-container rounded-lg p-3 mb-4 mt-auto">
+<div class="flex justify-between items-center mb-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Weekly Plan</span>
+<span class="text-body-md font-bold text-primary">GHS 281.25</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="calendar_month">calendar_month</span>
+<span class="text-label-sm font-label-sm">16 weeks duration</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-bold hover:bg-primary-container transition-colors active:scale-[0.98]">
+                            Start Plan
+                        </button>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-[0px_4px_20px_rgba(16,24,40,0.05)] hover:border-primary/30 transition-all duration-300 flex flex-col h-full group">
+<div class="aspect-square w-full rounded-lg bg-surface-container-low mb-md overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A modern, energy-efficient double door refrigerator standing in a bright, clean kitchen setting. Corporate modern aesthetic, crisp white lighting, conveying reliability and quality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-v6WD5PNxLvq4cc9KHE-RkmVXs0CdXnaFFogX0lM6CkFTl0wcZWgCe55tdXfuke4Nj9XTDhsn0laqK9fhLTXRfvuVjbGN27YN3C6Fjafsik6Fo5S-wZxM_6MKT51DefmwgG8WinwfJpDTjaRkJMkcchDxI_jULC0Uqg6ZvWOCyp1ui5Auyp_JN4XePoUSqZPvvao19BsmAidYvUGgAUsFxq1l1del80hK7YPW3XXbN1LnwKaVU5LixQ"/>
+</div>
+<div class="flex-1 flex flex-col">
+<span class="text-label-sm font-label-sm text-outline mb-1 uppercase tracking-wider">Home Appliances</span>
+<h3 class="text-title-md font-title-md text-on-background mb-2 line-clamp-2">LG 401L Double Door Fridge</h3>
+<div class="flex items-baseline gap-2 mb-4">
+<span class="text-currency-display font-currency-display text-primary">GHS 6,200</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Cash Price</span>
+</div>
+<div class="bg-surface-container rounded-lg p-3 mb-4 mt-auto">
+<div class="flex justify-between items-center mb-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Weekly Plan</span>
+<span class="text-body-md font-bold text-primary">GHS 258.33</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="calendar_month">calendar_month</span>
+<span class="text-label-sm font-label-sm">24 weeks duration</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-bold hover:bg-primary-container transition-colors active:scale-[0.98]">
+                            Start Plan
+                        </button>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-md border border-outline-variant shadow-[0px_4px_20px_rgba(16,24,40,0.05)] hover:border-primary/30 transition-all duration-300 flex flex-col h-full group">
+<div class="aspect-square w-full rounded-lg bg-surface-container-low mb-md overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A high-quality student laptop open on a wooden desk. Natural daylight pouring in, clean minimalist background. The laptop screen displays a bright, abstract graphic. Trustworthy and educational context." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdVdT73ZMX5ayGg-syDftyb6dQdN6NchSMNTznFKWM-UcmLeVYe5yzvrQ7q1JE8VuDmfq5htBR3Th2LLRKJR3h0rgD0-IMLsBlP3bzUjlhOTDoJanpjWEaEqbjSm98TL8_OrOU00ELb5AGj5kGW1hZ8y1CIBD5DxxfNJwLORAZPU6FZpNRMY-WRlzJxrKD2E0ZtKi0Z80wiEt0qf1wNmBSZVnn2PS0px2vZte638V7fFLwQI_klaQ9eQ"/>
+<div class="absolute top-2 right-2 bg-primary text-on-primary px-2 py-1 rounded text-label-sm font-label-sm font-bold">New</div>
+</div>
+<div class="flex-1 flex flex-col">
+<span class="text-label-sm font-label-sm text-outline mb-1 uppercase tracking-wider">School Items</span>
+<h3 class="text-title-md font-title-md text-on-background mb-2 line-clamp-2">HP 15 Core i3 Laptop</h3>
+<div class="flex items-baseline gap-2 mb-4">
+<span class="text-currency-display font-currency-display text-primary">GHS 3,800</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant">Cash Price</span>
+</div>
+<div class="bg-surface-container rounded-lg p-3 mb-4 mt-auto">
+<div class="flex justify-between items-center mb-1">
+<span class="text-label-sm font-label-sm text-on-surface-variant">Weekly Plan</span>
+<span class="text-body-md font-bold text-primary">GHS 237.50</span>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]" data-icon="calendar_month">calendar_month</span>
+<span class="text-label-sm font-label-sm">16 weeks duration</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-bold hover:bg-primary-container transition-colors active:scale-[0.98]">
+                            Start Plan
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface dark:bg-inverse-surface shadow-[0px_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="text-label-sm font-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-5 py-1 scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="storefront">storefront</span>
+<span class="text-label-sm font-label-sm mt-1">Store</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="text-label-sm font-label-sm mt-1">My Plans</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-label-sm font-label-sm mt-1">Account</span>
+</a>
+</nav>
+<!-- Footer -->
+<footer class="w-full py-xl border-t border-outline-variant dark:border-outline bg-surface-container-lowest dark:bg-surface-dim mt-xl hidden md:block">
+<div class="max-w-7xl mx-auto px-container-margin flex flex-col md:flex-row justify-between items-center gap-md">
+<div class="text-headline-lg font-bold text-primary">Akwaaba Pay</div>
+<p class="text-body-md font-body-md text-on-surface-variant">© 2024 Akwaaba Pay. Secure Layaway for Ghana.</p>
+<nav class="flex gap-md">
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Terms</a>
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Privacy</a>
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Merchant FAQ</a>
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Contact</a>
+</nav>
+</div>
+</footer>
+</body></html>

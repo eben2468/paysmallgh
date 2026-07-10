@@ -21,4 +21,26 @@ final class SmsLog
         $limit = max(1, min(500, $limit));
         return DB::run("SELECT * FROM sms_log ORDER BY id DESC LIMIT {$limit}")->fetchAll();
     }
+
+    /**
+     * Real (non-mock) messages that were accepted but haven't reached a final
+     * delivery state yet — candidates for a delivery-status poll.
+     * @return array<array{id:int, provider_ref:string}>
+     */
+    public static function pendingDelivery(int $limit = 50): array
+    {
+        $limit = max(1, min(200, $limit));
+        return DB::run(
+            "SELECT id, provider_ref FROM sms_log
+             WHERE provider_ref <> '' AND provider_ref NOT LIKE 'MOCK-%'
+               AND status IN ('queued','sent')
+             ORDER BY id DESC LIMIT {$limit}"
+        )->fetchAll();
+    }
+
+    /** Update the delivery status of the message(s) carrying this provider ref. */
+    public static function setStatusByRef(string $ref, string $status): void
+    {
+        DB::run('UPDATE sms_log SET status = ? WHERE provider_ref = ?', [$status, $ref]);
+    }
 }

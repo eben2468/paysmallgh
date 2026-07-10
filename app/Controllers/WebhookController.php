@@ -28,20 +28,28 @@ final class WebhookController extends Controller
             $this->json(['status' => 0, 'message' => 'unverified'], 401);
         }
 
-        // Field names to confirm against docs.moolre.com webhook spec.
-        $ref = (string) ($payload['externalref'] ?? $payload['reference'] ?? '');
-        $status = strtolower((string) ($payload['txstatus'] ?? $payload['status'] ?? ''));
-        $externalRef = (string) ($payload['transactionid'] ?? '');
+        // Moolre nests the transaction under `data` on some callbacks; accept both.
+        $data = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+        $ref = (string) ($data['externalref'] ?? $payload['externalref'] ?? $data['reference'] ?? $payload['reference'] ?? '');
+        $externalRef = (string) ($data['transactionid'] ?? $payload['transactionid'] ?? '');
 
         $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
         if (!$tx) {
             $this->json(['status' => 0, 'message' => 'unknown reference'], 404);
         }
 
-        $success = in_array($status, ['1', 'success', 'paid', 'completed'], true);
-        if (!$success) {
-            Transaction::setStatus((int) $tx['id'], 'failed', $externalRef, $raw);
+        // Same success/failed/pending mapping as status polling — never fail a
+        // transaction on a pending/ambiguous callback; just acknowledge and wait
+        // for the final one.
+        $state = $moolre->readState($payload);
+        if ($state === 'failed') {
+            if ($tx['status'] !== 'success') {
+                Transaction::setStatus((int) $tx['id'], 'failed', $externalRef, $raw);
+            }
             $this->json(['status' => 1, 'message' => 'noted failure']);
+        }
+        if ($state !== 'success') {
+            $this->json(['status' => 1, 'message' => 'pending noted']);
         }
 
         // Replay guard: if already success, acknowledge and do nothing.

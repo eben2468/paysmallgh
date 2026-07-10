@@ -138,6 +138,7 @@ final class MerchantController extends Controller
             'title' => ($product ? 'Edit' : 'Add') . ' product — PaySmallSmall',
             'merchant' => $merchant,
             'product' => $product,
+            'images' => $product ? Product::images((int) $id) : [],
         ]);
     }
 
@@ -162,38 +163,82 @@ final class MerchantController extends Controller
             redirect($id ? "/merchant/products/{$id}/edit" : '/merchant/products/new');
         }
 
-        // Photo upload (optional)
-        if (!empty($_FILES['photo']['tmp_name']) && is_uploaded_file($_FILES['photo']['tmp_name'])) {
-            $ext = match (mime_content_type($_FILES['photo']['tmp_name'])) {
-                'image/jpeg' => 'jpg',
-                'image/png' => 'png',
-                'image/webp' => 'webp',
-                default => null,
-            };
-            if ($ext !== null && $_FILES['photo']['size'] <= 4 * 1024 * 1024) {
-                $name = 'p' . $merchant['id'] . '-' . bin2hex(random_bytes(6)) . '.' . $ext;
-                $dest = BASE_PATH . '/public/uploads/' . $name;
-                if (move_uploaded_file($_FILES['photo']['tmp_name'], $dest)) {
-                    $d['photo'] = 'uploads/' . $name;
-                }
-            }
-        }
-
         if ($id !== null) {
             $existing = Product::find((int) $id);
             if (!$existing || (int) $existing['merchant_id'] !== (int) $merchant['id']) {
                 redirect('/merchant/products');
             }
-            if ($d['photo'] === '') {
-                $d['photo'] = $existing['photo'];
+            $pid = (int) $id;
+            Product::updateDetails($pid, $d);
+
+            // Remove any images the merchant unchecked.
+            foreach ((array) ($_POST['remove_images'] ?? []) as $imgId) {
+                $path = Product::deleteImage((int) $imgId, $pid);
+                if ($path !== null) {
+                    @unlink(BASE_PATH . '/public/' . $path);
+                }
             }
-            Product::update((int) $id, $d);
             flash('success', 'Product updated.');
         } else {
-            Product::create($d);
+            $pid = Product::create($d);
             flash('success', 'Product added. Customers can see it once your shop is approved.');
         }
+
+        // Save any newly uploaded photos (multiple).
+        $this->saveUploadedPhotos($pid, (int) $merchant['id']);
+
+        // Keep the cover (products.photo) pointed at the first gallery image.
+        Product::refreshCover($pid);
+
         redirect('/merchant/products');
+    }
+
+    /** Move validated image uploads from photos[] into /public/uploads and record them. Caps at 8 per submit. */
+    private function saveUploadedPhotos(int $productId, int $merchantId): void
+    {
+        $files = $_FILES['photos'] ?? null;
+        if (!$files || !is_array($files['tmp_name'])) {
+            return;
+        }
+        $sort = Product::maxImageSort($productId) + 1;
+        $added = 0;
+        $count = count($files['tmp_name']);
+        for ($i = 0; $i < $count && $added < 8; $i++) {
+            if (($files['error'][$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                continue;
+            }
+            $path = $this->storeImage(
+                (string) $files['tmp_name'][$i],
+                (int) $files['size'][$i],
+                $merchantId
+            );
+            if ($path !== null) {
+                Product::addImage($productId, $path, $sort++);
+                $added++;
+            }
+        }
+    }
+
+    /** Validate + move a single uploaded image. Returns the stored web path (uploads/xxx) or null. */
+    private function storeImage(string $tmp, int $size, int $merchantId): ?string
+    {
+        if ($tmp === '' || !is_uploaded_file($tmp) || $size > 4 * 1024 * 1024) {
+            return null;
+        }
+        $ext = match (mime_content_type($tmp)) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => null,
+        };
+        if ($ext === null) {
+            return null;
+        }
+        $name = 'p' . $merchantId . '-' . bin2hex(random_bytes(6)) . '.' . $ext;
+        if (!move_uploaded_file($tmp, BASE_PATH . '/public/uploads/' . $name)) {
+            return null;
+        }
+        return 'uploads/' . $name;
     }
 
     public function productToggle(string $id): void

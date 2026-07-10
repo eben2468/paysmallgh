@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Akwaaba Pay | Secure Layaway for Ghana</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container": "#e9edff",
+                      "secondary": "#785900",
+                      "surface": "#f9f9ff",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed-variant": "#5b4300",
+                      "surface-bright": "#f9f9ff",
+                      "surface-dim": "#d2daf0",
+                      "primary-fixed": "#afefdd",
+                      "error": "#ba1a1a",
+                      "on-tertiary-fixed-variant": "#005312",
+                      "on-primary": "#ffffff",
+                      "on-surface-variant": "#3f4945",
+                      "outline": "#707975",
+                      "error-container": "#ffdad6",
+                      "on-secondary-container": "#6c5000",
+                      "surface-container-low": "#f1f3ff",
+                      "background": "#f9f9ff",
+                      "secondary-container": "#fdc003",
+                      "secondary-fixed-dim": "#fabd00",
+                      "surface-tint": "#29695b",
+                      "tertiary": "#003608",
+                      "on-background": "#141b2c",
+                      "tertiary-fixed-dim": "#88d982",
+                      "on-surface": "#141b2c",
+                      "on-tertiary-container": "#72c26e",
+                      "on-error-container": "#93000a",
+                      "on-secondary-fixed": "#261a00",
+                      "tertiary-fixed": "#a3f69c",
+                      "primary": "#00342b",
+                      "primary-fixed-dim": "#94d3c1",
+                      "on-primary-fixed-variant": "#065043",
+                      "inverse-surface": "#293041",
+                      "on-primary-fixed": "#00201a",
+                      "inverse-on-surface": "#edf0ff",
+                      "inverse-primary": "#94d3c1",
+                      "surface-variant": "#dbe2f9",
+                      "secondary-fixed": "#ffdf9e",
+                      "outline-variant": "#bfc9c4",
+                      "on-primary-container": "#7ebdac",
+                      "surface-container-highest": "#dbe2f9",
+                      "surface-container-high": "#e0e8ff",
+                      "tertiary-container": "#004f11",
+                      "on-tertiary-fixed": "#002204",
+                      "on-secondary": "#ffffff",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-container": "#004d40",
+                      "on-error": "#ffffff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "xl": "32px",
+                      "container-margin": "20px",
+                      "unit": "4px",
+                      "xs": "4px",
+                      "sm": "8px",
+                      "md": "16px",
+                      "gutter": "16px",
+                      "lg": "24px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-lg": [
+                              "Hanken Grotesk"
+                      ],
+                      "label-sm": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Hanken Grotesk"
+                      ],
+                      "headline-lg-mobile": [
+                              "Hanken Grotesk"
+                      ],
+                      "currency-display": [
+                              "Hanken Grotesk"
+                      ],
+                      "title-md": [
+                              "Hanken Grotesk"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "60px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "currency-display": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background text-on-background font-body-md text-body-md antialiased overflow-x-hidden">
+<!-- Top Navigation Bar -->
+<nav class="bg-surface dark:bg-surface-dim shadow-[0px_4px_20px_rgba(16,24,40,0.05)] docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center w-full px-container-margin py-md max-w-7xl mx-auto">
+<div class="text-title-md font-headline-lg font-bold text-primary dark:text-primary-fixed">Akwaaba Pay</div>
+<div class="hidden md:flex gap-lg items-center">
+<a class="text-primary dark:text-primary-fixed font-bold border-b-2 border-primary dark:border-primary-fixed pb-1 hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200 opacity-80 scale-[0.98] transition-transform text-label-sm font-label-sm" href="#">Browse</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200 text-label-sm font-label-sm" href="#">How it Works</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200 text-label-sm font-label-sm" href="#">My Plans</a>
+<a class="text-on-surface-variant dark:text-outline-variant font-medium hover:text-primary dark:hover:text-primary-fixed transition-colors duration-200 text-label-sm font-label-sm" href="#">Merchant Portal</a>
+</div>
+<div class="flex items-center gap-md">
+<button class="hidden md:block bg-primary text-on-primary px-4 py-2 rounded-lg font-label-sm text-label-sm hover:bg-primary-container hover:text-on-primary-container transition-colors">Sign In</button>
+<button class="text-primary dark:text-primary-fixed-dim hover:text-primary transition-colors duration-200">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+</button>
+<button class="text-primary dark:text-primary-fixed-dim hover:text-primary transition-colors duration-200">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<img alt="User profile" class="w-8 h-8 rounded-full object-cover ml-2 border border-outline-variant" data-alt="A diverse young Ghanaian professional smiling warmly in a bright, modern office setting. The lighting is soft and natural, emphasizing approachability and trust. The overall aesthetic aligns with a clean, light-mode corporate tech style, featuring subtle greens and crisp whites." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrLw0NS7SxXAronGCx1XARY1wm_7l6Z6QnKm80W6yTmUnpO0w13siYtSnbWYNGiMAipklGrE2Uaf5ef1pz7BfnuDl8bBkQwS-cIAxr1YEk7LMaZ-Gkcr9PloVRxlpRbTpRPHTS4xELKExj6VFljBauBVSLUcC0BZLp9G_v8m4tLs5BMTFnlrn7IXtoMI7lElNMYmPGQILUNUX2QIt51Pnvskrvzp_7FmDWI_xEydxMTQLFdosgprViPg"/>
+</div>
+</div>
+</nav>
+<main>
+<!-- Hero Section -->
+<section class="relative pt-24 pb-32 overflow-hidden bg-surface-container-low">
+<div class="absolute inset-0 z-0">
+<div class="bg-cover bg-center w-full h-full opacity-30" data-alt="An abstract, modern geometric pattern in light mint greens and soft creams, representing financial growth and stability. The design features flowing, subtle curves and high-key lighting, maintaining a clean, professional fintech aesthetic without distracting from foreground content." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAICwQibNlr5p91pvi_hQSIaASVtyMIueX_1L1GGeJabSuqvlSWhAIt8zzLhC3VlP_CFCd-L52qN41eS_vZ2E5Gzo3c4mH_lqgWIC-x7JPsgsAqu3r0M4Mfon9rPKJAziHKH7uVRBgpoc76eOJ3LqcPT2xtJJ9twYiHiQZJkTsFAjnaU8nB9F8D9oBnBNIF4AfcDhBKO2gFjILE4q_2nWjxGUutFlvrbCi8_mYTB4afhKEV2ztOhqXq7A')"></div>
+</div>
+<div class="max-w-7xl mx-auto px-container-margin relative z-10 grid grid-cols-1 md:grid-cols-2 gap-xl items-center">
+<div class="flex flex-col gap-lg">
+<span class="text-primary font-label-sm text-label-sm uppercase tracking-widest bg-primary-fixed-dim/20 inline-block px-3 py-1 rounded-full w-fit">Secure Layaway for Ghana</span>
+<h1 class="font-display-lg text-display-lg text-on-surface max-w-2xl">
+                        Own what matters, <br/><span class="text-primary">one installment</span> at a time.
+                    </h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xl text-lg">
+                        Akwaaba Pay securely holds your payments in escrow until you've reached your goal. No debt, no interest, just disciplined saving for the things you need.
+                    </p>
+<div class="flex flex-col sm:flex-row gap-md mt-sm">
+<button class="bg-primary text-on-primary px-8 py-4 rounded-lg font-label-sm text-label-sm hover:bg-primary-container hover:text-on-primary-container transition-all shadow-md flex items-center justify-center gap-sm">
+                            Start Browsing <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">arrow_forward</span>
+</button>
+<div class="bg-secondary-container text-on-secondary-container px-6 py-4 rounded-lg font-label-sm text-label-sm flex items-center justify-center gap-sm shadow-sm border border-secondary-fixed-dim/30">
+<span class="material-symbols-outlined">dialpad</span>
+                            Dial *713*100# to Pay
+                        </div>
+</div>
+<div class="flex items-center gap-sm mt-md text-on-surface-variant text-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span>Payments held securely in Bank of Ghana regulated escrow.</span>
+</div>
+</div>
+<div class="relative hidden md:block">
+<img alt="App interface preview" class="w-full max-w-lg mx-auto drop-shadow-2xl rounded-2xl transform rotate-2 hover:rotate-0 transition-transform duration-500" data-alt="A high-quality 3D render of a smartphone displaying a clean, modern mobile app interface. The app shows a progress bar reaching 100% and a 'Payment Complete' notification in vibrant green. The background is a clean, abstract studio environment with soft, high-key lighting, emphasizing a trustworthy fintech brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuABjyGgEvvyOJTGu28CNAU1cVCX2J2La-0hBAZ2v2WYVzFv1jrTnmFLuV21r1tbbsdxatobVwqVJ4suwiZJvmtD_e9RNDz4CQnzUHei9gz7-RWV5MngykyzoM9B-hZNLsRimFS1peGUleLjgchfJFlPeHpe6cQinzA-tLDridz_9kd9jBLSDpHOMJNRm9OLIMktqdFhEyJu7xviGTmLwh7baN-Ty5965A6pxayKqiVX1mmlHR5W8tFVNQ"/>
+<!-- Floating Badge -->
+<div class="absolute -bottom-6 -left-6 bg-surface p-md rounded-xl shadow-lg border border-surface-variant flex items-center gap-md animate-bounce" style="animation-duration: 3s;">
+<div class="bg-primary-container text-on-primary-container w-12 h-12 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div>
+<div class="font-label-sm text-label-sm text-on-surface-variant">Goal Reached</div>
+<div class="font-currency-display text-currency-display text-primary">GHS 1,200</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- How It Works -->
+<section class="py-24 bg-surface">
+<div class="max-w-7xl mx-auto px-container-margin">
+<div class="text-center mb-16">
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-sm">How Akwaaba Pay Works</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl mx-auto">A simple, transparent process to get what you want without the stress of immediate full payment or high-interest loans.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-xl relative">
+<!-- Connecting Line (Desktop) -->
+<div class="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-outline-variant/50 z-0"></div>
+<!-- Step 1 -->
+<div class="relative z-10 flex flex-col items-center text-center bg-surface-container-lowest p-lg rounded-2xl shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-surface-variant hover:-translate-y-1 transition-transform duration-300">
+<div class="w-24 h-24 bg-surface-container rounded-full flex items-center justify-center mb-md border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings: 'FILL' 1;">search</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-xs">1. Browse &amp; Select</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Find the items you need from our verified merchant partners. Electronics, building materials, and more.</p>
+</div>
+<!-- Step 2 -->
+<div class="relative z-10 flex flex-col items-center text-center bg-surface-container-lowest p-lg rounded-2xl shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-surface-variant hover:-translate-y-1 transition-transform duration-300">
+<div class="w-24 h-24 bg-primary-container rounded-full flex items-center justify-center mb-md border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined text-4xl text-on-primary-container" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-xs">2. Commit &amp; Pay</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Set up a flexible payment plan. Pay weekly or monthly via Mobile Money. Funds are held safely in escrow.</p>
+</div>
+<!-- Step 3 -->
+<div class="relative z-10 flex flex-col items-center text-center bg-surface-container-lowest p-lg rounded-2xl shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-surface-variant hover:-translate-y-1 transition-transform duration-300">
+<div class="w-24 h-24 bg-tertiary-container rounded-full flex items-center justify-center mb-md border-4 border-surface shadow-sm">
+<span class="material-symbols-outlined text-4xl text-on-tertiary-container" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<h3 class="font-title-md text-title-md text-on-surface mb-xs">3. Collect</h3>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Once your final installment is made, collect your item immediately from the merchant. No hidden fees.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Live Examples / Bento Grid -->
+<section class="py-24 bg-surface-container-low">
+<div class="max-w-7xl mx-auto px-container-margin">
+<div class="flex flex-col md:flex-row justify-between items-end mb-16 gap-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-on-surface mb-sm">Attainable Goals</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xl">See how manageable large purchases become with structured layaway plans.</p>
+</div>
+<a class="text-primary font-label-sm text-label-sm hover:underline flex items-center gap-xs" href="#">View Merchant Catalog <span class="material-symbols-outlined text-sm">arrow_forward</span></a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Large Card -->
+<div class="col-span-1 md:col-span-8 bg-surface-container-lowest rounded-2xl overflow-hidden shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-outline-variant/30 flex flex-col md:flex-row">
+<div class="w-full md:w-1/2 relative min-h-[250px]">
+<img alt="Smart TV" class="absolute inset-0 w-full h-full object-cover" data-alt="A sleek, modern flat-screen television displayed in a brightly lit, contemporary living room setting. The styling is minimalist and high-end, appealing to aspirational consumers while maintaining a clean, professional photographic style typical of premium e-commerce." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaM-UtOKsvmepbB5bl4-djbanSzPZP1fmszQuHBx6QPA5SeiGZNjqC8TaDqVYu09b9H1mkem5RcAC6dr_GQ0SkF8vkq41YTH8w_KWfFc9N1ADlrNP_XdYAaiO53gy25lssJjyuS5aQ3axgCHrjX1TSsbHk1d8M-gqEuQQ5VejNsNbo_RKnGZb8qnQAUf5J85gIY9qRSnd5LGRZHmdIp6JnFIk9F4tWSO8ZjgFBgs_c7sV9L7WIBGK4Lw"/>
+<div class="absolute top-4 left-4 bg-surface/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-label-sm text-on-surface font-bold">Electronics</div>
+</div>
+<div class="p-lg flex flex-col justify-center w-full md:w-1/2">
+<div class="text-sm text-on-surface-variant mb-1 font-label-sm">Samsung 55" Smart TV</div>
+<div class="font-currency-display text-currency-display text-on-surface mb-md">GHS 4,800 <span class="text-sm font-body-md text-outline font-normal">Total</span></div>
+<div class="bg-surface-container p-md rounded-xl mb-md border border-surface-variant">
+<div class="flex justify-between items-center mb-sm">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Suggested Plan</span>
+<span class="font-label-sm text-label-sm text-primary font-bold">12 Weeks</span>
+</div>
+<div class="font-currency-display text-title-md text-primary">GHS 400 <span class="text-sm font-body-md text-on-surface-variant font-normal">/ week</span></div>
+</div>
+<button class="w-full bg-surface border border-primary text-primary px-4 py-2 rounded-lg font-label-sm text-label-sm hover:bg-primary-container hover:text-on-primary-container hover:border-transparent transition-colors">View Details</button>
+</div>
+</div>
+<!-- Small Card 1 -->
+<div class="col-span-1 md:col-span-4 bg-surface-container-lowest rounded-2xl p-lg shadow-[0px_4px_20px_rgba(16,24,40,0.05)] border border-outline-variant/30 flex flex-col justify-between">
+<div>
+<div class="w-16 h-16 bg-surface-container rounded-xl flex items-center justify-center mb-md border border-surface-variant">
+<span class="material-symbols-outlined text-primary text-3xl">chair</span>
+</div>
+<div class="text-sm text-on-surface-variant mb-1 font-label-sm">Sofa Set</div>
+<div class="font-currency-display text-title-md text-on-surface mb-sm">GHS 1,200</div>
+</div>
+<div>
+<div class="w-full bg-surface-container-low rounded-full h-2 mb-2 overflow-hidden">
+<div class="bg-primary h-2 rounded-full" style="width: 25%"></div>
+</div>
+<div class="flex justify-between text-xs text-on-surface-variant font-label-sm mb-md">
+<span>GHS 300 Paid</span>
+<span>GHS 100/wk</span>
+</div>
+<button class="w-full text-center text-primary font-label-sm text-label-sm hover:underline">Start Plan</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Merchant CTA -->
+<section class="py-24 bg-primary text-on-primary relative overflow-hidden">
+<div class="absolute inset-0 z-0">
+<div class="bg-cover bg-center w-full h-full opacity-20" data-alt="A subtle, abstract background pattern featuring dark forest green tones with soft, luminous highlights. The texture suggests a premium, secure financial environment, incorporating very faint geometric grid lines to convey structure and reliability without overpowering the text." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDaMlZPX6draICjMyfgqf1lCIwBYLhabtHmEzKZrD8UZWdApcfOFOZVSnSwhyYXBmUBN2dQhzlkqDlv6VOXKMx_13OF1C8F152zMUE-6jXRQVSr9OLy0bSDo9iOXoZ1TShFOpRHAettbLaYuv4zLcAwHdvSwUVCaOpxzQ1lrjPah-3K23Nv01Rnl00mtSjMENvXa-DN0G0BwGPOoZe1A8-eA86w598GipA66i6gBSVdbfkhO2XPPRvUCQ')"></div>
+</div>
+<div class="max-w-4xl mx-auto px-container-margin relative z-10 text-center">
+<span class="material-symbols-outlined text-5xl mb-sm" style="font-variation-settings: 'FILL' 1;">storefront</span>
+<h2 class="font-headline-lg text-headline-lg mb-md">Grow your business with Akwaaba Pay</h2>
+<p class="font-body-md text-body-md text-primary-fixed-dim max-w-2xl mx-auto mb-lg text-lg">
+                    Offer your customers a secure way to pay over time without taking on credit risk. Our escrow system ensures you get paid in full before handing over the goods.
+                </p>
+<div class="flex flex-col sm:flex-row justify-center gap-md">
+<button class="bg-surface text-primary px-8 py-4 rounded-lg font-label-sm text-label-sm hover:bg-surface-variant transition-colors font-bold shadow-lg">Become a Merchant</button>
+<button class="border border-primary-fixed text-primary-fixed px-8 py-4 rounded-lg font-label-sm text-label-sm hover:bg-primary-container transition-colors">Read Merchant FAQ</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-dim border-t border-outline-variant dark:border-outline w-full py-xl">
+<div class="max-w-7xl mx-auto px-container-margin flex flex-col md:flex-row justify-between items-center gap-md">
+<div class="text-headline-lg font-bold text-primary">Akwaaba Pay</div>
+<div class="text-body-md font-body-md text-on-surface-variant text-sm text-center md:text-left">
+                © 2024 Akwaaba Pay. Secure Layaway for Ghana.
+            </div>
+<div class="flex gap-md text-label-sm font-label-sm">
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Terms</a>
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Privacy</a>
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Merchant FAQ</a>
+<a class="text-on-surface-variant hover:underline decoration-secondary transition-all" href="#">Contact</a>
+</div>
+</div>
+</footer>
+<!-- Bottom Navigation Bar (Mobile Only) -->
+<nav class="fixed bottom-0 w-full z-50 rounded-t-xl bg-surface dark:bg-inverse-surface shadow-[0px_-2px_10px_rgba(0,0,0,0.05)] md:hidden">
+<div class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 pb-safe bg-surface shadow-lg">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-5 py-1 scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-label-sm font-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="text-label-sm font-label-sm mt-1">Store</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-label-sm font-label-sm mt-1">My Plans</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant hover:text-primary dark:hover:text-primary-fixed-dim transition-all" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="text-label-sm font-label-sm mt-1">Account</span>
+</a>
+</div>
+</nav>
+</body></html>

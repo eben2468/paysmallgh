@@ -47,6 +47,7 @@ final class ShopController extends Controller
             'title' => $product['name'] . ' — PaySmallSmall',
             'product' => $product,
             'options' => $options,
+            'images' => Product::images((int) $id),
         ]);
     }
 }
