@@ -50,24 +50,40 @@
     <p class="product-desc"><?= nl2br(e($product['description'])) ?></p>
     <p class="cash-price">Cash price: <b><?= ghs((int) $product['cash_price_pesewas']) ?></b></p>
 
-    <div class="picker" data-picker>
+    <?php
+      $defaultFreq = isset($plans['weekly']) ? 'weekly' : array_key_first($plans);
+      $firstOpt = $plans[$defaultFreq]['options'][0];
+      $freqLabels = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
+    ?>
+    <div class="picker" data-picker data-plans='<?= e(json_encode($plans)) ?>'>
       <h2>Choose how you'll pay</h2>
       <form id="plan-form" method="post" action="<?= url('/plan/start') ?>">
         <?= Csrf::field() ?>
         <input type="hidden" name="product_id" value="<?= (int) $product['id'] ?>">
-        <div class="picker-options">
-          <?php foreach ($options as $i => $opt): ?>
+        <input type="hidden" name="frequency" value="<?= e($defaultFreq) ?>" data-frequency>
+        <input type="hidden" name="count" value="<?= (int) $firstOpt['count'] ?>" data-count>
+
+        <div class="freq-tabs" role="tablist" aria-label="How often you pay">
+          <?php foreach ($plans as $freq => $fp): ?>
+            <button type="button" class="freq-tab<?= $freq === $defaultFreq ? ' active' : '' ?>" data-freq="<?= e($freq) ?>">
+              <?= e($freqLabels[$freq] ?? ucfirst($freq)) ?>
+            </button>
+          <?php endforeach; ?>
+        </div>
+
+        <div class="picker-options" data-duration-options>
+          <?php foreach ($plans[$defaultFreq]['options'] as $i => $opt): ?>
             <div class="picker-option">
-              <input type="radio" id="opt-<?= $opt['weeks'] ?>" name="weeks" value="<?= $opt['weeks'] ?>"
-                     data-per="<?= ghs($opt['per']) ?>" <?= $i === 0 ? 'checked' : '' ?>>
-              <label for="opt-<?= $opt['weeks'] ?>">
-                <span class="picker-per"><?= ghs($opt['per']) ?><span class="muted"> / week</span></span>
-                <span class="picker-weeks">for <?= $opt['weeks'] ?> weeks</span>
+              <input type="radio" name="_dur" id="opt-<?= e($defaultFreq) ?>-<?= $opt['count'] ?>" value="<?= $opt['count'] ?>" <?= $i === 0 ? 'checked' : '' ?>>
+              <label for="opt-<?= e($defaultFreq) ?>-<?= $opt['count'] ?>">
+                <span class="picker-per"><?= $opt['perLabel'] ?><span class="muted"> / <?= e($plans[$defaultFreq]['unit']) ?></span></span>
+                <span class="picker-weeks">for <?= $opt['count'] ?> <?= e($plans[$defaultFreq]['noun']) ?></span>
               </label>
             </div>
           <?php endforeach; ?>
         </div>
-        <p class="picker-first">You pay the first <strong data-first-amount><?= ghs($options[0]['per']) ?></strong> today by MoMo — that's what starts the plan.</p>
+
+        <p class="picker-first">You pay the first <strong data-first-amount><?= $firstOpt['perLabel'] ?></strong> today by MoMo — that's what starts the plan.</p>
         <button class="btn btn-primary btn-block btn-lg" type="submit">Start my plan</button>
         <p class="picker-note">Change your mind? Cancel anytime and get a refund (minus 5%).</p>
       </form>
@@ -83,6 +99,6 @@
 
 <div class="buy-bar-spacer" aria-hidden="true"></div>
 <div class="buy-bar">
-  <div class="buy-price"><span data-buy-amount><?= ghs($options[0]['per']) ?></span> <small>/week · first payment today</small></div>
+  <div class="buy-price"><span data-buy-amount><?= $firstOpt['perLabel'] ?></span> <small>first payment today</small></div>
   <button class="btn btn-primary" type="submit" form="plan-form">Start plan</button>
 </div>

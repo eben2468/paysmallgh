@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS plans (
   customer_id INT UNSIGNED NOT NULL,
   total_pesewas INT UNSIGNED NOT NULL,
   installment_pesewas INT UNSIGNED NOT NULL,
-  frequency ENUM('daily','weekly') NOT NULL DEFAULT 'weekly',
+  frequency ENUM('daily','weekly','monthly') NOT NULL DEFAULT 'weekly',
   installments_total SMALLINT UNSIGNED NOT NULL,
   installments_paid SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   -- pending: created, first payment not yet confirmed. No payment, no plan.

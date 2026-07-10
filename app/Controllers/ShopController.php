@@ -30,24 +30,47 @@ final class ShopController extends Controller
             return;
         }
 
-        // Plan picker options: sensible weekly counts for the price.
-        $price = (int) $product['cash_price_pesewas'];
-        $options = [];
-        foreach ([4, 6, 8, 12, 16, 24] as $weeks) {
-            $per = (int) ceil($price / $weeks);
-            if ($per >= 2000) { // floor: GHS 20 per installment
-                $options[] = ['weeks' => $weeks, 'per' => $per];
-            }
-        }
-        if (!$options) {
-            $options[] = ['weeks' => 4, 'per' => (int) ceil($price / 4)];
-        }
-
         $this->render('shop/show', [
             'title' => $product['name'] . ' — PaySmallSmall',
             'product' => $product,
-            'options' => $options,
+            'plans' => $this->planOptions((int) $product['cash_price_pesewas']),
             'images' => Product::images((int) $id),
         ]);
+    }
+
+    /**
+     * Build plan-picker options for each frequency. The customer picks how often
+     * (daily/weekly/monthly) and over how many installments. We keep each
+     * installment above a small floor so plans stay sensible, but always offer at
+     * least one option — even cheap products get a plan.
+     *
+     * @return array<string, array{unit:string, noun:string, options: list<array{count:int, per:int, perLabel:string}>}>
+     */
+    private function planOptions(int $price): array
+    {
+        $floor = 100; // GHS 1.00 minimum per installment
+        $defs = [
+            'daily'   => ['unit' => 'day',   'noun' => 'days',   'counts' => [7, 14, 21, 30, 45, 60, 90]],
+            'weekly'  => ['unit' => 'week',  'noun' => 'weeks',  'counts' => [4, 6, 8, 12, 16, 24, 36]],
+            'monthly' => ['unit' => 'month', 'noun' => 'months', 'counts' => [2, 3, 4, 6, 9, 12]],
+        ];
+
+        $plans = [];
+        foreach ($defs as $freq => $def) {
+            $options = [];
+            foreach ($def['counts'] as $count) {
+                $per = (int) ceil($price / $count);
+                if ($per >= $floor) {
+                    $options[] = ['count' => $count, 'per' => $per, 'perLabel' => ghs($per)];
+                }
+            }
+            if (!$options) { // price too small for any listed count — offer the fewest installments
+                $count = $def['counts'][0];
+                $per = (int) ceil($price / $count);
+                $options[] = ['count' => $count, 'per' => $per, 'perLabel' => ghs($per)];
+            }
+            $plans[$freq] = ['unit' => $def['unit'], 'noun' => $def['noun'], 'options' => $options];
+        }
+        return $plans;
     }
 }

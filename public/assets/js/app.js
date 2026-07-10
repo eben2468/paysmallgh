@@ -36,7 +36,7 @@
           obs.unobserve(entry.target);
         }
       });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0 });
     revealEls.forEach(function (el) { revealObs.observe(el); });
   }
 
@@ -95,19 +95,58 @@
     counters.forEach(function (el) { countObs.observe(el); });
   }
 
-  // ---- Plan picker: keep the "first payment today" line in sync with the choice.
+  // ---- Plan picker: choose a frequency (daily/weekly/monthly), then a duration.
+  // Options per frequency come from the server as JSON on [data-plans]. The form
+  // submits two hidden inputs: frequency + count (number of installments).
   (function () {
     var picker = document.querySelector('[data-picker]');
     if (!picker) return;
+
+    var plans;
+    try { plans = JSON.parse(picker.getAttribute('data-plans') || '{}'); }
+    catch (e) { return; }
+
+    var freqInput = picker.querySelector('[data-frequency]');
+    var countInput = picker.querySelector('[data-count]');
+    var optsBox = picker.querySelector('[data-duration-options]');
     var firstLine = picker.querySelector('[data-first-amount]');
     var buyAmount = document.querySelector('[data-buy-amount]'); // sticky mobile bar
-    picker.querySelectorAll('input[name="weeks"]').forEach(function (input) {
-      input.addEventListener('change', function () {
-        if (!input.dataset.per) return;
-        if (firstLine) firstLine.textContent = input.dataset.per;
-        if (buyAmount) buyAmount.textContent = input.dataset.per;
+    var tabs = picker.querySelectorAll('[data-freq]');
+    if (!freqInput || !countInput || !optsBox) return;
+
+    function select(opt) {
+      countInput.value = opt.count;
+      if (firstLine) firstLine.textContent = opt.perLabel;
+      if (buyAmount) buyAmount.textContent = opt.perLabel;
+    }
+
+    function render(freq) {
+      var fp = plans[freq];
+      if (!fp) return;
+      freqInput.value = freq;
+      optsBox.innerHTML = '';
+      fp.options.forEach(function (opt, i) {
+        var id = 'opt-' + freq + '-' + opt.count;
+        var wrap = document.createElement('div');
+        wrap.className = 'picker-option';
+        wrap.innerHTML =
+          '<input type="radio" name="_dur" id="' + id + '" value="' + opt.count + '"' + (i === 0 ? ' checked' : '') + '>' +
+          '<label for="' + id + '"><span class="picker-per">' + opt.perLabel +
+          '<span class="muted"> / ' + fp.unit + '</span></span>' +
+          '<span class="picker-weeks">for ' + opt.count + ' ' + fp.noun + '</span></label>';
+        optsBox.appendChild(wrap);
+        wrap.querySelector('input').addEventListener('change', function () { select(opt); });
       });
+      if (fp.options[0]) select(fp.options[0]);
+      tabs.forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-freq') === freq); });
+    }
+
+    tabs.forEach(function (t) {
+      t.addEventListener('click', function () { render(t.getAttribute('data-freq')); });
     });
+
+    var start = freqInput.value && plans[freqInput.value] ? freqInput.value : Object.keys(plans)[0];
+    if (start) render(start);
   })();
 
   // ---- Product gallery: click a thumbnail to swap the main image.

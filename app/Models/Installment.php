@@ -28,7 +28,11 @@ final class Installment
 
     public static function createSchedule(int $planId, int $count, int $amountPesewas, string $frequency): void
     {
-        $interval = $frequency === 'daily' ? 'P1D' : 'P7D';
+        $interval = match ($frequency) {
+            'daily' => 'P1D',
+            'monthly' => 'P1M',
+            default => 'P7D', // weekly
+        };
         $due = new \DateTimeImmutable('today');
         for ($n = 1; $n <= $count; $n++) {
             DB::run(

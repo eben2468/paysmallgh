@@ -20,17 +20,21 @@ final class PlanController extends Controller
         Csrf::check();
 
         $product = Product::find((int) ($_POST['product_id'] ?? 0));
-        $weeks = (int) ($_POST['weeks'] ?? 0);
-        if (!$product || !$product['active'] || $weeks < 1 || $weeks > 52) {
+        $frequency = (string) ($_POST['frequency'] ?? 'weekly');
+        $count = (int) ($_POST['count'] ?? 0);
+        if (!in_array($frequency, ['daily', 'weekly', 'monthly'], true)) {
+            $frequency = 'weekly';
+        }
+        if (!$product || !$product['active'] || $count < 1 || $count > 120) {
             flash('error', 'Something went wrong with that plan. Try again.');
             redirect('/shop');
         }
 
         // Server-side recompute — never trust a posted amount.
-        $per = (int) ceil((int) $product['cash_price_pesewas'] / $weeks);
+        $per = (int) ceil((int) $product['cash_price_pesewas'] / $count);
 
         $svc = new PlanService();
-        [$planId, $result] = $svc->startPlan($user, $product, $per, 'weekly', $weeks);
+        [$planId, $result] = $svc->startPlan($user, $product, $per, $frequency, $count);
 
         if ($result['status'] === 'failed') {
             flash('error', 'Couldn\'t open the payment page, so no plan was started. Try again in a moment.');
