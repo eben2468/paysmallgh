@@ -106,9 +106,30 @@ final class MoolreService
         ]);
 
         $url = (string) ($res['raw']['data']['authorization_url'] ?? '');
+        $ok = $res['ok'] && $url !== '';
+
+        // Surface WHY it failed. Moolre puts a human message + code in the body;
+        // a transport failure (blocked outbound, SSL, timeout) leaves http_status
+        // and a curl error string instead. Log the full body to the server error
+        // log so the exact cause is recoverable from CloudPanel → Logs.
+        $reason = '';
+        if (!$ok) {
+            $reason = trim((string) (
+                ($res['raw']['message'] ?? '')
+                . (isset($res['raw']['code']) ? ' [' . $res['raw']['code'] . ']' : '')
+            ));
+            if ($reason === '') {
+                $reason = 'no response from payment provider'
+                    . (isset($res['raw']['http_status']) ? ' (HTTP ' . $res['raw']['http_status'] . ')' : '')
+                    . (!empty($res['raw']['error']) ? ': ' . $res['raw']['error'] : '');
+            }
+            error_log('[Moolre paymentLink FAILED] ' . json_encode($res['raw']));
+        }
+
         return [
-            'ok' => $res['ok'] && $url !== '',
+            'ok' => $ok,
             'url' => $url,
+            'reason' => $reason,
             'external_ref' => (string) ($res['raw']['data']['reference'] ?? ''),
             'raw' => $res['raw'],
         ];

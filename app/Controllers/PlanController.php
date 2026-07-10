@@ -37,7 +37,8 @@ final class PlanController extends Controller
         [$planId, $result] = $svc->startPlan($user, $product, $per, $frequency, $count);
 
         if ($result['status'] === 'failed') {
-            flash('error', 'Couldn\'t open the payment page, so no plan was started. Try again in a moment.');
+            $reason = !empty($result['reason']) ? ' Reason: ' . $result['reason'] : '';
+            flash('error', 'Couldn\'t open the payment page, so no plan was started.' . $reason);
             redirect('/product/' . $product['id']);
         }
         // Send the customer to the payment page (Moolre hosted URL, or the local
@@ -112,7 +113,8 @@ final class PlanController extends Controller
         $result = $svc->checkoutInstallment((int) $plan['id']);
 
         if ($result['status'] === 'failed') {
-            flash('error', 'Couldn\'t open the payment page. Give it a moment and try again.');
+            $reason = !empty($result['reason']) ? ' Reason: ' . $result['reason'] : '';
+            flash('error', 'Couldn\'t open the payment page.' . $reason);
             redirect('/plan/' . $plan['id']);
         }
         // Send the customer to the payment page (Moolre hosted URL, or the local
@@ -122,6 +124,23 @@ final class PlanController extends Controller
         }
         flash('success', 'Payment received. Check your SMS receipt.');
         redirect('/plan/' . $plan['id']);
+    }
+
+    /**
+     * A concrete, human explanation of why a payment hasn't confirmed yet, pulled
+     * live from Moolre — so "Not confirmed yet" isn't a dead end.
+     */
+    private function pendingReason(PlanService $svc, int $planId): string
+    {
+        $d = $svc->pendingPaymentDetail($planId);
+        if (!$d) {
+            return ' Wait a moment and check again.';
+        }
+        if (!$d['reachable']) {
+            return ' We couldn\'t reach the payment provider — try again shortly.';
+        }
+        $msg = $d['message'] !== '' ? $d['message'] : 'still processing';
+        return ' Payment provider says: "' . $msg . '". If you completed payment, give it a minute and check again.';
     }
 
     /** "I've approved the MoMo prompt — check now" — status-check fallback. */
@@ -140,7 +159,7 @@ final class PlanController extends Controller
         match ($result) {
             'completed' => flash('success', 'Payment confirmed — that was the last one! The item is fully yours. Check your SMS.'),
             'active' => flash('success', 'Payment confirmed — your plan is up to date. Check your SMS receipt.'),
-            'pending' => flash('error', 'Not confirmed yet. If you\'ve approved the prompt, wait a minute and check again.'),
+            'pending' => flash('error', 'Not confirmed yet.' . $this->pendingReason($svc, (int) $plan['id'])),
             'failed' => flash('error', 'That payment didn\'t go through. You can try paying again.'),
             default => flash('error', 'Nothing to confirm on this plan right now.'),
         };

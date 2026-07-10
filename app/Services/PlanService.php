@@ -78,7 +78,7 @@ final class PlanService
 
         if (!$link['ok']) {
             Transaction::setStatus($txId, 'failed', $link['external_ref'], json_encode($link['raw']));
-            return ['status' => 'failed', 'redirect' => null];
+            return ['status' => 'failed', 'redirect' => null, 'reason' => $link['reason'] ?? ''];
         }
 
         Transaction::setStatus($txId, 'pending', $link['external_ref'], json_encode($link['raw']));
@@ -288,6 +288,29 @@ final class PlanService
             return (string) ($plan['status'] ?? 'failed');
         }
         return $this->reconcileTransaction($tx);
+    }
+
+    /**
+     * What Moolre currently says about a plan's pending collection — used to show
+     * a concrete reason when a payment hasn't confirmed ("still pending",
+     * "not found yet", "failed"), instead of a vague "not confirmed".
+     * Returns null when there's no pending collection to check.
+     */
+    public function pendingPaymentDetail(int $planId): ?array
+    {
+        $tx = Transaction::latestPendingForPlan($planId, 'collection');
+        if (!$tx) {
+            return null;
+        }
+        $res = $this->moolre->status((string) $tx['provider_ref']);
+        $data = is_array($res['raw']['data'] ?? null) ? $res['raw']['data'] : [];
+        return [
+            'reachable' => (bool) ($res['ok'] ?? false),
+            'state' => (string) ($res['state'] ?? 'pending'),
+            'code' => (string) ($res['raw']['code'] ?? ''),
+            'message' => (string) ($res['raw']['message'] ?? ''),
+            'txstatus' => $data['txstatus'] ?? null,
+        ];
     }
 
     /**

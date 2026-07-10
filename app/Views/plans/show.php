@@ -8,6 +8,7 @@
   $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
   $variant = $done ? 'success' : ($grace ? 'warn' : 'primary');
   $stamped = flash('stamped') !== null;
+  $unitNoun = ['daily' => 'days', 'weekly' => 'weeks', 'monthly' => 'months'][$plan['frequency'] ?? 'weekly'] ?? 'payments';
 ?>
 <section class="wrap detail-grid">
   <div>
@@ -32,7 +33,7 @@
 
       <div class="perf"></div>
 
-      <div class="receipt-math"><?= ghs((int) $plan['installment_pesewas']) ?> &times; <?= $total ?> weeks = <?= ghs((int) $plan['installment_pesewas'] * $total) ?></div>
+      <div class="receipt-math"><?= ghs((int) $plan['installment_pesewas']) ?> &times; <?= $total ?> <?= $unitNoun ?> = <?= ghs((int) $plan['installment_pesewas'] * $total) ?></div>
 
       <div class="progress-legend">
         <span><b><?= $paid ?> of <?= $total ?></b> paid</span>
