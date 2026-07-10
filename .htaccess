@@ -1,0 +1,33 @@
+# PaySmallSmall — root .htaccess for shared hosting where the document root is
+# the project root (not /public). Apache only.
+#
+# It does three jobs: block source/config from the web, serve static assets out
+# of /public, and route everything else to the front controller (index.php).
+
+RewriteEngine On
+
+# --- Security: never serve config, source, VCS, or docs from the web ---------
+# Dotfiles: .env, .env.example, .gitignore, .git/... (leaves /.well-known alone)
+RewriteRule (^|/)\.(?!well-known/) - [F,L]
+# App source, DB schema/seed, CLI scripts, design dumps, markdown docs
+RewriteRule ^(app|database|scripts|stitch_layaway_trust_escrow_system)(/|$) - [F,L]
+RewriteRule \.(md|sql|lock|dist)$ - [F,L]
+
+# --- Static assets & uploads live under /public ------------------------------
+RewriteRule ^(assets|uploads)/(.*)$ public/$1/$2 [L]
+
+# --- Serve any real file/dir directly ----------------------------------------
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# --- Everything else → front controller --------------------------------------
+RewriteRule ^ index.php [L]
+
+# Belt-and-braces: even if mod_rewrite is off, hard-deny the env file.
+<Files ".env">
+  Require all denied
+</Files>
+<Files ".env.example">
+  Require all denied
+</Files>
