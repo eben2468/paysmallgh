@@ -1,30 +1,28 @@
-# PaySmallSmall — root .htaccess for shared hosting where the document root is
-# the project root (not /public). Apache only.
+# PaySmallSmall — front controller routing for shared hosting where the
+# document root IS the project root (all files in public_html). Apache.
 #
-# It does three jobs: block source/config from the web, serve static assets out
-# of /public, and route everything else to the front controller (index.php).
+# Homepage works without this (Apache auto-serves index.php for "/"), but every
+# other URL — /shop, /assets/css/app.css, etc. — needs these rules to reach the
+# app. If styling/pages 404, this file is missing or not being read.
 
 RewriteEngine On
 
-# --- Security: never serve config, source, VCS, or docs from the web ---------
-# Dotfiles: .env, .env.example, .gitignore, .git/... (leaves /.well-known alone)
-RewriteRule (^|/)\.(?!well-known/) - [F,L]
-# App source, DB schema/seed, CLI scripts, design dumps, markdown docs
-RewriteRule ^(app|database|scripts|stitch_layaway_trust_escrow_system)(/|$) - [F,L]
-RewriteRule \.(md|sql|lock|dist)$ - [F,L]
+# --- Security: never serve source, DB scripts, or VCS from the web -----------
+RewriteRule ^(app|database|scripts|\.git)/ - [F,L]
 
-# --- Static assets & uploads live under /public ------------------------------
-RewriteRule ^(assets|uploads)/(.*)$ public/$1/$2 [L]
-
-# --- Serve any real file/dir directly ----------------------------------------
+# --- Serve real files/folders directly ---------------------------------------
+# (Assets live under /public and are streamed by index.php below, so they fall
+#  through to the front controller.)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# --- Everything else → front controller --------------------------------------
+# --- Everything else -> front controller -------------------------------------
+# index.php (root) hands off to public/index.php, which also serves /assets and
+# /uploads with the correct MIME types.
 RewriteRule ^ index.php [L]
 
-# Belt-and-braces: even if mod_rewrite is off, hard-deny the env file.
+# --- Hard-deny the environment file even if rewriting is off -----------------
 <Files ".env">
   Require all denied
 </Files>
