@@ -20,41 +20,61 @@ final class WebhookController extends Controller
     public function moolre(): void
     {
         $raw = file_get_contents('php://input') ?: '';
-        $payload = json_decode($raw, true) ?? $_POST;
+        $payload = json_decode($raw, true) ?: $_POST;
         $headers = array_change_key_case(getallheaders() ?: [], CASE_LOWER);
 
         $moolre = new MoolreService();
-        if (!$moolre->verifyWebhook($headers, $payload)) {
-            $this->json(['status' => 0, 'message' => 'unverified'], 401);
-        }
+
+        // Log every callback so what Moolre actually sends is recoverable from
+        // CloudPanel -> Logs. This is how we diagnose confirmation problems.
+        error_log('[Moolre webhook] body=' . $raw . ' headers=' . json_encode($headers));
 
         // Moolre nests the transaction under `data` on some callbacks; accept both.
         $data = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
         $ref = (string) ($data['externalref'] ?? $payload['externalref'] ?? $data['reference'] ?? $payload['reference'] ?? '');
-        $externalRef = (string) ($data['transactionid'] ?? $payload['transactionid'] ?? '');
+        $externalRef = (string) ($data['transactionid'] ?? $payload['transactionid'] ?? $data['transactionId'] ?? '');
 
         $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
         if (!$tx) {
-            $this->json(['status' => 0, 'message' => 'unknown reference'], 404);
+            error_log('[Moolre webhook] no matching transaction for ref=' . $ref);
+            $this->json(['status' => 1, 'message' => 'ack (unknown ref)']); // ack so Moolre stops retrying
         }
 
-        // Same success/failed/pending mapping as status polling — never fail a
-        // transaction on a pending/ambiguous callback; just acknowledge and wait
-        // for the final one.
+        // Replay guard: already credited.
+        if ($tx['status'] === 'success') {
+            $this->json(['status' => 1, 'message' => 'already processed']);
+        }
+
+        // Authenticate the callback. Preferred: the shared secret Moolre sends.
+        // Fallback: independently re-query Moolre's status API — if IT reports the
+        // transaction successful, the callback is genuine whatever its secret
+        // shape. We never credit on the payload alone.
+        $secretOk = $moolre->verifyWebhook($headers, $payload);
         $state = $moolre->readState($payload);
-        if ($state === 'failed') {
-            if ($tx['status'] !== 'success') {
-                Transaction::setStatus((int) $tx['id'], 'failed', $externalRef, $raw);
+
+        if (!$secretOk) {
+            $check = $moolre->status($ref);
+            error_log('[Moolre webhook] secret not matched; status() ok=' . var_export($check['ok'] ?? false, true)
+                . ' state=' . ($check['state'] ?? '?') . ' raw=' . json_encode($check['raw'] ?? []));
+            if (($check['state'] ?? '') === 'success') {
+                $state = 'success';
+                $secretOk = true; // Moolre's own API vouches for it
+            } elseif (($check['state'] ?? '') === 'failed') {
+                $state = 'failed';
             }
+        }
+
+        if (!$secretOk) {
+            error_log('[Moolre webhook] UNVERIFIED ref=' . $ref . ' — not crediting.');
+            $this->json(['status' => 1, 'message' => 'ack (unverified)']);
+        }
+
+        if ($state === 'failed') {
+            Transaction::setStatus((int) $tx['id'], 'failed', $externalRef, $raw);
             $this->json(['status' => 1, 'message' => 'noted failure']);
         }
         if ($state !== 'success') {
             $this->json(['status' => 1, 'message' => 'pending noted']);
-        }
-
-        // Replay guard: if already success, acknowledge and do nothing.
-        if ($tx['status'] === 'success') {
-            $this->json(['status' => 1, 'message' => 'already processed']);
         }
 
         Transaction::setStatus((int) $tx['id'], 'success', $externalRef, $raw);
@@ -66,6 +86,7 @@ final class WebhookController extends Controller
             $svc->finalizePayout((int) $tx['plan_id'], (int) $tx['id']);
         }
 
+        error_log('[Moolre webhook] CREDITED ref=' . $ref . ' tx=' . $tx['id']);
         $this->json(['status' => 1, 'message' => 'ok']);
     }
 

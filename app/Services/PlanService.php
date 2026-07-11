@@ -255,6 +255,9 @@ final class PlanService
         }
 
         $res = $this->moolre->status((string) $tx['provider_ref']);
+        error_log('[reconcile] tx=' . $tx['id'] . ' ref=' . $tx['provider_ref']
+            . ' ok=' . var_export($res['ok'] ?? false, true) . ' state=' . ($res['state'] ?? '?')
+            . ' raw=' . json_encode($res['raw'] ?? []));
         if (!$res['ok']) {
             return 'pending'; // provider unreachable — leave pending, try again later
         }

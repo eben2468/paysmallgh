@@ -342,8 +342,24 @@ final class MoolreService
         if ($secret === '') {
             return false;
         }
-        $sent = $headers['x-webhook-secret'] ?? ($payload['secret'] ?? '');
-        return is_string($sent) && $sent !== '' && hash_equals($secret, $sent);
+        $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+        // The exact place Moolre puts the secret varies; check the likely spots.
+        $candidates = [
+            $headers['x-webhook-secret'] ?? null,
+            $headers['x-moolre-secret'] ?? null,
+            $headers['x-secret'] ?? null,
+            $headers['secret'] ?? null,
+            $payload['secret'] ?? null,
+            $payload['secretkey'] ?? null,
+            $payload['secret_key'] ?? null,
+            $data['secret'] ?? null,
+        ];
+        foreach ($candidates as $sent) {
+            if (is_string($sent) && $sent !== '' && hash_equals($secret, $sent)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
