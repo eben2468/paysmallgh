@@ -23,70 +23,36 @@ final class WebhookController extends Controller
         $payload = json_decode($raw, true) ?: $_POST;
         $headers = array_change_key_case(getallheaders() ?: [], CASE_LOWER);
 
-        $moolre = new MoolreService();
-
         // Log every callback so what Moolre actually sends is recoverable from
-        // CloudPanel -> Logs. This is how we diagnose confirmation problems.
+        // CloudPanel -> Logs.
         error_log('[Moolre webhook] body=' . $raw . ' headers=' . json_encode($headers));
 
-        // Moolre nests the transaction under `data` on some callbacks; accept both.
+        // Try to identify the specific transaction from the callback. Payment-link
+        // callbacks echo our reference inside `metadata`; direct debits use
+        // externalref/reference.
         $data = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
-        $ref = (string) ($data['externalref'] ?? $payload['externalref'] ?? $data['reference'] ?? $payload['reference'] ?? '');
-        $externalRef = (string) ($data['transactionid'] ?? $payload['transactionid'] ?? $data['transactionId'] ?? '');
+        $meta = is_array($data['metadata'] ?? null) ? $data['metadata']
+            : (is_array($payload['metadata'] ?? null) ? $payload['metadata'] : []);
+        $ref = (string) (
+            $data['externalref'] ?? $payload['externalref']
+            ?? $meta['ref'] ?? $data['reference'] ?? $payload['reference'] ?? ''
+        );
 
-        $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
-        if (!$tx) {
-            error_log('[Moolre webhook] no matching transaction for ref=' . $ref);
-            $this->json(['status' => 1, 'message' => 'ack (unknown ref)']); // ack so Moolre stops retrying
-        }
-
-        // Replay guard: already credited.
-        if ($tx['status'] === 'success') {
-            $this->json(['status' => 1, 'message' => 'already processed']);
-        }
-
-        // Authenticate the callback. Preferred: the shared secret Moolre sends.
-        // Fallback: independently re-query Moolre's status API — if IT reports the
-        // transaction successful, the callback is genuine whatever its secret
-        // shape. We never credit on the payload alone.
-        $secretOk = $moolre->verifyWebhook($headers, $payload);
-        $state = $moolre->readState($payload);
-
-        if (!$secretOk) {
-            $check = $moolre->status($ref);
-            error_log('[Moolre webhook] secret not matched; status() ok=' . var_export($check['ok'] ?? false, true)
-                . ' state=' . ($check['state'] ?? '?') . ' raw=' . json_encode($check['raw'] ?? []));
-            if (($check['state'] ?? '') === 'success') {
-                $state = 'success';
-                $secretOk = true; // Moolre's own API vouches for it
-            } elseif (($check['state'] ?? '') === 'failed') {
-                $state = 'failed';
-            }
-        }
-
-        if (!$secretOk) {
-            error_log('[Moolre webhook] UNVERIFIED ref=' . $ref . ' — not crediting.');
-            $this->json(['status' => 1, 'message' => 'ack (unverified)']);
-        }
-
-        if ($state === 'failed') {
-            Transaction::setStatus((int) $tx['id'], 'failed', $externalRef, $raw);
-            $this->json(['status' => 1, 'message' => 'noted failure']);
-        }
-        if ($state !== 'success') {
-            $this->json(['status' => 1, 'message' => 'pending noted']);
-        }
-
-        Transaction::setStatus((int) $tx['id'], 'success', $externalRef, $raw);
-
+        // We never trust the payload to credit money. Instead we reconcile against
+        // Moolre's own transaction list/status API — so a genuine callback (or even
+        // a spoofed one) only ever confirms payments that actually settled.
         $svc = new PlanService();
-        if ($tx['type'] === 'collection') {
-            $svc->applyCollectionSuccess((int) $tx['id']);
-        } elseif ($tx['type'] === 'disbursement' && $tx['plan_id']) {
-            $svc->finalizePayout((int) $tx['plan_id'], (int) $tx['id']);
+        $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
+        if ($tx) {
+            $result = $svc->reconcileTransaction($tx);
+            error_log('[Moolre webhook] reconciled ref=' . $ref . ' -> ' . $result);
+        } else {
+            // No usable reference in the callback: sweep every pending collection
+            // and match each against the settled account transactions.
+            $actions = $svc->reconcilePending(0);
+            error_log('[Moolre webhook] no ref; swept pending -> ' . json_encode($actions));
         }
 
-        error_log('[Moolre webhook] CREDITED ref=' . $ref . ' tx=' . $tx['id']);
         $this->json(['status' => 1, 'message' => 'ok']);
     }
 

@@ -43,6 +43,22 @@ final class Transaction
         );
     }
 
+    /**
+     * True if this Moolre transaction id has already been credited to some
+     * transaction of ours. Stops two plans with the same installment amount from
+     * both claiming the same settled payment when matching by amount.
+     */
+    public static function providerTxIdUsed(string $providerTxId): bool
+    {
+        if ($providerTxId === '') {
+            return false;
+        }
+        return (bool) DB::run(
+            "SELECT 1 FROM transactions WHERE external_ref = ? AND status = 'success' LIMIT 1",
+            [$providerTxId]
+        )->fetchColumn();
+    }
+
     public static function ledger(int $limit = 200): array
     {
         $limit = max(1, min(1000, $limit));

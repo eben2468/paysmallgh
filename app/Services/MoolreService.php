@@ -331,6 +331,74 @@ final class MoolreService
     }
 
     /**
+     * List account transactions (POST /open/account/status, type 2). Optional
+     * filters: status ('0' pending, '1' success, '2' failed), startdate, enddate,
+     * limit. Returns the raw call() result (data.transactions[]).
+     */
+    public function listTransactions(array $filters = []): array
+    {
+        if ($this->isMock()) {
+            return ['ok' => true, 'instant' => false, 'external_ref' => '', 'raw' => ['data' => ['transactions' => []]]];
+        }
+        return $this->call(Config::get('MOOLRE_PATH_ACCOUNT', '/open/account/status'), array_merge([
+            'type' => 2,
+            'accountnumber' => Config::get('MOOLRE_ACCOUNT_NUMBER', ''),
+            'limit' => '200',
+        ], $filters));
+    }
+
+    /**
+     * Return settled (successful) collections that could be a given payment.
+     * Payment-link (POS) payments carry no usable externalref (Moolre stores
+     * "0"), so we match on the exact amount within a time window and let the
+     * caller pick one whose Moolre transactionid it hasn't already credited.
+     * Exact externalref matches (if Moolre ever provides them) are preferred and
+     * sorted first; otherwise newest first.
+     *
+     * @return list<array{transactionid:string, externalref:string, amount:string, ts:string, refMatch:bool, raw:array}>
+     */
+    public function settledCollectionCandidates(string $externalref, int $amountPesewas, string $sinceTs = ''): array
+    {
+        if ($this->isMock()) {
+            return [];
+        }
+
+        $filters = ['status' => '1']; // successful only
+        if ($sinceTs !== '') {
+            $filters['startdate'] = $sinceTs;
+        }
+        $res = $this->listTransactions($filters);
+        $list = $res['raw']['data']['transactions'] ?? [];
+        if (!is_array($list)) {
+            return [];
+        }
+
+        $amount = $this->toCedis($amountPesewas);
+        $out = [];
+        foreach ($list as $t) {
+            if ((int) ($t['txstatus'] ?? 0) !== 1) {
+                continue;
+            }
+            $ext = (string) ($t['externalref'] ?? '');
+            $refMatch = $ext !== '' && $ext !== '0' && $ext === $externalref;
+            $amtMatch = (string) ($t['amount'] ?? '') === $amount;
+            if ($refMatch || $amtMatch) {
+                $out[] = [
+                    'transactionid' => (string) ($t['transactionid'] ?? ''),
+                    'externalref' => $ext,
+                    'amount' => (string) ($t['amount'] ?? ''),
+                    'ts' => (string) ($t['ts'] ?? ''),
+                    'refMatch' => $refMatch,
+                    'raw' => $t,
+                ];
+            }
+        }
+        // Exact ref matches first, then newest.
+        usort($out, static fn ($a, $b) => ($b['refMatch'] <=> $a['refMatch']) ?: strcmp($b['ts'], $a['ts']));
+        return $out;
+    }
+
+    /**
      * Verify an incoming webhook is genuinely from Moolre. We require a shared
      * secret (header X-Webhook-Secret, or a `secret` field) that matches our
      * config. The caller additionally checks the reference maps to a known

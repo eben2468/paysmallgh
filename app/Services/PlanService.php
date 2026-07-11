@@ -258,12 +258,45 @@ final class PlanService
         error_log('[reconcile] tx=' . $tx['id'] . ' ref=' . $tx['provider_ref']
             . ' ok=' . var_export($res['ok'] ?? false, true) . ' state=' . ($res['state'] ?? '?')
             . ' raw=' . json_encode($res['raw'] ?? []));
-        if (!$res['ok']) {
-            return 'pending'; // provider unreachable — leave pending, try again later
+        $state = ($res['ok'] ?? false) ? ($res['state'] ?? 'pending') : 'pending';
+        $extId = (string) ($res['external_ref'] ?? '');
+        $rawJson = json_encode($res['raw'] ?? []);
+
+        // Payment-link (POS) collections are NOT findable via status-by-ref
+        // (Moolre returns "not found") and carry no externalref, so match against
+        // the settled account transactions by amount — taking the first payment
+        // we haven't already credited to another plan.
+        if ($state !== 'success' && $state !== 'failed' && ($tx['type'] ?? '') === 'collection') {
+            // Look for settled payments from just before this tx was created
+            // (small buffer absorbs any server/Moolre clock skew).
+            $since = (string) ($tx['created_at'] ?? '');
+            if ($since !== '') {
+                try {
+                    $since = (new \DateTimeImmutable($since))->modify('-10 minutes')->format('Y-m-d H:i:s');
+                } catch (\Throwable $e) {
+                    // keep original
+                }
+            }
+            $candidates = $this->moolre->settledCollectionCandidates(
+                (string) $tx['provider_ref'],
+                (int) $tx['amount_pesewas'],
+                $since
+            );
+            error_log('[reconcile-list] tx=' . $tx['id'] . ' candidates=' . count($candidates));
+            foreach ($candidates as $c) {
+                if ($c['transactionid'] !== '' && !Transaction::providerTxIdUsed($c['transactionid'])) {
+                    $state = 'success';
+                    $extId = $c['transactionid'];
+                    $rawJson = json_encode($c['raw']);
+                    error_log('[reconcile-list] tx=' . $tx['id'] . ' MATCHED moolre_tx=' . $c['transactionid']
+                        . ' amount=' . $c['amount']);
+                    break;
+                }
+            }
         }
 
-        if ($res['state'] === 'success') {
-            Transaction::setStatus((int) $tx['id'], 'success', $res['external_ref'], json_encode($res['raw']));
+        if ($state === 'success') {
+            Transaction::setStatus((int) $tx['id'], 'success', $extId, $rawJson);
             if ($tx['type'] === 'collection') {
                 return $this->applyCollectionSuccess((int) $tx['id']);
             }
@@ -274,8 +307,8 @@ final class PlanService
             return 'success'; // refund confirmed; plan already cancelled
         }
 
-        if ($res['state'] === 'failed') {
-            Transaction::setStatus((int) $tx['id'], 'failed', $res['external_ref'], json_encode($res['raw']));
+        if ($state === 'failed') {
+            Transaction::setStatus((int) $tx['id'], 'failed', $extId, $rawJson);
             return 'failed';
         }
 
