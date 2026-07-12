@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Auth;
 use App\Core\Controller;
 use App\Core\Csrf;
 use App\Models\Installment;
@@ -16,9 +17,6 @@ final class PlanController extends Controller
 {
     public function start(): void
     {
-        $user = $this->requireUser();
-        Csrf::check();
-
         $product = Product::find((int) ($_POST['product_id'] ?? 0));
         $frequency = (string) ($_POST['frequency'] ?? 'weekly');
         $count = (int) ($_POST['count'] ?? 0);
@@ -30,6 +28,53 @@ final class PlanController extends Controller
             redirect('/shop');
         }
 
+        // Guest? Remember exactly which plan they picked, send them to log in, and
+        // resume the very same plan afterwards — no going back to re-select.
+        if (Auth::userId() === null) {
+            $_SESSION['pending_plan'] = [
+                'product_id' => (int) $product['id'],
+                'frequency' => $frequency,
+                'count' => $count,
+            ];
+            $_SESSION['after_login'] = '/plan/resume';
+            flash('error', 'Log in or create a quick account to start your plan — we\'ve saved your pick.');
+            redirect('/login');
+        }
+
+        Csrf::check();
+        $this->beginPlan($this->requireUser(), $product, $frequency, $count);
+    }
+
+    /**
+     * Resume the plan a guest picked before logging in. Reached via after_login
+     * once they authenticate; the intent was captured server-side in start().
+     */
+    public function resume(): void
+    {
+        $user = $this->requireUser();
+        $intent = $_SESSION['pending_plan'] ?? null;
+        unset($_SESSION['pending_plan']);
+        if (!is_array($intent)) {
+            redirect('/shop');
+        }
+
+        $product = Product::find((int) ($intent['product_id'] ?? 0));
+        $frequency = (string) ($intent['frequency'] ?? 'weekly');
+        $count = (int) ($intent['count'] ?? 0);
+        if (!in_array($frequency, ['daily', 'weekly', 'monthly'], true)) {
+            $frequency = 'weekly';
+        }
+        if (!$product || !$product['active'] || $count < 1 || $count > 120) {
+            flash('error', 'That plan is no longer available. Pick it again.');
+            redirect('/shop');
+        }
+
+        $this->beginPlan($user, $product, $frequency, $count);
+    }
+
+    /** Shared: recompute the installment, create the plan and go to checkout. */
+    private function beginPlan(array $user, array $product, string $frequency, int $count): never
+    {
         // Server-side recompute — never trust a posted amount.
         $per = (int) ceil((int) $product['cash_price_pesewas'] / $count);
 
@@ -269,6 +314,29 @@ final class PlanController extends Controller
             flash('success', 'Plan cancelled. Your refund is on its way to your MoMo.');
         } else {
             flash('error', 'This plan can\'t be cancelled right now.');
+        }
+        redirect('/plans');
+    }
+
+    /** Delete a plan the customer never actually paid into. */
+    public function delete(string $id): void
+    {
+        $user = $this->requireUser();
+        Csrf::check();
+        $plan = Plan::find((int) $id);
+        if (!$plan || (int) $plan['customer_id'] !== (int) $user['id']) {
+            redirect('/plans');
+        }
+
+        if ((int) $plan['installments_paid'] > 0) {
+            flash('error', 'This plan already has payments, so it can\'t be deleted. Cancel it for a refund instead.');
+            redirect('/plans');
+        }
+
+        if (Plan::delete((int) $plan['id'])) {
+            flash('success', 'Plan deleted.');
+        } else {
+            flash('error', 'That plan can\'t be deleted.');
         }
         redirect('/plans');
     }

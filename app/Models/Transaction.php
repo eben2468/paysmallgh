@@ -88,6 +88,15 @@ final class Transaction
         return (int) DB::run("SELECT COUNT(*) FROM transactions WHERE status = 'pending'")->fetchColumn();
     }
 
+    /** Every ledger row tied to a plan, oldest first — the plan's money history. */
+    public static function forPlan(int $planId): array
+    {
+        return DB::run(
+            'SELECT * FROM transactions WHERE plan_id = ? ORDER BY id ASC',
+            [$planId]
+        )->fetchAll();
+    }
+
     public static function payoutsForMerchant(int $merchantId): array
     {
         return DB::run(

@@ -39,6 +39,11 @@
                   <?= Csrf::field() ?>
                   <button class="btn btn-sm btn-quiet" type="submit"><?= $p['active'] ? 'Hide' : 'Show' ?></button>
                 </form>
+                <form class="inline-form" method="post" action="<?= url('/merchant/products/' . $p['id'] . '/delete') ?>"
+                      data-confirm="Delete this product for good? (Only works if no customer has a plan on it.)">
+                  <?= Csrf::field() ?>
+                  <button class="btn btn-sm btn-quiet" type="submit"><?= micon('delete', ['size' => 16]) ?> Delete</button>
+                </form>
               </td>
             </tr>
           <?php endforeach; ?>

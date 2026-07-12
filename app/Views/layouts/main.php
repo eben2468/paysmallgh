@@ -3,7 +3,6 @@ use App\Core\Auth;
 use App\Core\Config;
 
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
-$ussd = Config::get('USSD_CODE', '*920*77#');
 
 /** Active-nav helper. */
 $is = static function (string $prefix) use ($currentPath): string {
@@ -32,7 +31,7 @@ $is = static function (string $prefix) use ($currentPath): string {
 <div class="topbar">
   <div class="wrap topbar-row">
     <span class="topbar-note"><?= micon('verified_user', ['size' => 16, 'fill' => true]) ?> Money held in escrow till you finish — nobody can chop it</span>
-    <span class="topbar-ussd">No smartphone? Dial <b><?= e($ussd) ?></b></span>
+    <span class="topbar-ussd">SMS receipt after every payment</span>
   </div>
 </div>
 
@@ -88,9 +87,8 @@ $is = static function (string $prefix) use ($currentPath): string {
       <p class="footer-note">Lay-away for the MoMo age. Your money sits safe in escrow until the item is fully yours.</p>
     </div>
     <div>
-      <p class="footer-head">No smartphone?</p>
-      <p class="footer-ussd"><?= e($ussd) ?></p>
-      <p class="footer-note">Dial it on any phone to check your plan or pay.</p>
+      <p class="footer-head">How it works</p>
+      <p class="footer-note">Pick an item, pay a small amount each week, and collect it when you're done. Your money stays in escrow the whole time.</p>
     </div>
     <div class="footer-links">
       <a href="<?= url('/shop') ?>">Browse products</a>

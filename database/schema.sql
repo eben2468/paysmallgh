@@ -25,6 +25,13 @@ CREATE TABLE IF NOT EXISTS merchants (
   payout_channel ENUM('momo','bank') NOT NULL DEFAULT 'momo',
   payout_number VARCHAR(30) NOT NULL DEFAULT '',
   status ENUM('pending','approved','suspended') NOT NULL DEFAULT 'pending',
+  -- KYC: Ghana Card number + uploaded card image (stored outside the webroot).
+  id_number VARCHAR(32) NOT NULL DEFAULT '',
+  id_card_path VARCHAR(255) NOT NULL DEFAULT '',
+  business_reg VARCHAR(60) NOT NULL DEFAULT '',   -- optional business registration no.
+  -- Verified = KYC checked by admin; shown to shoppers as a trust badge.
+  verified TINYINT(1) NOT NULL DEFAULT 0,
+  verified_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_merchants_phone (phone)
@@ -74,6 +81,8 @@ CREATE TABLE IF NOT EXISTS plans (
   payout_transaction_id INT UNSIGNED DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   completed_at DATETIME DEFAULT NULL,
+  -- Set when the merchant confirms they've handed the item over (after payout).
+  released_at DATETIME DEFAULT NULL,
   PRIMARY KEY (id),
   KEY idx_plans_customer (customer_id),
   KEY idx_plans_product (product_id),
@@ -89,6 +98,8 @@ CREATE TABLE IF NOT EXISTS installments (
   amount_pesewas INT UNSIGNED NOT NULL,
   due_date DATE NOT NULL,
   paid_at DATETIME DEFAULT NULL,
+  -- Stamped when the "payment due soon" reminder SMS goes out (dedup guard).
+  due_reminded_at DATETIME DEFAULT NULL,
   transaction_id INT UNSIGNED DEFAULT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_installments_plan_number (plan_id, number),
@@ -115,6 +126,21 @@ CREATE TABLE IF NOT EXISTS transactions (
   PRIMARY KEY (id),
   UNIQUE KEY uq_transactions_ref (provider_ref),
   KEY idx_transactions_plan (plan_id)
+) ENGINE=InnoDB;
+
+-- Product reviews. One review per customer per product (enforced by unique key).
+CREATE TABLE IF NOT EXISTS reviews (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL,        -- 1..5
+  body VARCHAR(600) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_reviews_product_user (product_id, user_id),
+  KEY idx_reviews_product (product_id),
+  CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+  CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS sms_log (

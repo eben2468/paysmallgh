@@ -28,6 +28,7 @@ use App\Core\Database as DB;
 use App\Models\Installment;
 use App\Models\Merchant;
 use App\Models\Product;
+use App\Models\Review;
 use App\Models\User;
 use App\Services\PlanService;
 
@@ -40,7 +41,7 @@ if (Config::get('PAYMENTS_MODE') !== 'mock') {
 $pdo = DB::pdo();
 echo "Clearing tables...\n";
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-foreach (['sms_log', 'transactions', 'installments', 'plans', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
+foreach (['sms_log', 'reviews', 'transactions', 'installments', 'plans', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
     $pdo->exec("TRUNCATE TABLE {$t}");
 }
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
@@ -54,6 +55,8 @@ $kofi = Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233244111222',
+    'id_number' => 'GHA-123456789-1',
+    'business_reg' => 'BN-2019-0451',
 ]);
 $adjoa = Merchant::create([
     'shop_name' => 'Adjoa Serwaa Furniture Works',
@@ -63,6 +66,7 @@ $adjoa = Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233209333444',
+    'id_number' => 'GHA-234567891-2',
 ]);
 $efua = Merchant::create([
     'shop_name' => 'Efua Baidoo Fashion House',
@@ -72,10 +76,15 @@ $efua = Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233551555666',
+    'id_number' => 'GHA-345678912-3',
 ]);
 Merchant::approve($kofi);
 Merchant::approve($adjoa);
 Merchant::approve($efua);
+// Kofi and Adjoa passed KYC — they show the Verified badge. Efua is approved but
+// not yet verified, so the admin has one shop to verify in the demo.
+Merchant::setVerified($kofi, true);
+Merchant::setVerified($adjoa, true);
 
 // A pending merchant so the admin approval queue has something in it.
 Merchant::create([
@@ -86,6 +95,7 @@ Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233277888999',
+    'id_number' => 'GHA-456789123-4',
 ]);
 
 echo "Creating products...\n";
@@ -162,6 +172,20 @@ $late = seedPlan($svc, $yaw, $productIds['Dining table + 4 chairs'], 10, 'weekly
 
 // 5. Ama again: kaba and slit, just started — 1 of 6 paid.
 seedPlan($svc, $ama, $productIds['Kaba and slit (custom sewn)'], 6, 'weekly', 1, 0);
+
+echo "Creating reviews...\n";
+// [productName, userId, rating, body]
+$reviews = [
+    ['Tecno Spark 30C', $ama, 5, 'Paid it off in 3 months and collected same day. Phone is fresh, battery no dey finish. Kofi is a real one.'],
+    ['Tecno Spark 30C', $kwame, 4, 'Good phone for the price. Small small payment made it easy. Screen protector was free.'],
+    ['JBL Wave Buds (original)', $kwame, 5, 'Original for sure, the bass is serious. Escrow made me feel safe paying bit by bit.'],
+    ['School uniforms (bundle of 3)', $abena, 5, 'Sewn to my daughter\'s size perfect and ready before school reopened. Will sew again.'],
+    ['Dining table + 4 chairs', $yaw, 4, 'Solid cedar, good work. I fell behind one week but the reminder was polite, no wahala.'],
+    ['Kaba and slit (custom sewn)', $ama, 5, 'Efua measured me proper. The fit is clean. Paying weekly was stress-free.'],
+];
+foreach ($reviews as [$pname, $uid, $rating, $body]) {
+    Review::upsert($productIds[$pname], $uid, $rating, $body);
+}
 
 // Run the reminder sweep so the late plan gets its grace/flag state + SMS.
 $actions = $svc->runReminders();

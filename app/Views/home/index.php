@@ -1,8 +1,3 @@
-<?php
-use App\Core\Config;
-$ussd = Config::get('USSD_CODE', '*920*77#');
-?>
-
 <section class="hero">
   <div class="wrap hero-layout">
     <div class="hero-copy">
@@ -12,7 +7,7 @@ $ussd = Config::get('USSD_CODE', '*920*77#');
 
       <div class="hero-actions">
         <a class="btn btn-primary btn-lg" href="<?= url('/shop') ?>">Start browsing <?= micon('arrow_forward', ['size' => 20, 'fill' => true]) ?></a>
-        <span class="hero-ussd-chip"><?= micon('dialpad', ['size' => 18]) ?> Dial <?= e($ussd) ?> to pay</span>
+        <a class="btn btn-ghost btn-lg" href="<?= url('/how-it-works') ?>">How it works</a>
       </div>
 
       <div class="hero-trust">
@@ -44,7 +39,7 @@ $ussd = Config::get('USSD_CODE', '*920*77#');
     <div class="benefit"><?= micon('shield', ['fill' => true]) ?><div><b>Held in escrow</b><span>Shop gets paid only when you finish</span></div></div>
     <div class="benefit"><?= micon('sms', ['fill' => true]) ?><div><b>SMS every payment</b><span>You always know where you've reached</span></div></div>
     <div class="benefit"><?= micon('schedule', ['fill' => true]) ?><div><b>Miss a week? No penalty</b><span>3-day grace and a friendly reminder</span></div></div>
-    <div class="benefit"><?= micon('dialpad', ['fill' => true]) ?><div><b>Works on any phone</b><span>Dial <?= e($ussd) ?> — no data needed</span></div></div>
+    <div class="benefit"><?= micon('verified', ['fill' => true]) ?><div><b>Verified shops</b><span>We check every shop before it can sell</span></div></div>
   </div>
 </div>
 
@@ -136,13 +131,5 @@ $ussd = Config::get('USSD_CODE', '*920*77#');
       <a class="btn btn-light btn-lg" href="<?= url('/merchant/register') ?>">Become a merchant</a>
       <a class="btn btn-ghost btn-lg" href="<?= url('/merchant') ?>">Read merchant FAQ</a>
     </div>
-  </div>
-</section>
-
-<section class="ussd-callout reveal">
-  <div class="wrap">
-    <p class="small muted ussd-spark"><?= micon('dialpad', ['size' => 16]) ?> Any phone works — yam phone included</p>
-    <div class="ussd-code"><?= e($ussd) ?></div>
-    <p class="small">Dial it to check your plan, see what's left, or pay this week's installment. Under a minute, no data needed.</p>
   </div>
 </section>

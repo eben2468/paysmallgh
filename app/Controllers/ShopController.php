@@ -3,8 +3,10 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Core\Auth;
 use App\Core\Controller;
 use App\Models\Product;
+use App\Models\Review;
 
 final class ShopController extends Controller
 {
@@ -30,11 +32,15 @@ final class ShopController extends Controller
             return;
         }
 
+        $uid = Auth::userId();
         $this->render('shop/show', [
             'title' => $product['name'] . ' — PaySmallSmall',
             'product' => $product,
             'plans' => $this->planOptions((int) $product['cash_price_pesewas']),
             'images' => Product::images((int) $id),
+            'reviews' => Review::forProduct((int) $id),
+            'reviewSummary' => Review::summary((int) $id),
+            'myReview' => $uid ? Review::byUser((int) $id, $uid) : null,
         ]);
     }
 

@@ -200,6 +200,25 @@ function product_micon(string $category): string
     return $map[strtolower($category)] ?? 'inventory_2';
 }
 
+/**
+ * Render a 0–5 star rating as filled/half/empty Material star icons.
+ * Read-only display (the review form uses its own interactive star inputs).
+ */
+function stars(float $rating, int $size = 18): string
+{
+    $out = '<span class="stars" aria-label="' . number_format($rating, 1) . ' out of 5">';
+    for ($i = 1; $i <= 5; $i++) {
+        if ($rating >= $i) {
+            $out .= micon('star', ['size' => $size, 'fill' => true, 'class' => 'star-on']);
+        } elseif ($rating >= $i - 0.5) {
+            $out .= micon('star_half', ['size' => $size, 'fill' => true, 'class' => 'star-on']);
+        } else {
+            $out .= micon('star', ['size' => $size, 'class' => 'star-off']);
+        }
+    }
+    return $out . '</span>';
+}
+
 /** Icon for a product category. */
 function category_icon(string $category, int $size = 20): string
 {

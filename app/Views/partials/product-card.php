@@ -18,7 +18,7 @@ $placeholder = '<div class="photo-placeholder"' . (!empty($p['photo']) ? ' style
   <div class="product-body">
     <span class="product-cat"><?= e(ucfirst((string) $cat)) ?></span>
     <span class="product-name"><?= e($p['name']) ?></span>
-    <span class="product-shop"><?= e($p['shop_name']) ?></span>
+    <span class="product-shop"><?= e($p['shop_name']) ?><?php if (!empty($p['merchant_verified'])): ?><span class="verified-badge" title="Verified shop"><?= micon('verified', ['size' => 14, 'fill' => true]) ?> Verified</span><?php endif; ?></span>
     <div class="product-cash">
       <span class="amt"><?= ghs((int) $p['cash_price_pesewas']) ?></span>
       <span class="lbl">Cash price</span>

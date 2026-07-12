@@ -22,11 +22,6 @@
     <p class="mb-2">You list your products with the cash price. When a customer starts a plan, you'll see it in your dashboard — every payment they make, in real time. You release the item only when we've paid you, so there's zero risk of handing over goods that aren't paid for.</p>
     <p>We take a small platform fee (5%) from the payout. That's the whole business model — no subscriptions, no setup cost.</p>
 
-    <div class="perf"></div>
-
-    <h2 class="mb-2" style="font-size:1.3rem;color:var(--primary)">No smartphone?</h2>
-    <p>Dial <strong class="mono"><?= e(Config::get('USSD_CODE', '*920*77#')) ?></strong> on any phone to check your plans or pay an installment. Works on the oldest yam phone in the drawer.</p>
-
     <div class="hero-actions mt-3">
       <a class="btn btn-primary" href="<?= url('/shop') ?>">Browse products</a>
       <a class="btn btn-ghost" href="<?= url('/merchant') ?>">Register your shop</a>

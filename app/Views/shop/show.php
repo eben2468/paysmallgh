@@ -38,7 +38,7 @@
     <div class="seller-card">
       <?= micon('storefront', ['size' => 26, 'class' => 'seller-ic']) ?>
       <div>
-        <b><?= e($product['shop_name']) ?></b>
+        <b><?= e($product['shop_name']) ?><?php if (!empty($product['merchant_verified'])): ?> <span class="verified-badge" title="Identity verified by PaySmallSmall"><?= micon('verified', ['size' => 15, 'fill' => true]) ?> Verified</span><?php endif; ?></b>
         <span><?= e($product['merchant_location']) ?> — you collect from the shop when your plan finishes.</span>
       </div>
     </div>
@@ -47,6 +47,12 @@
   <div>
     <h1 class="product-title"><?= e($product['name']) ?></h1>
     <p class="product-meta"><?= e($product['shop_name']) ?> &middot; <?= e(ucfirst($product['category'])) ?></p>
+    <?php if (($reviewSummary['count'] ?? 0) > 0): ?>
+      <p class="rating-line"><?= stars((float) $reviewSummary['avg'], 18) ?>
+        <a href="#reviews"><strong><?= number_format((float) $reviewSummary['avg'], 1) ?></strong>
+        &middot; <?= (int) $reviewSummary['count'] ?> review<?= $reviewSummary['count'] === 1 ? '' : 's' ?></a>
+      </p>
+    <?php endif; ?>
     <p class="product-desc"><?= nl2br(e($product['description'])) ?></p>
     <p class="cash-price">Cash price: <b><?= ghs((int) $product['cash_price_pesewas']) ?></b></p>
 
@@ -94,6 +100,73 @@
       <li><?= micon('sms', ['size' => 20, 'fill' => true]) ?> SMS receipt after every single payment.</li>
       <li><?= micon('schedule', ['size' => 20, 'fill' => true]) ?> Miss a week? 3-day grace, friendly reminder, no penalty.</li>
     </ul>
+  </div>
+</section>
+
+<section class="wrap reviews-section" id="reviews">
+  <div class="reviews-head">
+    <h2>What buyers say</h2>
+    <?php if (($reviewSummary['count'] ?? 0) > 0): ?>
+      <div class="reviews-score">
+        <span class="score-big"><?= number_format((float) $reviewSummary['avg'], 1) ?></span>
+        <span>
+          <?= stars((float) $reviewSummary['avg'], 20) ?>
+          <span class="small muted"><?= (int) $reviewSummary['count'] ?> review<?= $reviewSummary['count'] === 1 ? '' : 's' ?></span>
+        </span>
+      </div>
+    <?php endif; ?>
+  </div>
+
+  <div class="reviews-grid">
+    <div class="reviews-list">
+      <?php if (empty($reviews)): ?>
+        <div class="empty-card" style="text-align:left">
+          <h3 style="font-size:1.05rem;margin:0 0 .3rem">No reviews yet</h3>
+          <p class="muted" style="margin:0">Be the first to tell people how this went.</p>
+        </div>
+      <?php else: ?>
+        <?php foreach ($reviews as $rev): ?>
+          <article class="review">
+            <div class="review-top">
+              <span class="review-name"><?= e($rev['user_name']) ?></span>
+              <?php if (!empty($rev['verified_purchase'])): ?>
+                <span class="verified-badge" title="Bought on a plan"><?= micon('verified', ['size' => 13, 'fill' => true]) ?> Verified buyer</span>
+              <?php endif; ?>
+              <span class="review-date small muted"><?= e(date('j M Y', strtotime((string) $rev['created_at']))) ?></span>
+            </div>
+            <div class="review-stars"><?= stars((float) $rev['rating'], 16) ?></div>
+            <?php if (trim((string) $rev['body']) !== ''): ?>
+              <p class="review-body"><?= nl2br(e($rev['body'])) ?></p>
+            <?php endif; ?>
+          </article>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </div>
+
+    <aside class="review-form-card">
+      <?php if (empty($_SESSION['user_id'])): ?>
+        <h3>Bought this? Say your piece.</h3>
+        <p class="small muted">Log in to leave a review.</p>
+        <a class="btn btn-outline btn-block" href="<?= url('/login') ?>">Log in to review</a>
+      <?php else: ?>
+        <h3><?= $myReview ? 'Update your review' : 'Leave a review' ?></h3>
+        <form method="post" action="<?= url('/product/' . $product['id'] . '/review') ?>">
+          <?= \App\Core\Csrf::field() ?>
+          <?php $cur = (int) ($myReview['rating'] ?? 0); ?>
+          <div class="star-input" role="radiogroup" aria-label="Your rating">
+            <?php for ($s = 5; $s >= 1; $s--): ?>
+              <input type="radio" id="star-<?= $s ?>" name="rating" value="<?= $s ?>" <?= $cur === $s ? 'checked' : '' ?> required>
+              <label for="star-<?= $s ?>" title="<?= $s ?> star<?= $s === 1 ? '' : 's' ?>"><?= micon('star', ['size' => 30, 'fill' => true]) ?></label>
+            <?php endfor; ?>
+          </div>
+          <div class="field">
+            <label for="review-body">Your review <span class="muted">(optional)</span></label>
+            <textarea id="review-body" name="body" rows="4" maxlength="600" placeholder="How was the shop? Did the item match? Would you buy again?"><?= e($myReview['body'] ?? '') ?></textarea>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit"><?= $myReview ? 'Update review' : 'Post review' ?></button>
+        </form>
+      <?php endif; ?>
+    </aside>
   </div>
 </section>
 

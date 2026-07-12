@@ -1,3 +1,4 @@
+<?php use App\Core\Csrf; ?>
 <section class="page-head wrap">
   <h1><?= e($merchant['shop_name']) ?></h1>
   <p>
@@ -15,6 +16,7 @@
   <div class="admin-nav">
     <a class="btn btn-sm" href="<?= url('/merchant/products') ?>"><?= micon('inventory_2', ['size' => 18]) ?> My products</a>
     <a class="btn btn-sm" href="<?= url('/merchant/payouts') ?>"><?= micon('account_balance', ['size' => 18]) ?> Payouts</a>
+    <a class="btn btn-sm" href="<?= url('/merchant/settings') ?>"><?= micon('settings', ['size' => 18]) ?> Settings</a>
     <a class="btn btn-sm btn-primary" href="<?= url('/merchant/products/new') ?>"><?= micon('add', ['size' => 18]) ?> Add product</a>
   </div>
 
@@ -50,7 +52,7 @@
     <?php else: ?>
       <table class="data">
         <thead>
-          <tr><th>Customer &amp; item</th><th>Progress</th><th>Paid so far</th><th>Status</th></tr>
+          <tr><th>Customer &amp; item</th><th>Progress</th><th>Paid so far</th><th>Status</th><th>Item</th></tr>
         </thead>
         <tbody>
           <?php foreach ($plans as $p): ?>
@@ -78,6 +80,19 @@
                   <span class="tag tag-<?= e($p['status']) ?>"><?= e($p['status']) ?></span>
                 <?php endif; ?>
                 <?php if (($p['grace_state'] ?? '') === 'flagged'): ?><span class="tag tag-flagged">stalled</span><?php endif; ?>
+              </td>
+              <td class="nowrap">
+                <?php if ($p['status'] !== 'completed'): ?>
+                  <span class="small muted">&mdash;</span>
+                <?php elseif (($p['released_at'] ?? null) !== null): ?>
+                  <span class="tag tag-completed"><?= micon('inventory_2', ['size' => 14, 'fill' => true]) ?> released</span>
+                <?php else: ?>
+                  <form class="inline-form" method="post" action="<?= url('/merchant/plan/' . $p['id'] . '/release') ?>"
+                        data-confirm="Confirm you've handed <?= e($p['product_name']) ?> to <?= e($p['customer_name']) ?>?">
+                    <?= Csrf::field() ?>
+                    <button class="btn btn-sm btn-green" type="submit"><?= micon('check', ['size' => 16]) ?> Mark released</button>
+                  </form>
+                <?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>

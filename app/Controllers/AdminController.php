@@ -98,6 +98,131 @@ final class AdminController extends Controller
         redirect('/admin');
     }
 
+    /** Suspend an approved shop (its products stop showing to customers). */
+    public function suspendMerchant(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $merchant = Merchant::find((int) $id);
+        if ($merchant && $merchant['status'] === 'approved') {
+            Merchant::setStatus((int) $id, 'suspended');
+            flash('success', $merchant['shop_name'] . ' suspended.');
+        }
+        redirect('/admin');
+    }
+
+    /** Re-approve a suspended shop. */
+    public function reactivateMerchant(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $merchant = Merchant::find((int) $id);
+        if ($merchant && $merchant['status'] === 'suspended') {
+            Merchant::setStatus((int) $id, 'approved');
+            flash('success', $merchant['shop_name'] . ' reactivated.');
+        }
+        redirect('/admin');
+    }
+
+    /** Mark a merchant's identity as verified (KYC checked) — shows the trust badge. */
+    public function verifyMerchant(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $merchant = Merchant::find((int) $id);
+        if ($merchant && !$merchant['verified']) {
+            Merchant::setVerified((int) $id, true);
+            flash('success', $merchant['shop_name'] . ' is now verified.');
+        }
+        redirect('/admin');
+    }
+
+    /** Remove a merchant's verified status. */
+    public function unverifyMerchant(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $merchant = Merchant::find((int) $id);
+        if ($merchant && $merchant['verified']) {
+            Merchant::setVerified((int) $id, false);
+            flash('success', $merchant['shop_name'] . '\'s verified badge removed.');
+        }
+        redirect('/admin');
+    }
+
+    /**
+     * Stream a merchant's uploaded Ghana Card image. Admin-only — the file lives
+     * outside the webroot so this is the only way to see it.
+     */
+    public function idCard(string $id): void
+    {
+        $this->requireAdmin();
+        $merchant = Merchant::find((int) $id);
+        $rel = $merchant['id_card_path'] ?? '';
+        // Guard against path traversal; only serve from the id_cards folder.
+        if ($rel === '' || !preg_match('#^id_cards/[A-Za-z0-9._-]+$#', $rel)) {
+            http_response_code(404);
+            exit('No ID on file.');
+        }
+        $path = BASE_PATH . '/storage/' . $rel;
+        if (!is_file($path)) {
+            http_response_code(404);
+            exit('No ID on file.');
+        }
+        $mime = match (strtolower((string) pathinfo($path, PATHINFO_EXTENSION))) {
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            default => 'image/jpeg',
+        };
+        header('Content-Type: ' . $mime);
+        header('Cache-Control: private, no-store');
+        readfile($path);
+        exit;
+    }
+
+    /** Full profile for one merchant: KYC docs, products and customer plans. */
+    public function merchantDetail(string $id): void
+    {
+        $this->requireAdmin();
+        $merchant = Merchant::find((int) $id);
+        if (!$merchant) {
+            flash('error', 'No such merchant.');
+            redirect('/admin');
+        }
+        $this->render('admin/merchant', [
+            'title' => $merchant['shop_name'] . ' — Admin',
+            'merchant' => $merchant,
+            'products' => \App\Models\Product::forMerchant((int) $id),
+            'plans' => Plan::forMerchant((int) $id),
+        ]);
+    }
+
+    /** Full profile for one customer: their details and every plan they hold. */
+    public function userDetail(string $id): void
+    {
+        $this->requireAdmin();
+        $user = \App\Models\User::find((int) $id);
+        if (!$user) {
+            flash('error', 'No such customer.');
+            redirect('/admin/users');
+        }
+        $this->render('admin/user', [
+            'title' => $user['name'] . ' — Admin',
+            'user' => $user,
+            'plans' => Plan::forCustomer((int) $id),
+        ]);
+    }
+
+    /** Everyone who has signed up to buy — with a bit of activity per person. */
+    public function users(): void
+    {
+        $this->requireAdmin();
+        $this->render('admin/users', [
+            'title' => 'Customers — Admin',
+            'users' => \App\Models\User::allWithStats(),
+        ]);
+    }
+
     /** Poll Moolre for delivery status of pending SMS and update the log. */
     public function pollSms(): void
     {
@@ -120,6 +245,23 @@ final class AdminController extends Controller
             'plans' => Plan::all(),
             'mode' => (new MoolreService())->mode(),
             'pending' => Transaction::pendingCount(),
+        ]);
+    }
+
+    /** Full detail on one plan: schedule timeline + its ledger rows. */
+    public function planDetail(string $id): void
+    {
+        $this->requireAdmin();
+        $plan = Plan::find((int) $id);
+        if (!$plan) {
+            flash('error', 'No such plan.');
+            redirect('/admin/plans');
+        }
+        $this->render('admin/plan', [
+            'title' => 'Plan #' . (int) $id . ' — Admin',
+            'plan' => $plan,
+            'installments' => \App\Models\Installment::forPlan((int) $id),
+            'transactions' => Transaction::forPlan((int) $id),
         ]);
     }
 
@@ -157,8 +299,9 @@ final class AdminController extends Controller
     {
         $this->requireAdmin();
         Csrf::check();
-        $actions = (new PlanService())->runReminders();
-        flash('success', $actions ? implode(' · ', $actions) : 'Nothing overdue — all plans on track.');
+        $svc = new PlanService();
+        $actions = array_merge($svc->runDueReminders(1), $svc->runReminders());
+        flash('success', $actions ? implode(' · ', $actions) : 'Nothing due or overdue — all plans on track.');
         redirect('/admin/plans');
     }
 

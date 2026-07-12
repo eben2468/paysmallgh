@@ -19,7 +19,7 @@
           <div><b>Miss a week? No penalty</b><span>3-day grace and a friendly reminder.</span></div>
         </li>
       </ul>
-      <p class="auth-foot"><?= micon('dialpad', ['size' => 16]) ?> No smartphone? Dial <?= e(\App\Core\Config::get('USSD_CODE', '*920*77#')) ?></p>
+      <p class="auth-foot"><?= micon('verified_user', ['size' => 16, 'fill' => true]) ?> Your money stays in escrow till you finish</p>
     </aside>
 
     <div class="auth-form">

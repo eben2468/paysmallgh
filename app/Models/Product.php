@@ -10,7 +10,8 @@ final class Product
     public static function find(int $id): ?array
     {
         return DB::run(
-            'SELECT p.*, m.shop_name, m.location AS merchant_location, m.status AS merchant_status
+            'SELECT p.*, m.shop_name, m.location AS merchant_location, m.status AS merchant_status,
+                    m.verified AS merchant_verified, m.owner_name AS merchant_owner
              FROM products p JOIN merchants m ON m.id = p.merchant_id
              WHERE p.id = ?',
             [$id]
@@ -20,7 +21,7 @@ final class Product
     /** Active products from approved merchants, filtered by category and/or search term. */
     public static function browse(?string $category = null, ?string $q = null): array
     {
-        $sql = "SELECT p.*, m.shop_name, m.location AS merchant_location
+        $sql = "SELECT p.*, m.shop_name, m.location AS merchant_location, m.verified AS merchant_verified
                 FROM products p JOIN merchants m ON m.id = p.merchant_id
                 WHERE p.active = 1 AND m.status = 'approved'";
         $params = [];
@@ -84,6 +85,18 @@ final class Product
     public static function toggle(int $id, int $merchantId): void
     {
         DB::run('UPDATE products SET active = 1 - active WHERE id = ? AND merchant_id = ?', [$id, $merchantId]);
+    }
+
+    /** True if any layaway plan references this product (so it can't be deleted). */
+    public static function hasPlans(int $id): bool
+    {
+        return (bool) DB::run('SELECT 1 FROM plans WHERE product_id = ? LIMIT 1', [$id])->fetchColumn();
+    }
+
+    /** Delete a product (image rows cascade; caller unlinks the files). */
+    public static function delete(int $id, int $merchantId): void
+    {
+        DB::run('DELETE FROM products WHERE id = ? AND merchant_id = ?', [$id, $merchantId]);
     }
 
     /* ---------- Product images (gallery) ---------- */

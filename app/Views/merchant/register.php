@@ -25,7 +25,7 @@
     <div class="auth-form">
       <h1>Register your shop</h1>
       <p class="sub">Takes two minutes. We review new shops before they go live.</p>
-      <form method="post" action="<?= url('/merchant/register') ?>">
+      <form method="post" action="<?= url('/merchant/register') ?>" enctype="multipart/form-data">
         <?= Csrf::field() ?>
         <div class="field">
           <label for="shop_name">Shop name</label>
@@ -58,6 +58,25 @@
           <label for="password">Password (8+ characters)</label>
           <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password">
         </div>
+
+        <div class="kyc-block">
+          <p class="kyc-head"><?= micon('badge', ['size' => 18, 'fill' => true]) ?> Prove you're a real shop</p>
+          <p class="field-hint">We check every shop before the "Verified" badge shows to customers. This builds trust — verified shops sell more.</p>
+          <div class="field">
+            <label for="id_number">Ghana Card number</label>
+            <input id="id_number" name="id_number" type="text" required maxlength="32" placeholder="GHA-XXXXXXXXX-X" value="<?= e($_POST['id_number'] ?? '') ?>">
+          </div>
+          <div class="field">
+            <label for="business_reg">Business registration no. <span class="muted">(optional)</span></label>
+            <input id="business_reg" name="business_reg" type="text" maxlength="60" placeholder="RGD number, if you have one" value="<?= e($_POST['business_reg'] ?? '') ?>">
+          </div>
+          <div class="field">
+            <label for="id_card">Photo of your Ghana Card</label>
+            <input id="id_card" name="id_card" type="file" accept="image/jpeg,image/png,image/webp">
+            <p class="field-hint">Clear photo of the front. Only our admin sees it — it's never shown publicly.</p>
+          </div>
+        </div>
+
         <button class="btn btn-primary btn-block btn-lg" type="submit">Register shop</button>
       </form>
       <p class="form-alt">Already registered? <a href="<?= url('/merchant/login') ?>">Log in</a>.</p>

@@ -76,6 +76,17 @@ if (Config::bool('APP_DEBUG')) {
 
 Auth::start();
 
+// Run daily background jobs (SMS reminders, payment reconciliation) AFTER the
+// response is flushed, so the visitor never waits on them. Throttled to once a
+// day inside the scheduler. Registered before dispatch so it still fires when a
+// controller ends the request with exit()/redirect().
+register_shutdown_function(static function (): void {
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    }
+    \App\Core\Scheduler::runDaily();
+});
+
 $router = new Router();
 require BASE_PATH . '/app/routes.php';
 

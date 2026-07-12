@@ -403,6 +403,31 @@ final class PlanService
     }
 
     /**
+     * Upcoming-payment sweep: text customers a friendly reminder when their next
+     * installment is due within $withinDays days. Sent once per installment
+     * (guarded by installments.due_reminded_at). Runs automatically each day.
+     */
+    public function runDueReminders(int $withinDays = 1): array
+    {
+        $actions = [];
+        foreach (Plan::installmentsDueSoon($withinDays) as $i) {
+            $days = days_until($i['due_date']);
+            $when = match (true) {
+                $days <= 0 => 'today',
+                $days === 1 => 'tomorrow',
+                default => 'on ' . (new \DateTimeImmutable($i['due_date']))->format('l'),
+            };
+            $this->moolre->sms(
+                $i['customer_phone'],
+                SmsTemplates::paymentDueSoon($i['product_name'], ghs((int) $i['amount_pesewas']), $when)
+            );
+            DB::run('UPDATE installments SET due_reminded_at = NOW() WHERE id = ?', [$i['installment_id']]);
+            $actions[] = "Plan #{$i['plan_id']}: due-soon reminder sent";
+        }
+        return $actions;
+    }
+
+    /**
      * Grace-period sweep. Run daily (cron) or from the admin button.
      * Within grace: friendly reminder once. Past grace: flag + notify merchant.
      */

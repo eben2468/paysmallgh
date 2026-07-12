@@ -25,7 +25,7 @@
       <tbody>
         <?php foreach ($plans as $p): ?>
           <tr>
-            <td><?= (int) $p['id'] ?></td>
+            <td><a href="<?= url('/admin/plan/' . $p['id']) ?>">#<?= (int) $p['id'] ?></a></td>
             <td><?= e($p['customer_name']) ?></td>
             <td><?= e($p['product_name']) ?></td>
             <td><?= e($p['shop_name']) ?></td>
@@ -39,6 +39,7 @@
                   <button class="btn btn-sm btn-green" type="submit">Simulate payment</button>
                 </form>
               <?php endif; ?>
+              <a class="btn btn-sm" href="<?= url('/admin/plan/' . $p['id']) ?>">View</a>
             </td>
           </tr>
         <?php endforeach; ?>

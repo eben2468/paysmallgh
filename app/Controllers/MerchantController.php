@@ -34,6 +34,8 @@ final class MerchantController extends Controller
             'password' => (string) ($_POST['password'] ?? ''),
             'payout_channel' => in_array($_POST['payout_channel'] ?? '', ['momo', 'bank'], true) ? $_POST['payout_channel'] : 'momo',
             'payout_number' => preg_replace('/\D+/', '', (string) ($_POST['payout_number'] ?? '')),
+            'id_number' => strtoupper(trim((string) ($_POST['id_number'] ?? ''))),
+            'business_reg' => trim((string) ($_POST['business_reg'] ?? '')),
         ];
 
         if ($d['shop_name'] === '' || $d['owner_name'] === '') {
@@ -48,6 +50,11 @@ final class MerchantController extends Controller
             flash('error', 'Password needs at least 8 characters.');
             redirect('/merchant/register');
         }
+        // Ghana Card: GHA-123456789-1 (allow with or without dashes/spaces).
+        if (!preg_match('/^GHA[- ]?\d{9}[- ]?\d$/', $d['id_number'])) {
+            flash('error', 'Enter a valid Ghana Card number, like GHA-123456789-1.');
+            redirect('/merchant/register');
+        }
         if (Merchant::findByPhone($d['phone'])) {
             flash('error', 'This number already has a shop. Log in instead.');
             redirect('/merchant/login');
@@ -57,8 +64,15 @@ final class MerchantController extends Controller
         }
 
         $id = Merchant::create($d);
+
+        // Store the Ghana Card image outside the webroot (KYC — never public).
+        $idPath = $this->storeIdCard($id);
+        if ($idPath !== null) {
+            Merchant::setIdCardPath($id, $idPath);
+        }
+
         Auth::loginMerchant($id);
-        flash('success', 'Shop registered! We\'ll review and approve it shortly — you can add products while you wait.');
+        flash('success', 'Shop registered! We\'ll review your details and approve you shortly — you can add products while you wait.');
         redirect('/merchant/dashboard');
     }
 
@@ -112,6 +126,61 @@ final class MerchantController extends Controller
                 'products' => count(Product::forMerchant((int) $merchant['id'])),
             ],
         ]);
+    }
+
+    public function settingsForm(): void
+    {
+        $merchant = $this->requireMerchant();
+        $this->render('merchant/settings', [
+            'title' => 'Shop settings — PaySmallSmall',
+            'merchant' => $merchant,
+        ]);
+    }
+
+    public function settingsSave(): void
+    {
+        $merchant = $this->requireMerchant();
+        Csrf::check();
+
+        $d = [
+            'shop_name' => trim((string) ($_POST['shop_name'] ?? '')),
+            'owner_name' => trim((string) ($_POST['owner_name'] ?? '')),
+            'location' => trim((string) ($_POST['location'] ?? '')),
+            'payout_channel' => in_array($_POST['payout_channel'] ?? '', ['momo', 'bank'], true) ? $_POST['payout_channel'] : 'momo',
+            'payout_number' => preg_replace('/\D+/', '', (string) ($_POST['payout_number'] ?? '')),
+        ];
+
+        if ($d['shop_name'] === '' || $d['owner_name'] === '') {
+            flash('error', 'Shop name and owner name are required.');
+            redirect('/merchant/settings');
+        }
+        if ($d['payout_number'] === '') {
+            $d['payout_number'] = $merchant['phone'];
+        }
+
+        Merchant::updateDetails((int) $merchant['id'], $d);
+        flash('success', 'Shop details saved.');
+        redirect('/merchant/dashboard');
+    }
+
+    /** Merchant confirms they've handed over a paid-out item — closes the loop. */
+    public function releasePlan(string $id): void
+    {
+        $merchant = $this->requireMerchant();
+        Csrf::check();
+        $plan = Plan::find((int) $id);
+        if (!$plan || (int) $plan['merchant_id'] !== (int) $merchant['id']) {
+            redirect('/merchant/dashboard');
+        }
+        if ($plan['status'] !== 'completed') {
+            flash('error', 'You can only mark an item released once the plan is paid out.');
+            redirect('/merchant/dashboard');
+        }
+        if (($plan['released_at'] ?? null) === null) {
+            Plan::markReleased((int) $id);
+            flash('success', 'Marked as released to ' . $plan['customer_name'] . '. That plan is fully closed.');
+        }
+        redirect('/merchant/dashboard');
     }
 
     public function products(): void
@@ -219,6 +288,41 @@ final class MerchantController extends Controller
         }
     }
 
+    /**
+     * Store the merchant's Ghana Card image OUTSIDE the public webroot (KYC data
+     * must never be directly reachable by URL). Returns the stored path relative
+     * to /storage (e.g. "id_cards/xxx.jpg") or null if nothing valid was uploaded.
+     */
+    private function storeIdCard(int $merchantId): ?string
+    {
+        $f = $_FILES['id_card'] ?? null;
+        if (!$f || ($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return null;
+        }
+        $tmp = (string) $f['tmp_name'];
+        if ($tmp === '' || !is_uploaded_file($tmp) || (int) $f['size'] > 5 * 1024 * 1024) {
+            return null;
+        }
+        $ext = match (mime_content_type($tmp)) {
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            default => null,
+        };
+        if ($ext === null) {
+            return null;
+        }
+        $dir = BASE_PATH . '/storage/id_cards';
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0770, true);
+        }
+        $name = 'id-' . $merchantId . '-' . bin2hex(random_bytes(8)) . '.' . $ext;
+        if (!move_uploaded_file($tmp, $dir . '/' . $name)) {
+            return null;
+        }
+        return 'id_cards/' . $name;
+    }
+
     /** Validate + move a single uploaded image. Returns the stored web path (uploads/xxx) or null. */
     private function storeImage(string $tmp, int $size, int $merchantId): ?string
     {
@@ -246,6 +350,31 @@ final class MerchantController extends Controller
         $merchant = $this->requireMerchant();
         Csrf::check();
         Product::toggle((int) $id, (int) $merchant['id']);
+        redirect('/merchant/products');
+    }
+
+    public function productDelete(string $id): void
+    {
+        $merchant = $this->requireMerchant();
+        Csrf::check();
+        $product = Product::find((int) $id);
+        if (!$product || (int) $product['merchant_id'] !== (int) $merchant['id']) {
+            redirect('/merchant/products');
+        }
+        // A product with customer plans must stay (records reference it) — hide it instead.
+        if (Product::hasPlans((int) $id)) {
+            flash('error', 'Customers have plans on this product, so it can\'t be deleted. Hide it instead.');
+            redirect('/merchant/products');
+        }
+
+        $images = Product::images((int) $id);
+        Product::delete((int) $id, (int) $merchant['id']);
+        foreach ($images as $img) {
+            if (!empty($img['path'])) {
+                @unlink(BASE_PATH . '/public/' . $img['path']);
+            }
+        }
+        flash('success', 'Product deleted.');
         redirect('/merchant/products');
     }
 

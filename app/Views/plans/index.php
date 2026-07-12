@@ -1,4 +1,4 @@
-<?php use App\Core\Config; $ussd = Config::get('USSD_CODE', '*920*77#'); ?>
+<?php use App\Core\Csrf; ?>
 <section class="page-head wrap">
   <h1>My active plans</h1>
   <p>Manage your layaway progress and upcoming payments.</p>
@@ -25,6 +25,8 @@
             $pending = $plan['status'] === 'pending';
             $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
             $variant = $done ? 'success' : ($grace ? 'warn' : 'primary');
+            // Only a plan you've never paid into can be deleted outright.
+            $deletable = $paid === 0 && !$done;
           ?>
           <div class="plan-card">
             <div class="plan-card-status">
@@ -54,7 +56,16 @@
 
                 <?php if ($pending): ?>
                   <p class="small muted mb-2"><?= micon('schedule', ['size' => 16]) ?> First payment not confirmed yet.</p>
-                  <a class="btn btn-primary" href="<?= url('/plan/' . $plan['id']) ?>">Finish or check it</a>
+                  <div class="plan-actions">
+                    <a class="btn btn-primary" href="<?= url('/plan/' . $plan['id']) ?>">Finish or check it</a>
+                    <?php if ($deletable): ?>
+                      <form class="inline-form" method="post" action="<?= url('/plan/' . $plan['id'] . '/delete') ?>"
+                            data-confirm="Delete this plan? This can't be undone.">
+                        <?= Csrf::field() ?>
+                        <button class="btn btn-quiet" type="submit"><?= micon('delete', ['size' => 18]) ?> Delete</button>
+                      </form>
+                    <?php endif; ?>
+                  </div>
                 <?php else: ?>
                   <div class="plan-figures">
                     <div>
@@ -80,6 +91,13 @@
                       <a class="btn btn-momo" href="<?= url('/plan/' . $plan['id']) ?>"><?= micon('smartphone', ['size' => 18]) ?> Pay via MoMo</a>
                       <a class="btn btn-outline" href="<?= url('/plan/' . $plan['id']) ?>">View schedule</a>
                     <?php endif; ?>
+                    <?php if ($deletable): ?>
+                      <form class="inline-form" method="post" action="<?= url('/plan/' . $plan['id'] . '/delete') ?>"
+                            data-confirm="Delete this plan? This can't be undone.">
+                        <?= Csrf::field() ?>
+                        <button class="btn btn-quiet" type="submit"><?= micon('delete', ['size' => 18]) ?> Delete</button>
+                      </form>
+                    <?php endif; ?>
                   </div>
                 <?php endif; ?>
               </div>
@@ -96,11 +114,12 @@
             <p>Life happens. If you miss a payment, your funds are safe. You have a 3-day grace period to catch up without penalties. Cancel anytime for a refund minus a 5% fee.</p>
           </div>
         </div>
-        <div class="ussd-card">
-          <?= micon('dialpad') ?>
-          <h4>Offline? Pay via USSD</h4>
-          <p>Dial our shortcode from any network to pay without internet.</p>
-          <div class="ussd-code"><?= e($ussd) ?></div>
+        <div class="info-card">
+          <div class="info-ic"><?= micon('sms', ['size' => 20, 'fill' => true]) ?></div>
+          <div>
+            <h4>SMS on every payment</h4>
+            <p>We text you a receipt after each installment, and a reminder before the next one is due — so you always know where you've reached.</p>
+          </div>
         </div>
       </aside>
     </div>
