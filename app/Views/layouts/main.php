@@ -98,7 +98,7 @@ $is = static function (string $prefix) use ($currentPath): string {
     </div>
   </div>
   <div class="wrap footer-base">
-    <p>Payments and SMS run on Moolre. Built in Ghana. &copy; <?= date('Y') ?> PaySmallSmall — Secure layaway for Ghana.</p>
+    <p>Payments run on Paystack. Built in Ghana. &copy; <?= date('Y') ?> PaySmallSmall — Secure layaway for Ghana.</p>
   </div>
 </footer>
 

@@ -6,27 +6,31 @@ namespace App\Services;
 use App\Core\Config;
 use App\Core\Database as DB;
 use App\Models\Installment;
+use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Transaction;
 
 /**
  * All plan money movements live here: starting a plan, recording installment
  * payments, triggering the merchant payout, cancellations and reminders.
+ * Payments go through PaystackService; texts through SmsService.
  */
 final class PlanService
 {
-    private MoolreService $moolre;
+    private PaystackService $paystack;
+    private SmsService $sms;
 
-    public function __construct(?MoolreService $moolre = null)
+    public function __construct(?PaystackService $paystack = null, ?SmsService $sms = null)
     {
-        $this->moolre = $moolre ?? new MoolreService();
+        $this->paystack = $paystack ?? new PaystackService();
+        $this->sms = $sms ?? new SmsService();
     }
 
     /**
      * Create a plan and set up its first installment as a hosted checkout. No
      * payment, no plan: the plan stays 'pending' until the first collection is
      * confirmed. Returns [planId, ['status' => ..., 'redirect' => ?url]] — the
-     * caller redirects the browser to `redirect` (Moolre's payment page).
+     * caller redirects the browser to `redirect` (Paystack's payment page).
      */
     public function startPlan(array $user, array $product, int $installmentPesewas, string $frequency, int $count): array
     {
@@ -45,14 +49,14 @@ final class PlanService
     }
 
     /**
-     * Set up the next unpaid installment as a hosted Moolre checkout and return
-     * the payment-page URL for the browser to open. This is the WEB path (MoMo /
-     * bank / card, chosen on Moolre's page). USSD/feature phones use
+     * Set up the next unpaid installment as a hosted Paystack checkout and
+     * return the payment-page URL for the browser to open. This is the WEB path
+     * (MoMo / card / bank, chosen on Paystack's page). USSD/feature phones use
      * collectInstallment() instead (direct MoMo prompt).
      *
      * Returns ['status' => 'awaiting_payment'|'failed', 'redirect' => ?url].
      * The installment is only credited later, when the payment is confirmed via
-     * the webhook or status poll (applyCollectionSuccess) — same as before.
+     * the webhook, the callback redirect or a status poll (applyCollectionSuccess).
      */
     public function checkoutInstallment(int $planId): array
     {
@@ -62,7 +66,7 @@ final class PlanService
             return ['status' => 'failed', 'redirect' => null];
         }
 
-        $ref = sprintf('PSS-C-%d-%d-%s', $planId, $inst['number'], strtoupper(bin2hex(random_bytes(3))));
+        $ref = PaystackService::newReference('c', $planId, (int) $inst['number']);
         $txId = Transaction::create([
             'type' => 'collection',
             'amount_pesewas' => (int) $inst['amount_pesewas'],
@@ -73,8 +77,17 @@ final class PlanService
         ]);
 
         $desc = sprintf('%s — payment %d of %d', $plan['product_name'], $inst['number'], $plan['installments_total']);
-        $redirectBack = rtrim((string) Config::get('APP_URL', ''), '/') . '/plan/' . $planId;
-        $link = $this->moolre->paymentLink((int) $inst['amount_pesewas'], $ref, $desc, $redirectBack);
+        // Paystack sends the customer back here with ?reference=… appended;
+        // PlanController::show() verifies it on arrival.
+        $callback = rtrim((string) Config::get('APP_URL', ''), '/') . '/plan/' . $planId;
+        $link = $this->paystack->paymentLink(
+            $plan['customer_phone'],
+            (int) $inst['amount_pesewas'],
+            $ref,
+            $desc,
+            $callback,
+            ['plan_id' => $planId, 'installment' => (int) $inst['number']]
+        );
 
         if (!$link['ok']) {
             Transaction::setStatus($txId, 'failed', $link['external_ref'], json_encode($link['raw']));
@@ -86,9 +99,22 @@ final class PlanService
     }
 
     /**
-     * Charge the next unpaid installment on a plan.
-     * Returns 'active' | 'completed' (mock, applied instantly),
-     * 'awaiting_payment' (sandbox/live, webhook will confirm) or 'failed'.
+     * The payment page of a plan's still-open web checkout, if there is one —
+     * so "Pay" sends the customer back to the same checkout instead of opening
+     * a second charge. Null when nothing is pending or it can't be resumed.
+     */
+    public function resumableCheckout(int $planId): ?string
+    {
+        $tx = Transaction::latestPendingForPlan($planId, 'collection');
+        return $tx ? $this->paystack->checkoutUrlFor($tx) : null;
+    }
+
+    /**
+     * Charge the next unpaid installment straight to the customer's MoMo wallet
+     * (USSD path, and the admin simulate button in mock mode).
+     * Returns 'active' | 'completed' (paid instantly),
+     * 'awaiting_payment' (customer must approve the prompt; webhook confirms),
+     * 'needs_voucher' (Telecel Cash — can't finish inside USSD) or 'failed'.
      */
     public function collectInstallment(int $planId): string
     {
@@ -98,7 +124,7 @@ final class PlanService
             return 'failed';
         }
 
-        $ref = sprintf('PSS-C-%d-%d-%s', $planId, $inst['number'], strtoupper(bin2hex(random_bytes(3))));
+        $ref = PaystackService::newReference('c', $planId, (int) $inst['number']);
         $txId = Transaction::create([
             'type' => 'collection',
             'amount_pesewas' => (int) $inst['amount_pesewas'],
@@ -109,15 +135,22 @@ final class PlanService
         ]);
 
         $desc = sprintf('%s — payment %d of %d', $plan['product_name'], $inst['number'], $plan['installments_total']);
-        $res = $this->moolre->collect($plan['customer_phone'], (int) $inst['amount_pesewas'], $ref, $desc);
+        $res = $this->paystack->collect(
+            $plan['customer_phone'],
+            (int) $inst['amount_pesewas'],
+            $ref,
+            $desc,
+            ['plan_id' => $planId, 'installment' => (int) $inst['number']]
+        );
 
         if (!$res['ok']) {
             Transaction::setStatus($txId, 'failed', $res['external_ref'], json_encode($res['raw']));
-            return 'failed';
+            return $res['reason'] === 'send_otp' ? 'needs_voucher' : 'failed';
         }
 
         if ($res['instant']) {
-            // Mock mode: run the same confirmation path a webhook would trigger.
+            // Mock mode (or an instant Paystack success): run the same
+            // confirmation path a webhook would trigger.
             Transaction::setStatus($txId, 'success', $res['external_ref'], json_encode($res['raw']));
             return $this->applyCollectionSuccess($txId);
         }
@@ -127,8 +160,8 @@ final class PlanService
     }
 
     /**
-     * A collection was confirmed (webhook or mock). Idempotent: replays and
-     * double-calls cannot double-credit an installment.
+     * A collection was confirmed (webhook, poll or mock). Idempotent: replays
+     * and double-calls cannot double-credit an installment.
      * Returns the plan's resulting status.
      */
     public function applyCollectionSuccess(int $txId): string
@@ -138,9 +171,23 @@ final class PlanService
             return 'failed';
         }
 
+        // Paid into a plan that was cancelled meanwhile (an old checkout page
+        // completed late): don't credit it — send the money back.
+        $plan = Plan::find((int) $tx['plan_id']);
+        if ($plan && $plan['status'] === 'cancelled') {
+            error_log("[payments] tx #{$txId} settled on cancelled plan #{$plan['id']} — refunding");
+            $this->refundCollections($plan);
+            return 'cancelled';
+        }
+
         // markPaid only succeeds once per installment — the idempotency gate.
         if (!Installment::markPaid((int) $tx['installment_id'], $txId)) {
-            $plan = Plan::find((int) $tx['plan_id']);
+            $inst = Installment::find((int) $tx['installment_id']);
+            if ($inst && (int) $inst['transaction_id'] !== $txId) {
+                // Two different payments for one installment (e.g. web checkout
+                // and USSD at the same time). Flag it for a manual refund.
+                error_log("[payments] DOUBLE PAYMENT: tx #{$txId} paid installment #{$tx['installment_id']} already paid by tx #{$inst['transaction_id']} — refund manually");
+            }
             return $plan['status'] ?? 'failed';
         }
 
@@ -149,7 +196,7 @@ final class PlanService
 
         if ($plan['status'] === 'pending') {
             Plan::setStatus((int) $plan['id'], 'active');
-            $this->moolre->sms($plan['customer_phone'], SmsTemplates::planStarted(
+            $this->sms->send($plan['customer_phone'], SmsTemplates::planStarted(
                 $plan['product_name'],
                 ghs((int) $plan['installment_pesewas']),
                 $plan['frequency'],
@@ -158,7 +205,7 @@ final class PlanService
         } else {
             $paid = (int) $plan['installments_paid'];
             $left = ((int) $plan['installments_total'] - $paid) * (int) $plan['installment_pesewas'];
-            $this->moolre->sms($plan['customer_phone'], SmsTemplates::receipt(
+            $this->sms->send($plan['customer_phone'], SmsTemplates::receipt(
                 $plan['product_name'],
                 $paid,
                 (int) $plan['installments_total'],
@@ -177,8 +224,10 @@ final class PlanService
     }
 
     /**
-     * All installments paid: pay the merchant (minus platform fee). The plan
-     * is only marked completed when the disbursement succeeds.
+     * All installments paid: pay the merchant (minus platform fee) by Paystack
+     * transfer. The plan is only marked completed when the transfer succeeds.
+     * Safe to call again (admin "retry payout"): it won't start a second payout
+     * while one is pending or done.
      */
     public function completeAndPayout(int $planId): string
     {
@@ -186,32 +235,50 @@ final class PlanService
         if (!$plan || $plan['status'] === 'completed') {
             return 'completed';
         }
+        if ($plan['status'] !== 'active' || (int) $plan['installments_paid'] < (int) $plan['installments_total']) {
+            return (string) $plan['status'];
+        }
+        if (Transaction::openPayoutForPlan($planId)) {
+            return 'active'; // a payout is already in flight
+        }
+        $merchant = Merchant::find((int) $plan['merchant_id']);
+        if (!$merchant) {
+            return 'active';
+        }
 
         $gross = (int) $plan['installment_pesewas'] * (int) $plan['installments_total'];
         $feePct = Config::int('PLATFORM_FEE_PCT', 5);
         $payout = $gross - intdiv($gross * $feePct, 100);
 
-        $ref = sprintf('PSS-D-%d-%s', $planId, strtoupper(bin2hex(random_bytes(3))));
+        $ref = PaystackService::newReference('d', $planId);
         $txId = Transaction::create([
             'type' => 'disbursement',
             'amount_pesewas' => $payout,
-            'phone' => $plan['payout_number'] ?: $plan['merchant_phone'],
+            'phone' => $merchant['payout_number'] ?: $merchant['phone'],
             'plan_id' => $planId,
-            'merchant_id' => (int) $plan['merchant_id'],
+            'merchant_id' => (int) $merchant['id'],
             'provider_ref' => $ref,
         ]);
 
-        $res = $this->moolre->disburse(
-            $plan['payout_channel'],
-            $plan['payout_number'] ?: $plan['merchant_phone'],
+        if (($merchant['payout_number'] ?? '') === '') {
+            $merchant['payout_number'] = $merchant['phone'];
+        }
+        $res = $this->paystack->payout(
+            $merchant,
             $payout,
             $ref,
             sprintf('Payout: %s (plan #%d)', $plan['product_name'], $planId)
         );
 
+        // Remember the Paystack recipient so later payouts skip registering it.
+        if ($res['recipient_code'] !== '' && $res['recipient_code'] !== (string) ($merchant['paystack_recipient_code'] ?? '')) {
+            Merchant::setRecipientCode((int) $merchant['id'], $res['recipient_code']);
+        }
+
         if (!$res['ok']) {
             Transaction::setStatus($txId, 'failed', $res['external_ref'], json_encode($res['raw']));
-            return 'active'; // stays active; admin can retry via simulate/status tools
+            error_log("[payout] plan #{$planId} payout failed: {$res['reason']}");
+            return 'active'; // stays active; admin can retry from the plan page
         }
 
         Transaction::setStatus($txId, $res['instant'] ? 'success' : 'pending', $res['external_ref'], json_encode($res['raw']));
@@ -220,10 +287,10 @@ final class PlanService
             $this->finalizePayout($planId, $txId);
             return 'completed';
         }
-        return 'active'; // completed once the disbursement webhook lands
+        return 'active'; // completed once the transfer webhook / verify lands
     }
 
-    /** Disbursement confirmed — mark the plan done and tell both sides. */
+    /** Payout confirmed — mark the plan done and tell both sides. */
     public function finalizePayout(int $planId, int $txId): void
     {
         $plan = Plan::find($planId);
@@ -233,8 +300,8 @@ final class PlanService
         DB::run('UPDATE plans SET status = \'completed\', completed_at = NOW(), payout_transaction_id = ? WHERE id = ?', [$txId, $planId]);
 
         $tx = Transaction::find($txId);
-        $this->moolre->sms($plan['customer_phone'], SmsTemplates::planCompleteCustomer($plan['product_name'], $plan['shop_name']));
-        $this->moolre->sms($plan['merchant_phone'], SmsTemplates::planCompleteMerchant(
+        $this->sms->send($plan['customer_phone'], SmsTemplates::planCompleteCustomer($plan['product_name'], $plan['shop_name']));
+        $this->sms->send($plan['merchant_phone'], SmsTemplates::planCompleteMerchant(
             $plan['product_name'],
             ghs((int) $tx['amount_pesewas']),
             $plan['customer_name']
@@ -242,77 +309,63 @@ final class PlanService
     }
 
     /**
-     * Status-check fallback for a single pending transaction. Used by the
-     * customer "check payment" button, the admin reconcile button and the cron.
-     * Polls Moolre for the final state and applies the SAME confirmation path a
-     * webhook would. Idempotent and safe to call repeatedly.
-     * Returns 'active'|'completed'|'pending'|'failed'|'success'.
+     * Status check for a single transaction. Used by the webhook, the Paystack
+     * callback redirect, the customer "check payment" button, the admin
+     * reconcile button and the cron. Asks Paystack for the final state and
+     * applies the SAME confirmation path every time. Idempotent.
+     *
+     * $recheckFailed: also re-check a collection we already marked failed (a
+     * signed charge.success webhook for an expired checkout that was paid late).
+     *
+     * Returns 'active'|'completed'|'pending'|'failed'|'success'|'cancelled'.
      */
-    public function reconcileTransaction(array $tx): string
+    public function reconcileTransaction(array $tx, bool $recheckFailed = false): string
     {
-        if (($tx['status'] ?? '') !== 'pending') {
-            return (string) ($tx['status'] ?? 'failed');
+        $status = (string) ($tx['status'] ?? '');
+        $type = (string) ($tx['type'] ?? '');
+        $canRecheck = $recheckFailed && $status === 'failed' && $type === 'collection';
+        if ($status !== 'pending' && !$canRecheck) {
+            return $status !== '' ? $status : 'failed';
         }
 
-        $res = $this->moolre->status((string) $tx['provider_ref']);
-        error_log('[reconcile] tx=' . $tx['id'] . ' ref=' . $tx['provider_ref']
-            . ' ok=' . var_export($res['ok'] ?? false, true) . ' state=' . ($res['state'] ?? '?')
-            . ' raw=' . json_encode($res['raw'] ?? []));
-        $state = ($res['ok'] ?? false) ? ($res['state'] ?? 'pending') : 'pending';
+        $res = match ($type) {
+            'collection' => $this->paystack->verifyCollection((string) $tx['provider_ref'], (int) $tx['amount_pesewas']),
+            'disbursement' => $this->paystack->verifyTransfer((string) $tx['provider_ref']),
+            'refund' => $this->paystack->verifyRefund((string) $tx['external_ref']),
+            default => ['ok' => false, 'state' => 'pending', 'external_ref' => '', 'raw' => []],
+        };
+        $state = ($res['ok'] ?? false) ? (string) ($res['state'] ?? 'pending') : 'pending';
+        error_log('[reconcile] tx=' . $tx['id'] . ' ' . $type . ' ref=' . $tx['provider_ref'] . ' -> ' . $state);
+
+        // A checkout nobody paid for would block the plan forever. Once it's
+        // old enough, close it so the customer can start a fresh payment. (If
+        // they somehow pay the old page later, the signed webhook re-checks it.)
+        if ($state === 'pending' && $type === 'collection' && $status === 'pending' && ($res['ok'] ?? false)
+            && $this->isOlderThanHours((string) $tx['created_at'], Config::int('PAYSTACK_PENDING_EXPIRY_HOURS', 24))) {
+            $state = 'failed';
+        }
+
         $extId = (string) ($res['external_ref'] ?? '');
         $rawJson = json_encode($res['raw'] ?? []);
 
-        // Payment-link (POS) collections are NOT findable via status-by-ref
-        // (Moolre returns "not found") and carry no externalref, so match against
-        // the settled account transactions by amount — taking the first payment
-        // we haven't already credited to another plan.
-        if ($state !== 'success' && $state !== 'failed' && ($tx['type'] ?? '') === 'collection') {
-            // Look for settled payments from just before this tx was created
-            // (small buffer absorbs any server/Moolre clock skew).
-            $since = (string) ($tx['created_at'] ?? '');
-            if ($since !== '') {
-                try {
-                    $since = (new \DateTimeImmutable($since))->modify('-10 minutes')->format('Y-m-d H:i:s');
-                } catch (\Throwable $e) {
-                    // keep original
-                }
-            }
-            $candidates = $this->moolre->settledCollectionCandidates(
-                (string) $tx['provider_ref'],
-                (int) $tx['amount_pesewas'],
-                $since
-            );
-            error_log('[reconcile-list] tx=' . $tx['id'] . ' candidates=' . count($candidates));
-            foreach ($candidates as $c) {
-                if ($c['transactionid'] !== '' && !Transaction::providerTxIdUsed($c['transactionid'])) {
-                    $state = 'success';
-                    $extId = $c['transactionid'];
-                    $rawJson = json_encode($c['raw']);
-                    error_log('[reconcile-list] tx=' . $tx['id'] . ' MATCHED moolre_tx=' . $c['transactionid']
-                        . ' amount=' . $c['amount']);
-                    break;
-                }
-            }
-        }
-
         if ($state === 'success') {
             Transaction::setStatus((int) $tx['id'], 'success', $extId, $rawJson);
-            if ($tx['type'] === 'collection') {
+            if ($type === 'collection') {
                 return $this->applyCollectionSuccess((int) $tx['id']);
             }
-            if ($tx['type'] === 'disbursement' && $tx['plan_id']) {
+            if ($type === 'disbursement' && $tx['plan_id']) {
                 $this->finalizePayout((int) $tx['plan_id'], (int) $tx['id']);
                 return 'completed';
             }
             return 'success'; // refund confirmed; plan already cancelled
         }
 
-        if ($state === 'failed') {
+        if ($state === 'failed' && $status === 'pending') {
             Transaction::setStatus((int) $tx['id'], 'failed', $extId, $rawJson);
             return 'failed';
         }
 
-        return 'pending';
+        return $state === 'failed' ? 'failed' : 'pending';
     }
 
     /** Customer-facing: reconcile the latest pending collection on a plan. */
@@ -327,10 +380,9 @@ final class PlanService
     }
 
     /**
-     * What Moolre currently says about a plan's pending collection — used to show
-     * a concrete reason when a payment hasn't confirmed ("still pending",
-     * "not found yet", "failed"), instead of a vague "not confirmed".
-     * Returns null when there's no pending collection to check.
+     * What Paystack currently says about a plan's pending collection — used to
+     * show a concrete reason when a payment hasn't confirmed yet, instead of a
+     * vague "not confirmed". Null when there's no pending collection.
      */
     public function pendingPaymentDetail(int $planId): ?array
     {
@@ -338,14 +390,12 @@ final class PlanService
         if (!$tx) {
             return null;
         }
-        $res = $this->moolre->status((string) $tx['provider_ref']);
-        $data = is_array($res['raw']['data'] ?? null) ? $res['raw']['data'] : [];
+        $res = $this->paystack->verifyCollection((string) $tx['provider_ref'], (int) $tx['amount_pesewas']);
         return [
             'reachable' => (bool) ($res['ok'] ?? false),
             'state' => (string) ($res['state'] ?? 'pending'),
-            'code' => (string) ($res['raw']['code'] ?? ''),
-            'message' => (string) ($res['raw']['message'] ?? ''),
-            'txstatus' => $data['txstatus'] ?? null,
+            'paystack_status' => (string) ($res['paystack_status'] ?? ''),
+            'message' => (string) ($res['message'] ?? ''),
         ];
     }
 
@@ -365,41 +415,104 @@ final class PlanService
         return $actions;
     }
 
+    /** Re-check every pending refund on a plan (refund webhooks carry only the charge reference). */
+    public function reconcilePlanRefunds(int $planId): void
+    {
+        foreach (Transaction::forPlan($planId) as $tx) {
+            if ($tx['type'] === 'refund' && $tx['status'] === 'pending') {
+                $this->reconcileTransaction($tx);
+            }
+        }
+    }
+
     /**
-     * Cancel a plan and refund the customer minus the cancellation fee.
+     * Cancel a plan and refund the customer minus the cancellation fee. Each
+     * paid installment is refunded through Paystack back to whatever the
+     * customer paid with (MoMo wallet or card).
      */
     public function cancel(int $planId): bool
     {
+        // Claim the cancellation atomically so a double-tap can't refund twice.
+        $claimed = DB::run("UPDATE plans SET status = 'cancelled' WHERE id = ? AND status = 'active'", [$planId])->rowCount() > 0;
+        if (!$claimed) {
+            return false;
+        }
         $plan = Plan::find($planId);
-        if (!$plan || !in_array($plan['status'], ['active'], true)) {
+
+        $r = $this->refundCollections($plan);
+        if ($r['accepted'] === 0 && $r['failed'] > 0) {
+            // Nothing could be refunded (provider down?) — keep the plan as it was.
+            Plan::setStatus($planId, 'active');
             return false;
         }
 
-        $paid = (int) $plan['installments_paid'] * (int) $plan['installment_pesewas'];
-        $feePct = Config::int('CANCEL_FEE_PCT', 5);
-        $refund = $paid - intdiv($paid * $feePct, 100);
+        $this->sms->send($plan['customer_phone'], SmsTemplates::refund($plan['product_name'], ghs($r['amount'])));
+        return true;
+    }
 
-        if ($refund > 0) {
-            $ref = sprintf('PSS-R-%d-%s', $planId, strtoupper(bin2hex(random_bytes(3))));
+    /**
+     * Admin: retry any refunds on a cancelled plan that failed earlier.
+     * Returns ['accepted' => int, 'failed' => int, 'amount' => pesewas].
+     */
+    public function retryRefunds(int $planId): array
+    {
+        $plan = Plan::find($planId);
+        if (!$plan || $plan['status'] !== 'cancelled') {
+            return ['accepted' => 0, 'failed' => 0, 'amount' => 0];
+        }
+        return $this->refundCollections($plan);
+    }
+
+    /**
+     * Refund every settled collection on the plan that doesn't already have a
+     * pending/successful refund. Re-runnable: already-refunded payments are skipped.
+     */
+    private function refundCollections(array $plan): array
+    {
+        $feePct = Config::int('CANCEL_FEE_PCT', 5);
+        $out = ['accepted' => 0, 'failed' => 0, 'amount' => 0];
+
+        foreach (Transaction::forPlan((int) $plan['id']) as $c) {
+            if ($c['type'] !== 'collection' || $c['status'] !== 'success' || !$c['installment_id']
+                || Transaction::hasOpenRefund((int) $c['installment_id'])) {
+                continue;
+            }
+            $amount = (int) $c['amount_pesewas'];
+            $refund = $amount - intdiv($amount * $feePct, 100);
+            if ($refund <= 0) {
+                continue;
+            }
+
+            $ref = PaystackService::newReference('r', (int) $plan['id'], (int) $c['installment_id']);
             $txId = Transaction::create([
                 'type' => 'refund',
                 'amount_pesewas' => $refund,
                 'phone' => $plan['customer_phone'],
-                'plan_id' => $planId,
+                'plan_id' => (int) $plan['id'],
+                'installment_id' => (int) $c['installment_id'],
                 'provider_ref' => $ref,
             ]);
-            $res = $this->moolre->disburse('momo', $plan['customer_phone'], $refund, $ref,
-                sprintf('Refund: %s (plan #%d)', $plan['product_name'], $planId));
-            Transaction::setStatus($txId, $res['ok'] ? ($res['instant'] ? 'success' : 'pending') : 'failed',
-                $res['external_ref'], json_encode($res['raw']));
-            if (!$res['ok']) {
-                return false;
+            $res = $this->paystack->refund(
+                (string) $c['provider_ref'],
+                $refund,
+                sprintf('Refund: %s (plan #%d)', $plan['product_name'], $plan['id'])
+            );
+            Transaction::setStatus(
+                $txId,
+                $res['ok'] ? ($res['instant'] ? 'success' : 'pending') : 'failed',
+                $res['external_ref'],
+                json_encode($res['raw'])
+            );
+
+            if ($res['ok']) {
+                $out['accepted']++;
+                $out['amount'] += $refund;
+            } else {
+                $out['failed']++;
+                error_log("[refund] plan #{$plan['id']} tx #{$c['id']} refund failed: {$res['reason']}");
             }
         }
-
-        Plan::setStatus($planId, 'cancelled');
-        $this->moolre->sms($plan['customer_phone'], SmsTemplates::refund($plan['product_name'], ghs(max(0, $refund))));
-        return true;
+        return $out;
     }
 
     /**
@@ -417,7 +530,7 @@ final class PlanService
                 $days === 1 => 'tomorrow',
                 default => 'on ' . (new \DateTimeImmutable($i['due_date']))->format('l'),
             };
-            $this->moolre->sms(
+            $this->sms->send(
                 $i['customer_phone'],
                 SmsTemplates::paymentDueSoon($i['product_name'], ghs((int) $i['amount_pesewas']), $when)
             );
@@ -446,18 +559,30 @@ final class PlanService
                 if ($plan['grace_state'] === 'ok') {
                     $payBy = (new \DateTimeImmutable($plan['oldest_due']))
                         ->add(new \DateInterval('P' . $graceDays . 'D'))->format('l');
-                    $this->moolre->sms($plan['customer_phone'],
+                    $this->sms->send($plan['customer_phone'],
                         SmsTemplates::missedPayment(ghs((int) $plan['installment_pesewas']), $payBy));
                     DB::run("UPDATE plans SET grace_state = 'grace', grace_notified_at = NOW() WHERE id = ?", [$plan['id']]);
                     $actions[] = "Plan #{$plan['id']}: reminder sent";
                 }
             } elseif ($plan['grace_state'] !== 'flagged') {
                 DB::run("UPDATE plans SET grace_state = 'flagged' WHERE id = ?", [$plan['id']]);
-                $this->moolre->sms($plan['merchant_phone'],
+                $this->sms->send($plan['merchant_phone'],
                     SmsTemplates::planFlaggedMerchant($plan['product_name'], $plan['customer_name']));
                 $actions[] = "Plan #{$plan['id']}: flagged, merchant notified";
             }
         }
         return $actions;
+    }
+
+    private function isOlderThanHours(string $createdAt, int $hours): bool
+    {
+        if ($createdAt === '' || $hours <= 0) {
+            return false;
+        }
+        try {
+            return (new \DateTimeImmutable($createdAt)) < new \DateTimeImmutable('-' . $hours . ' hours');
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }

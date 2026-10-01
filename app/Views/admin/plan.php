@@ -42,6 +42,23 @@
         <span><?= $left === 0 ? 'Fully paid' : ghs($left) . ' left' ?></span>
       </div>
       <?= progress_bar($pct, $plan['status'] === 'completed' ? 'success' : (($plan['grace_state'] ?? 'ok') !== 'ok' ? 'warn' : 'primary')) ?>
+
+      <?php if (!empty($canRetryPayout)): ?>
+        <form method="post" action="<?= url('/admin/plan/' . (int) $plan['id'] . '/retry-payout') ?>" class="mt-3"
+              data-confirm="Send the payout for plan #<?= (int) $plan['id'] ?> again?">
+          <?= App\Core\Csrf::field() ?>
+          <p class="small muted mb-1">Fully paid, but the merchant payout hasn't gone through.</p>
+          <button class="btn btn-green btn-sm" type="submit"><?= micon('send', ['size' => 16]) ?> Retry payout</button>
+        </form>
+      <?php endif; ?>
+      <?php if (!empty($outstandingRefunds)): ?>
+        <form method="post" action="<?= url('/admin/plan/' . (int) $plan['id'] . '/retry-refunds') ?>" class="mt-3"
+              data-confirm="Retry <?= (int) $outstandingRefunds ?> refund(s) on plan #<?= (int) $plan['id'] ?>?">
+          <?= App\Core\Csrf::field() ?>
+          <p class="small muted mb-1"><?= (int) $outstandingRefunds ?> payment(s) on this cancelled plan still need refunding.</p>
+          <button class="btn btn-green btn-sm" type="submit"><?= micon('undo', ['size' => 16]) ?> Retry refunds</button>
+        </form>
+      <?php endif; ?>
     </div>
 
     <h2 class="mt-3 mb-2" style="font-size:1.15rem">Ledger</h2>
@@ -57,7 +74,15 @@
                 <td><?= (int) $t['id'] ?></td>
                 <td><?= e($t['type']) ?></td>
                 <td class="nowrap"><?= ghs((int) $t['amount_pesewas']) ?></td>
-                <td><span class="tag tag-<?= $t['status'] === 'success' ? 'completed' : ($t['status'] === 'failed' ? 'flagged' : 'grace') ?>"><?= e($t['status']) ?></span></td>
+                <td>
+                  <span class="tag tag-<?= $t['status'] === 'success' ? 'completed' : ($t['status'] === 'failed' ? 'flagged' : 'grace') ?>"><?= e($t['status']) ?></span>
+                  <?php if ($t['status'] === 'failed'):
+                    $why = json_decode((string) ($t['raw_payload'] ?? ''), true);
+                    $why = is_array($why) ? (string) ($why['data']['gateway_response'] ?? $why['message'] ?? $why['error'] ?? '') : '';
+                  ?>
+                    <?php if ($why !== ''): ?><div class="small muted"><?= e(mb_substr($why, 0, 120)) ?></div><?php endif; ?>
+                  <?php endif; ?>
+                </td>
                 <td class="mono small"><?= e($t['provider_ref']) ?><?= $t['external_ref'] !== '' ? '<br>' . e($t['external_ref']) : '' ?></td>
                 <td class="small muted nowrap"><?= e(date('j M, g:ia', strtotime((string) $t['created_at']))) ?></td>
               </tr>

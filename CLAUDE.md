@@ -8,9 +8,9 @@ PaySmallSmall is an installment/layaway platform for Ghanaian merchants and shop
 
 The core loop:
 1. A merchant lists a product (e.g., phone, GHS 1,200 cash price).
-2. A customer commits to a payment plan (e.g., GHS 100 weekly for 12 weeks) and pays the FIRST installment immediately via Moolre Collections (MoMo).
+2. A customer commits to a payment plan (e.g., GHS 100 weekly for 12 weeks) and pays the FIRST installment immediately via Paystack (MoMo or card).
 3. Money accumulates in platform escrow. Customer gets an SMS receipt after EVERY installment.
-4. When the plan completes, the merchant is paid out via Moolre Disbursements (minus platform fee) and releases the item. Both sides get SMS confirmation.
+4. When the plan completes, the merchant is paid out via Paystack Transfers (minus platform fee) and releases the item. Both sides get SMS confirmation.
 5. Feature-phone users can check plan progress and pay installments via USSD.
 
 Why this wins for Moolre: one sale becomes 13+ transactions on their rails, and it creates purchases that otherwise never happen. Escrow solves trust in both directions (merchant can't vanish with deposits; customer can't take goods unpaid).
@@ -30,14 +30,14 @@ Why this wins for Moolre: one sale becomes 13+ transactions on their rails, and 
 - MySQL master credentials on the server come from `clpctl`. App connects via `localhost` socket unless there's a reason for `127.0.0.1`.
 - Write a short `DEPLOY.md` as part of the project with the exact CloudPanel steps.
 
-## Moolre integration
+## Payments (Paystack) and SMS (Moolre) integration
 
-Moolre provides: **Collections** (accept MoMo/bank payments), **Disbursements** (send payouts), **USSD**, and **SMS**. API docs are at docs.moolre.com — check them for exact endpoints, auth headers, and webhook formats before wiring anything. Do NOT invent endpoint URLs from memory.
+Payments moved from Moolre to **Paystack** (2026-10-01): hosted checkout + MoMo charge for collections, Transfers for merchant payouts, Refunds for cancellations. API docs are at paystack.com/docs/api — check them for exact endpoints, fields and webhook formats before wiring anything. Do NOT invent endpoint URLs from memory. Paystack has no SMS product, so **SMS stays on Moolre** (docs.moolre.com).
 
 Architecture requirements:
-- One `MoolreService` class wrapping all API calls (collect, disburse, sms, status-check). Nothing else in the codebase talks to Moolre directly.
+- One `PaystackService` class wrapping all payment API calls (checkout, MoMo charge, payout, refund, verify). Nothing else in the codebase talks to Paystack directly. One `SmsService` class for SMS; nothing else talks to the SMS API.
 - **A `PAYMENTS_MODE=sandbox|live|mock` switch.** In `mock` mode, payment calls succeed instantly against a local simulator table so the full product can be demoed end-to-end even without live API credentials. Build mock mode FIRST so the demo is never blocked.
-- Webhook endpoint for payment confirmations, with signature/reference verification and idempotency (a webhook replay must not double-credit an installment).
+- Webhook endpoint (`/webhook/paystack`) for payment confirmations, with signature (`x-paystack-signature`, HMAC-SHA512) + API re-verification and idempotency (a webhook replay must not double-credit an installment).
 - Every money movement writes to a `transactions` ledger table (type: collection | disbursement | refund; status; provider reference; raw payload). The ledger is append-only.
 - USSD: build the menu handler as a webhook endpoint that takes session state + user input and returns menu text (standard USSD gateway pattern). Menu: 1. My plans → progress + amount left. 2. Pay installment. 3. Help. Keep every screen under 160 chars.
 

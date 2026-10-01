@@ -126,6 +126,7 @@ final class UssdMenu
             'completed' => ['That was your LAST payment - the item is fully yours! SMS receipt is coming.', false],
             'active' => ['Payment received! SMS receipt is coming. Medaase.', false],
             'awaiting_payment' => ['Approve the MoMo prompt on your phone to finish. PaySmallSmall', false],
+            'needs_voucher' => ['Telecel Cash needs a voucher, so pay this one on paysmallsmall.com. Nothing was charged.', false],
             default => ["Payment didn't go through. Check your MoMo balance and try again.", false],
         };
     }

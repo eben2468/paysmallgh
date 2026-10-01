@@ -10,7 +10,7 @@ use App\Models\Installment;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
-use App\Services\MoolreService;
+use App\Services\PaystackService;
 use App\Services\PlanService;
 
 final class PlanController extends Controller
@@ -86,9 +86,9 @@ final class PlanController extends Controller
             flash('error', 'Couldn\'t open the payment page, so no plan was started.' . $reason);
             redirect('/product/' . $product['id']);
         }
-        // Send the customer to the payment page (Moolre hosted URL, or the local
-        // mock checkout). Absolute URLs go out as-is; relative ones resolve
-        // against the current host.
+        // Send the customer to the payment page (Paystack hosted checkout, or
+        // the local mock checkout). Absolute URLs go out as-is; relative ones
+        // resolve against the current host.
         if (!empty($result['redirect'])) {
             $this->goToCheckout($result['redirect']);
         }
@@ -98,7 +98,7 @@ final class PlanController extends Controller
     }
 
     /**
-     * Redirect to a checkout URL. An absolute Moolre URL (https://pos.moolre…)
+     * Redirect to a checkout URL. An absolute Paystack URL (https://checkout.paystack.com/…)
      * goes out as-is; a relative mock path resolves against the current host so
      * it works on any port/base the app is served from.
      */
@@ -129,11 +129,26 @@ final class PlanController extends Controller
             $this->render('errors/404', ['title' => 'Plan not found']);
             return;
         }
+
+        // Back from Paystack checkout (?trxref=…&reference=…): verify that
+        // payment right now so the customer sees the result immediately. Only
+        // references belonging to this plan are looked at.
+        $ref = (string) ($_GET['reference'] ?? $_GET['trxref'] ?? '');
+        if ($ref !== '') {
+            $tx = Transaction::findByRef($ref);
+            if ($tx && (int) $tx['plan_id'] === (int) $plan['id'] && $tx['type'] === 'collection') {
+                $result = (new PlanService())->reconcileTransaction($tx);
+                $this->flashPaymentResult($result);
+            }
+            redirect('/plan/' . $plan['id']);
+        }
+
         $this->render('plans/show', [
             'title' => $plan['product_name'] . ' plan — PaySmallSmall',
             'plan' => $plan,
             'installments' => Installment::forPlan((int) $plan['id']),
             'pendingTx' => Transaction::latestPendingForPlan((int) $plan['id'], 'collection'),
+            'canResumeCheckout' => (new PlanService())->resumableCheckout((int) $plan['id']) !== null,
         ]);
     }
 
@@ -148,13 +163,19 @@ final class PlanController extends Controller
             redirect('/plans');
         }
 
-        // Don't fire a second charge while one is still awaiting confirmation.
+        $svc = new PlanService();
+
+        // Don't fire a second charge while one is still open. If it's a web
+        // checkout, send them back to that same payment page to finish it.
         if (Transaction::latestPendingForPlan((int) $plan['id'], 'collection')) {
-            flash('error', 'A payment on this plan is still being confirmed. Give it a moment, then check its status.');
+            $resume = $svc->resumableCheckout((int) $plan['id']);
+            if ($resume !== null) {
+                $this->goToCheckout($resume);
+            }
+            flash('error', 'A payment on this plan is still being confirmed. Approve the MoMo prompt on your phone, then check its status.');
             redirect('/plan/' . $plan['id']);
         }
 
-        $svc = new PlanService();
         $result = $svc->checkoutInstallment((int) $plan['id']);
 
         if ($result['status'] === 'failed') {
@@ -162,8 +183,8 @@ final class PlanController extends Controller
             flash('error', 'Couldn\'t open the payment page.' . $reason);
             redirect('/plan/' . $plan['id']);
         }
-        // Send the customer to the payment page (Moolre hosted URL, or the local
-        // mock checkout).
+        // Send the customer to the payment page (Paystack hosted checkout, or
+        // the local mock checkout).
         if (!empty($result['redirect'])) {
             $this->goToCheckout($result['redirect']);
         }
@@ -173,7 +194,7 @@ final class PlanController extends Controller
 
     /**
      * A concrete, human explanation of why a payment hasn't confirmed yet, pulled
-     * live from Moolre — so "Not confirmed yet" isn't a dead end.
+     * live from Paystack — so "Not confirmed yet" isn't a dead end.
      */
     private function pendingReason(PlanService $svc, int $planId): string
     {
@@ -183,6 +204,9 @@ final class PlanController extends Controller
         }
         if (!$d['reachable']) {
             return ' We couldn\'t reach the payment provider — try again shortly.';
+        }
+        if ($d['paystack_status'] === 'abandoned' || $d['paystack_status'] === '') {
+            return ' You haven\'t finished on the payment page yet. Tap Pay to go back to it.';
         }
         $msg = $d['message'] !== '' ? $d['message'] : 'still processing';
         return ' Payment provider says: "' . $msg . '". If you completed payment, give it a minute and check again.';
@@ -201,22 +225,32 @@ final class PlanController extends Controller
         $svc = new PlanService();
         $result = $svc->checkPlanPayment((int) $plan['id']);
 
+        if ($result === 'pending') {
+            flash('error', 'Not confirmed yet.' . $this->pendingReason($svc, (int) $plan['id']));
+        } else {
+            $this->flashPaymentResult($result);
+        }
+        redirect('/plan/' . $plan['id']);
+    }
+
+    /** Customer-facing message for the outcome of a payment check. */
+    private function flashPaymentResult(string $result): void
+    {
         match ($result) {
             'completed' => flash('success', 'Payment confirmed — that was the last one! The item is fully yours. Check your SMS.'),
             'active' => flash('success', 'Payment confirmed — your plan is up to date. Check your SMS receipt.'),
-            'pending' => flash('error', 'Not confirmed yet.' . $this->pendingReason($svc, (int) $plan['id'])),
+            'pending' => flash('error', 'Your payment is still processing. We\'ll confirm it here the moment it clears.'),
             'failed' => flash('error', 'That payment didn\'t go through. You can try paying again.'),
             default => flash('error', 'Nothing to confirm on this plan right now.'),
         };
         if (in_array($result, ['active', 'completed'], true)) {
             flash('stamped', '1'); // fire the PAID stamp on the receipt
         }
-        redirect('/plan/' . $plan['id']);
     }
 
     /**
      * Background poll for the plan page (JSON). Reconciles the latest pending
-     * collection against Moolre and reports where the plan stands, so the UI can
+     * collection against Paystack and reports where the plan stands, so the UI can
      * confirm a payment the moment it clears without the customer tapping "I've
      * paid". Idempotent — same reconcile path as check(), safe to call on a timer.
      */
@@ -249,13 +283,13 @@ final class PlanController extends Controller
     }
 
     /**
-     * Local stand-in for Moolre's hosted payment page — mock mode only. Lets the
+     * Local stand-in for Paystack's hosted checkout — mock mode only. Lets the
      * full redirect checkout be demoed end-to-end without spending money.
      */
     public function mockCheckout(): void
     {
         $user = $this->requireUser();
-        if (!(new MoolreService())->isMock()) {
+        if (!(new PaystackService())->isMock()) {
             redirect('/plans');
         }
         $ref = (string) ($_GET['ref'] ?? '');
@@ -278,7 +312,7 @@ final class PlanController extends Controller
     {
         $user = $this->requireUser();
         Csrf::check();
-        if (!(new MoolreService())->isMock()) {
+        if (!(new PaystackService())->isMock()) {
             redirect('/plans');
         }
         $ref = (string) ($_POST['ref'] ?? '');
@@ -311,7 +345,7 @@ final class PlanController extends Controller
 
         $svc = new PlanService();
         if ($svc->cancel((int) $plan['id'])) {
-            flash('success', 'Plan cancelled. Your refund is on its way to your MoMo.');
+            flash('success', 'Plan cancelled. Your refund is on its way back to the MoMo wallet or card you paid with.');
         } else {
             flash('error', 'This plan can\'t be cancelled right now.');
         }

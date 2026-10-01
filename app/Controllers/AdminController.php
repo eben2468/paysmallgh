@@ -11,8 +11,9 @@ use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\SmsLog;
 use App\Models\Transaction;
-use App\Services\MoolreService;
+use App\Services\PaystackService;
 use App\Services\PlanService;
+use App\Services\SmsService;
 use App\Services\SmsTemplates;
 
 final class AdminController extends Controller
@@ -39,16 +40,23 @@ final class AdminController extends Controller
     public function dashboard(): void
     {
         $this->requireAdmin();
-        $moolre = new MoolreService();
+        $paystack = new PaystackService();
+        $sms = new SmsService();
+        $secret = (string) Config::get('PAYSTACK_SECRET_KEY', '');
         $this->render('admin/dashboard', [
             'title' => 'Admin — PaySmallSmall',
             'merchants' => Merchant::all(),
-            'mode' => $moolre->mode(),
+            'mode' => $paystack->mode(),
+            'paystack' => [
+                'has_key' => $paystack->hasKeys(),
+                'key_kind' => str_starts_with($secret, 'sk_live_') ? 'live' : (str_starts_with($secret, 'sk_test_') ? 'test' : 'unknown'),
+                'webhook' => rtrim((string) Config::get('APP_URL', ''), '/') . '/webhook/paystack',
+            ],
             'sms' => [
-                'live' => $moolre->smsIsLive(),
-                'sender' => $moolre->smsSender(),
-                'has_key' => Config::get('MOOLRE_VAS_KEY', '') !== '',
-                'endpoint' => rtrim(Config::get('MOOLRE_BASE_URL', ''), '/') . Config::get('MOOLRE_PATH_SMS', '/open/sms/send'),
+                'live' => $sms->isLive(),
+                'sender' => $sms->sender(),
+                'has_key' => $sms->hasKey(),
+                'endpoint' => $sms->endpoint(),
             ],
         ]);
     }
@@ -75,7 +83,7 @@ final class AdminController extends Controller
             $message = mb_substr($message, 0, 160);
         }
 
-        $ok = (new MoolreService())->sms($phone, $message, forceLive: true);
+        $ok = (new SmsService())->send($phone, $message, forceLive: true);
         flash(
             $ok ? 'success' : 'error',
             $ok
@@ -92,7 +100,7 @@ final class AdminController extends Controller
         $merchant = Merchant::find((int) $id);
         if ($merchant && $merchant['status'] === 'pending') {
             Merchant::approve((int) $id);
-            (new MoolreService())->sms($merchant['phone'], SmsTemplates::merchantApproved($merchant['shop_name']));
+            (new SmsService())->send($merchant['phone'], SmsTemplates::merchantApproved($merchant['shop_name']));
             flash('success', $merchant['shop_name'] . ' approved.');
         }
         redirect('/admin');
@@ -223,12 +231,12 @@ final class AdminController extends Controller
         ]);
     }
 
-    /** Poll Moolre for delivery status of pending SMS and update the log. */
+    /** Poll the SMS provider (Moolre) for delivery status of pending SMS and update the log. */
     public function pollSms(): void
     {
         $this->requireAdmin();
         Csrf::check();
-        $s = (new MoolreService())->refreshSmsDelivery(100);
+        $s = (new SmsService())->refreshDelivery(100);
         if ($s['checked'] === 0 && $s['pending'] === 0) {
             flash('success', 'No SMS awaiting a delivery update.');
         } else {
@@ -243,7 +251,7 @@ final class AdminController extends Controller
         $this->render('admin/plans', [
             'title' => 'All plans — Admin',
             'plans' => Plan::all(),
-            'mode' => (new MoolreService())->mode(),
+            'mode' => (new PaystackService())->mode(),
             'pending' => Transaction::pendingCount(),
         ]);
     }
@@ -262,6 +270,10 @@ final class AdminController extends Controller
             'plan' => $plan,
             'installments' => \App\Models\Installment::forPlan((int) $id),
             'transactions' => Transaction::forPlan((int) $id),
+            'outstandingRefunds' => $plan['status'] === 'cancelled' ? Transaction::outstandingRefundCount((int) $id) : 0,
+            'canRetryPayout' => $plan['status'] === 'active'
+                && (int) $plan['installments_paid'] >= (int) $plan['installments_total']
+                && !Transaction::openPayoutForPlan((int) $id),
         ]);
     }
 
@@ -283,7 +295,7 @@ final class AdminController extends Controller
     {
         $this->requireAdmin();
         Csrf::check();
-        if ((new MoolreService())->mode() !== 'mock') {
+        if (!(new PaystackService())->isMock()) {
             flash('error', 'Simulate is only available in mock mode.');
             redirect('/admin/plans');
         }
@@ -313,5 +325,40 @@ final class AdminController extends Controller
         $actions = (new PlanService())->reconcilePending(0);
         flash('success', $actions ? implode(' · ', $actions) : 'No pending payments needed settling.');
         redirect('/admin/plans');
+    }
+
+    /**
+     * Retry a merchant payout that failed (e.g. Paystack balance too low, or a
+     * wrong payout account the merchant has since fixed). Won't start a second
+     * payout while one is pending or done.
+     */
+    public function retryPayout(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $result = (new PlanService())->completeAndPayout((int) $id);
+        $hasOpen = Transaction::openPayoutForPlan((int) $id);
+        flash(
+            $hasOpen ? 'success' : 'error',
+            match (true) {
+                $result === 'completed' => "Plan #{$id}: payout sent — plan completed.",
+                $hasOpen => "Plan #{$id}: payout accepted by Paystack, waiting for confirmation.",
+                default => "Plan #{$id}: payout failed again. Check the ledger row for Paystack's reason.",
+            }
+        );
+        redirect('/admin/plan/' . (int) $id);
+    }
+
+    /** Retry refunds on a cancelled plan that failed the first time. */
+    public function retryRefunds(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $r = (new PlanService())->retryRefunds((int) $id);
+        flash(
+            $r['failed'] === 0 ? 'success' : 'error',
+            "Plan #{$id}: {$r['accepted']} refund(s) accepted (" . ghs($r['amount']) . "), {$r['failed']} failed."
+        );
+        redirect('/admin/plan/' . (int) $id);
     }
 }

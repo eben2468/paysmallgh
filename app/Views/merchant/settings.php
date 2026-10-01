@@ -29,17 +29,7 @@
         <label for="location">Where's the shop?</label>
         <input id="location" name="location" type="text" maxlength="160" value="<?= e($merchant['location']) ?>" placeholder="e.g. Circle, near the overhead">
       </div>
-      <div class="field">
-        <label for="payout_channel">How should we pay you?</label>
-        <select id="payout_channel" name="payout_channel">
-          <option value="momo" <?= $merchant['payout_channel'] === 'momo' ? 'selected' : '' ?>>Mobile Money</option>
-          <option value="bank" <?= $merchant['payout_channel'] === 'bank' ? 'selected' : '' ?>>Bank account</option>
-        </select>
-      </div>
-      <div class="field">
-        <label for="payout_number">Payout number (MoMo or account no.)</label>
-        <input id="payout_number" name="payout_number" type="text" value="<?= e($merchant['payout_number']) ?>" placeholder="Leave empty to use business phone">
-      </div>
+      <?= (new App\Core\View())->partial('partials/payout-fields', ['m' => $merchant, 'banks' => $banks]) ?>
       <button class="btn btn-primary btn-block btn-lg" type="submit">Save changes</button>
     </form>
   </div>

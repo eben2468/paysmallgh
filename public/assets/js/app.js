@@ -211,7 +211,7 @@
 
   // ---- Auto-confirm a pending MoMo payment.
   // While an installment is awaiting the customer's approval, poll the plan's
-  // status endpoint (which reconciles against Moolre server-side). The moment it
+  // status endpoint (which verifies with Paystack server-side). The moment it
   // clears, reload so the receipt shows the PAID stamp — no manual tap needed.
   // Backs off after a couple of minutes; the "I've paid" button stays as a
   // fallback the whole time.

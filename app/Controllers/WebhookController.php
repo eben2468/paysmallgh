@@ -5,55 +5,69 @@ namespace App\Controllers;
 
 use App\Core\Controller;
 use App\Models\Transaction;
-use App\Services\MoolreService;
+use App\Services\PaystackService;
 use App\Services\PlanService;
 use App\Services\UssdMenu;
 
 final class WebhookController extends Controller
 {
     /**
-     * Moolre payment confirmation callback.
-     * Verified two ways: the shared webhook secret must match, AND the
-     * reference must belong to a transaction we created. Idempotent — replays
-     * cannot double-credit (guarded in PlanService via installments.paid_at).
+     * Paystack event webhook.
+     *
+     * Trust model: the x-paystack-signature header must be the HMAC-SHA512 of
+     * the raw body under our secret key, or the event is ignored. Even then the
+     * payload never credits money by itself — we look up the reference in our
+     * own ledger and re-verify it against Paystack's API (reconcileTransaction),
+     * which also checks amount and currency. Idempotent: replays can't
+     * double-credit (guarded via installments.paid_at + transaction status).
+     *
+     * Events handled: charge.success, transfer.success|failed|reversed,
+     * refund.processed|failed. Everything else is acknowledged and ignored.
      */
-    public function moolre(): void
+    public function paystack(): void
     {
         $raw = file_get_contents('php://input') ?: '';
-        $payload = json_decode($raw, true) ?: $_POST;
-        $headers = array_change_key_case(getallheaders() ?: [], CASE_LOWER);
+        $signature = (string) ($_SERVER['HTTP_X_PAYSTACK_SIGNATURE'] ?? '');
 
-        // Log every callback so what Moolre actually sends is recoverable from
-        // CloudPanel -> Logs.
-        error_log('[Moolre webhook] body=' . $raw . ' headers=' . json_encode($headers));
-
-        // Try to identify the specific transaction from the callback. Payment-link
-        // callbacks echo our reference inside `metadata`; direct debits use
-        // externalref/reference.
-        $data = is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
-        $meta = is_array($data['metadata'] ?? null) ? $data['metadata']
-            : (is_array($payload['metadata'] ?? null) ? $payload['metadata'] : []);
-        $ref = (string) (
-            $data['externalref'] ?? $payload['externalref']
-            ?? $meta['ref'] ?? $data['reference'] ?? $payload['reference'] ?? ''
-        );
-
-        // We never trust the payload to credit money. Instead we reconcile against
-        // Moolre's own transaction list/status API — so a genuine callback (or even
-        // a spoofed one) only ever confirms payments that actually settled.
-        $svc = new PlanService();
-        $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
-        if ($tx) {
-            $result = $svc->reconcileTransaction($tx);
-            error_log('[Moolre webhook] reconciled ref=' . $ref . ' -> ' . $result);
-        } else {
-            // No usable reference in the callback: sweep every pending collection
-            // and match each against the settled account transactions.
-            $actions = $svc->reconcilePending(0);
-            error_log('[Moolre webhook] no ref; swept pending -> ' . json_encode($actions));
+        if (!(new PaystackService())->verifySignature($raw, $signature)) {
+            error_log('[Paystack webhook] rejected: bad or missing signature');
+            $this->json(['ok' => false], 401);
         }
 
-        $this->json(['status' => 1, 'message' => 'ok']);
+        $payload = json_decode($raw, true);
+        $event = is_array($payload) ? (string) ($payload['event'] ?? '') : '';
+        $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+        error_log('[Paystack webhook] event=' . $event . ' ref=' . (string) ($data['reference'] ?? $data['transaction_reference'] ?? ''));
+
+        $svc = new PlanService();
+        try {
+            if ($event === 'charge.success' || str_starts_with($event, 'transfer.')) {
+                $ref = (string) ($data['reference'] ?? '');
+                $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
+                if ($tx) {
+                    // charge.success may be a late payment on a checkout we had
+                    // already expired — let the API re-check it.
+                    $result = $svc->reconcileTransaction($tx, recheckFailed: $event === 'charge.success');
+                    if ($event === 'transfer.reversed' && $tx['status'] === 'success') {
+                        error_log('[Paystack webhook] PAYOUT REVERSED after success: tx #' . $tx['id'] . ' — follow up manually');
+                    }
+                    error_log('[Paystack webhook] ' . $event . ' tx #' . $tx['id'] . ' -> ' . $result);
+                }
+            } elseif (str_starts_with($event, 'refund.')) {
+                // Refund events carry the ORIGINAL charge's reference.
+                $ref = (string) ($data['transaction_reference'] ?? '');
+                $charge = $ref !== '' ? Transaction::findByRef($ref) : null;
+                if ($charge && $charge['plan_id']) {
+                    $svc->reconcilePlanRefunds((int) $charge['plan_id']);
+                }
+            }
+        } catch (\Throwable $e) {
+            // Still answer 200 so Paystack doesn't hammer us; the reconcile cron
+            // will settle the transaction.
+            error_log('[Paystack webhook] error: ' . $e->getMessage());
+        }
+
+        $this->json(['ok' => true]);
     }
 
     /**

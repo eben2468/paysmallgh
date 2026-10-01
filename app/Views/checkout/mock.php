@@ -7,7 +7,7 @@
     <h1 class="receipt-title" style="font-size:1.6rem">Pay <?= ghs((int) $tx['amount_pesewas']) ?></h1>
     <p class="receipt-sub"><?= e($plan['product_name']) ?> &middot; <?= e($plan['shop_name']) ?></p>
 
-    <p class="small muted mt-2">This is a stand-in for Moolre's payment page so you can test the full flow without moving real money. In live mode the customer lands on Moolre's own hosted page here.</p>
+    <p class="small muted mt-2">This is a stand-in for Paystack's checkout so you can test the full flow without moving real money. In live mode the customer lands on Paystack's own hosted page here.</p>
 
     <div class="pay-methods mt-3" role="tablist" aria-label="Payment method">
       <button type="button" class="pay-method is-active" data-method="momo"><?= micon('smartphone', ['size' => 18]) ?> Mobile money</button>

@@ -11,6 +11,31 @@
     <a class="btn btn-sm" href="<?= url('/admin/ledger') ?>">Ledger &amp; SMS</a>
   </div>
 
+  <!-- Payments integration -->
+  <div class="card mb-3" style="max-width:760px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+      <div>
+        <h2 style="font-size:1.2rem;color:var(--primary)"><?= micon('payments', ['size' => 20, 'fill' => true]) ?> Payments (Paystack)</h2>
+        <p class="muted small mt-1">Collections, merchant payouts and refunds.</p>
+      </div>
+      <div style="text-align:right">
+        <?php if ($mode === 'mock'): ?>
+          <span class="tag tag-pending"><?= micon('schedule', ['size' => 14]) ?> Mock (no real money)</span>
+        <?php elseif (!$paystack['has_key']): ?>
+          <span class="tag tag-flagged"><?= micon('warning', ['size' => 14]) ?> No secret key</span>
+        <?php elseif ($mode === 'live' && $paystack['key_kind'] !== 'live'): ?>
+          <span class="tag tag-flagged"><?= micon('warning', ['size' => 14]) ?> Live mode, non-live key</span>
+        <?php else: ?>
+          <span class="tag tag-active"><?= micon('check_circle', ['size' => 14, 'fill' => true]) ?> <?= e(ucfirst($mode)) ?></span>
+        <?php endif; ?>
+      </div>
+    </div>
+    <div class="stack-gap mt-2" style="gap:.4rem">
+      <div class="pay-item"><span class="muted small">Secret key</span><span class="mono"><?= $paystack['has_key'] ? e($paystack['key_kind']) . ' key configured' : 'missing' ?></span></div>
+      <div class="pay-item"><span class="muted small">Webhook URL (set in Paystack &rarr; Settings &rarr; API Keys &amp; Webhooks)</span><span class="mono"><?= e($paystack['webhook']) ?></span></div>
+    </div>
+  </div>
+
   <!-- SMS integration -->
   <div class="card mb-3" style="max-width:760px">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
@@ -37,7 +62,7 @@
     <div class="perf"></div>
 
     <h3 style="font-size:1rem" class="mb-1">Send a test SMS</h3>
-    <p class="field-hint mb-2">Hits the real Moolre API right now (even in mock mode) so you can confirm delivery. Use your own number.</p>
+    <p class="field-hint mb-2">Hits the real Moolre SMS API right now (even in mock mode) so you can confirm delivery. Use your own number.</p>
     <form method="post" action="<?= url('/admin/test-sms') ?>">
       <?= Csrf::field() ?>
       <div class="field">
@@ -72,7 +97,7 @@
                 <div class="small muted">no card uploaded</div>
               <?php endif; ?>
             </td>
-            <td><?= e($m['payout_channel']) ?> &middot; <?= e(pretty_phone($m['payout_number'])) ?></td>
+            <td><?= e($m['payout_channel']) ?><?= ($m['payout_bank_code'] ?? '') !== '' ? ' (' . e($m['payout_bank_code']) . ')' : '' ?> &middot; <?= e(pretty_phone($m['payout_number'])) ?></td>
             <td><span class="tag tag-<?= $m['status'] === 'approved' ? 'completed' : ($m['status'] === 'pending' ? 'pending' : 'cancelled') ?>"><?= e($m['status']) ?></span></td>
             <td>
               <?php if ($m['verified']): ?>

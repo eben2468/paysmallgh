@@ -43,17 +43,7 @@
           <label for="location">Where's the shop?</label>
           <input id="location" name="location" type="text" maxlength="160" placeholder="e.g. Circle, near the overhead">
         </div>
-        <div class="field">
-          <label for="payout_channel">How should we pay you?</label>
-          <select id="payout_channel" name="payout_channel">
-            <option value="momo">Mobile Money</option>
-            <option value="bank">Bank account</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="payout_number">Payout number (MoMo or account no.)</label>
-          <input id="payout_number" name="payout_number" type="text" placeholder="Leave empty to use business phone">
-        </div>
+        <?= (new App\Core\View())->partial('partials/payout-fields', ['m' => [], 'banks' => $banks]) ?>
         <div class="field">
           <label for="password">Password (8+ characters)</label>
           <input id="password" name="password" type="password" required minlength="8" autocomplete="new-password">

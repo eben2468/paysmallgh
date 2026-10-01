@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * Reconcile pending payments — the status-check fallback for missed webhooks.
- * Polls Moolre for every pending transaction and applies the result (crediting
+ * Verifies every pending transaction with Paystack and applies the result (crediting
  * installments, paying out merchants, sending SMS) exactly as a webhook would.
  *
  * Run every couple of minutes from cron:

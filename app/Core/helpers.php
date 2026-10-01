@@ -36,7 +36,7 @@ function redirect(string $path): never
 }
 
 /**
- * Redirect to an absolute external URL (e.g. Moolre's hosted payment page) and
+ * Redirect to an absolute external URL (e.g. Paystack's hosted checkout) and
  * stop. Unlike redirect(), the URL is used as-is — no app base is prepended.
  */
 function redirect_external(string $absoluteUrl): never
@@ -68,6 +68,32 @@ function normalize_phone(string $raw): ?string
         return $digits;
     }
     return null;
+}
+
+/** 233244000000 -> 0244000000 (the local format Paystack's MoMo endpoints take). */
+function local_phone(string $phone): string
+{
+    return preg_match('/^233(\d{9})$/', $phone, $m) ? '0' . $m[1] : $phone;
+}
+
+/**
+ * Paystack mobile-money network code for a Ghana number, from its prefix:
+ * MTN, VOD (Telecel) or ATL (AirtelTigo). Null if the prefix is unknown.
+ * Ported numbers keep their old prefix, so merchants pick their network
+ * explicitly on the payout form; this is the default/fallback.
+ */
+function momo_network(string $phone): ?string
+{
+    $normalized = normalize_phone($phone);
+    if ($normalized === null) {
+        return null;
+    }
+    return match (substr($normalized, 3, 2)) {
+        '24', '25', '53', '54', '55', '59' => 'MTN',
+        '20', '50' => 'VOD',
+        '26', '27', '56', '57' => 'ATL',
+        default => null,
+    };
 }
 
 /** Show 233244000000 as 024 400 0000 for display. */

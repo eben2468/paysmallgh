@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS merchants (
   password_hash VARCHAR(255) NOT NULL,
   payout_channel ENUM('momo','bank') NOT NULL DEFAULT 'momo',
   payout_number VARCHAR(30) NOT NULL DEFAULT '',
+  -- Paystack payout target: MoMo network (MTN | VOD | ATL) or GhIPSS bank code.
+  payout_bank_code VARCHAR(20) NOT NULL DEFAULT '',
+  -- Cached Paystack transfer recipient (RCP_...); cleared when payout details change.
+  paystack_recipient_code VARCHAR(40) NOT NULL DEFAULT '',
   status ENUM('pending','approved','suspended') NOT NULL DEFAULT 'pending',
   -- KYC: Ghana Card number + uploaded card image (stored outside the webroot).
   id_number VARCHAR(32) NOT NULL DEFAULT '',
@@ -118,8 +122,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   plan_id INT UNSIGNED DEFAULT NULL,
   installment_id INT UNSIGNED DEFAULT NULL,
   merchant_id INT UNSIGNED DEFAULT NULL,
-  provider_ref VARCHAR(64) NOT NULL,       -- our unique reference sent to Moolre
-  external_ref VARCHAR(64) NOT NULL DEFAULT '',  -- Moolre's transaction id
+  provider_ref VARCHAR(64) NOT NULL,       -- our unique reference sent to Paystack
+  external_ref VARCHAR(64) NOT NULL DEFAULT '',  -- Paystack id: access code / transaction id / transfer code / refund id
   raw_payload TEXT,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT NULL,

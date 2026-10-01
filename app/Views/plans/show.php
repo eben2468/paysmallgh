@@ -52,6 +52,12 @@
           <?= Csrf::field() ?>
           <button class="btn btn-green" type="submit"><?= micon('refresh', ['size' => 18]) ?> I've paid — check now</button>
         </form>
+        <?php if (!empty($canResumeCheckout)): ?>
+          <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-1">
+            <?= Csrf::field() ?>
+            <button class="btn btn-quiet btn-sm" type="submit"><?= micon('open_in_new', ['size' => 16]) ?> Closed the payment page? Open it again</button>
+          </form>
+        <?php endif; ?>
       </div>
     <?php elseif ($plan['status'] === 'active'): ?>
       <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-3">

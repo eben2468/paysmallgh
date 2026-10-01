@@ -20,7 +20,7 @@ spl_autoload_register(function (string $class): void {
 require BASE_PATH . '/app/Core/helpers.php';
 
 use App\Core\Config;
-use App\Services\MoolreService;
+use App\Services\SmsService;
 use App\Services\PlanService;
 
 Config::load(BASE_PATH . '/.env');
@@ -29,5 +29,5 @@ $actions = (new PlanService())->runReminders();
 echo date('c') . ' reminder sweep: ' . (count($actions) ? implode('; ', $actions) : 'nothing due') . "\n";
 
 // Update delivery status of any SMS still awaiting confirmation.
-$sms = (new MoolreService())->refreshSmsDelivery(200);
+$sms = (new SmsService())->refreshDelivery(200);
 echo date('c') . " sms delivery poll: {$sms['delivered']} delivered, {$sms['failed']} failed, {$sms['pending']} pending\n";

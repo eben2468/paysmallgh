@@ -29,6 +29,7 @@ use App\Models\Installment;
 use App\Models\Merchant;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\PlanService;
 
@@ -55,6 +56,7 @@ $kofi = Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233244111222',
+    'payout_bank_code' => 'MTN',
     'id_number' => 'GHA-123456789-1',
     'business_reg' => 'BN-2019-0451',
 ]);
@@ -66,6 +68,7 @@ $adjoa = Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233209333444',
+    'payout_bank_code' => 'VOD',
     'id_number' => 'GHA-234567891-2',
 ]);
 $efua = Merchant::create([
@@ -76,6 +79,7 @@ $efua = Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233551555666',
+    'payout_bank_code' => 'MTN',
     'id_number' => 'GHA-345678912-3',
 ]);
 Merchant::approve($kofi);
@@ -95,6 +99,7 @@ Merchant::create([
     'password' => 'demo1234',
     'payout_channel' => 'momo',
     'payout_number' => '233277888999',
+    'payout_bank_code' => 'ATL',
     'id_number' => 'GHA-456789123-4',
 ]);
 
@@ -148,6 +153,13 @@ function seedPlan(PlanService $svc, int $customerId, int $productId, int $count,
     $product = Product::find($productId);
     $installment = (int) ceil($product['cash_price_pesewas'] / $count);
     [$planId] = $svc->startPlan($user, $product, $installment, $freq, $count);
+    // First payment: settle the opening checkout exactly like the mock checkout
+    // page does, so no stale "pending" checkout is left behind.
+    $checkout = Transaction::latestPendingForPlan($planId, 'collection');
+    if ($payments >= 1 && $checkout) {
+        Transaction::setStatus((int) $checkout['id'], 'success', 'MOCK-SEED-' . $planId, json_encode(['mode' => 'mock']));
+        $svc->applyCollectionSuccess((int) $checkout['id']);
+    }
     for ($i = 1; $i < $payments; $i++) {
         $svc->collectInstallment($planId);
     }

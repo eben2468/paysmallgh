@@ -48,6 +48,13 @@ Load the schema (the schema file also contains the CREATE DATABASE — it's idem
 mysql -u pss -p paysmallsmall < database/schema.sql
 ```
 
+Upgrading a database created before the Paystack switch? Run the migration once
+(safe to re-run):
+
+```bash
+mysql -u pss -p paysmallsmall < database/migrations/2026-10-01-paystack.sql
+```
+
 Optional demo data:
 
 ```bash
@@ -72,17 +79,21 @@ DB_PASS=CHANGE-THIS-PASSWORD
 
 PAYMENTS_MODE=mock
 
+PAYSTACK_SECRET_KEY=sk_test_your-test-secret-key
+PAYSTACK_BASE_URL=https://api.paystack.co
+PAYSTACK_CURRENCY=GHS
+PAYSTACK_CHANNELS=mobile_money,card
+PAYSTACK_EMAIL_DOMAIN=paysmallsmall.com
+PAYSTACK_PENDING_EXPIRY_HOURS=24
+RECONCILE_AFTER_MINUTES=2
+
+# SMS still goes through Moolre (Paystack has no SMS product)
+SMS_MODE=mock
 MOOLRE_BASE_URL=https://api.moolre.com
-MOOLRE_API_USER=your-moolre-username
-MOOLRE_API_KEY=your-private-key
-MOOLRE_API_PUBKEY=your-public-key
-MOOLRE_VAS_KEY=your-vas-key
-MOOLRE_ACCOUNT_NUMBER=your-moolre-account
-MOOLRE_PATH_COLLECT=/open/transact/payment
-MOOLRE_PATH_DISBURSE=/open/transact/transfer
-MOOLRE_PATH_STATUS=/open/transact/status
-MOOLRE_PATH_SMS=/open/vas/sms
-MOOLRE_WEBHOOK_SECRET=generate-a-long-random-string
+MOOLRE_VAS_KEY=your-moolre-vas-key
+MOOLRE_SMS_SENDER=PaySmall
+MOOLRE_PATH_SMS=/open/sms/send
+MOOLRE_PATH_SMS_STATUS=/open/sms/status
 
 PLATFORM_FEE_PCT=5
 CANCEL_FEE_PCT=5
@@ -96,9 +107,8 @@ ENV
 chmod 600 .env
 ```
 
-> Before setting `PAYMENTS_MODE=sandbox` or `live`: verify every `MOOLRE_PATH_*`
-> value and the webhook field names against docs.moolre.com. The mock mode demo
-> works without any Moolre credentials.
+> `PAYMENTS_MODE=mock` works without any Paystack keys. `sandbox` needs a test
+> key (`sk_test_…`), `live` a live key (`sk_live_…`) — see section 8.
 
 ## 5. Nginx vhost
 
@@ -132,44 +142,58 @@ Two cron jobs, both as the site user (CloudPanel → Site → Cron Jobs):
 # Grace-period reminders, once a day
 0 8 * * * cd /home/paysmallsmall/htdocs/paysmallsmall.com && php scripts/reminders.php >> ~/reminders.log 2>&1
 
-# Settle pending payments — safety net for any webhook Moolre couldn't deliver
+# Settle pending payments — safety net for any webhook Paystack couldn't deliver
 */2 * * * * cd /home/paysmallsmall/htdocs/paysmallsmall.com && php scripts/reconcile.php >> ~/reconcile.log 2>&1
 ```
 
-The reconcile job polls Moolre for every still-pending transaction and applies
+The reconcile job asks Paystack about every still-pending transaction and applies
 the result exactly as a webhook would (credit installment, pay out, SMS). It is
 idempotent, so a webhook and the cron settling the same payment cannot
 double-credit. Admins can also trigger it by hand at **Admin → All plans →
 Reconcile pending payments**.
 
-## 8. Going live with Moolre (do this carefully)
+## 8. Going live with Paystack (do this carefully)
 
-The app ships in `PAYMENTS_MODE=mock`. Before switching to `sandbox`/`live`,
-**confirm every wire-format value against docs.moolre.com** — these are the only
-things the code cannot verify for you, and they all live in `.env` (nothing is
-hardcoded):
+The app ships in `PAYMENTS_MODE=mock`. Every Paystack call lives in
+`app/Services/PaystackService.php`; endpoints and field names were checked
+against Paystack's API reference (paystack.com/docs/api).
 
-| `.env` key | Confirm on docs.moolre.com |
-|---|---|
-| `MOOLRE_PATH_COLLECT` / `_DISBURSE` / `_STATUS` / `_SMS` | exact endpoint paths |
-| `MOOLRE_CHANNEL_MOMO` / `_BANK` | numeric channel/network codes |
-| `MOOLRE_CURRENCY` | currency code (GHS) |
-| request field names | `payer`/`receiver`/`amount`/`externalref`/`accountnumber`/`callbackurl` — adjust in `app/Services/MoolreService.php` if the docs differ |
-| webhook payload fields | confirm `externalref` + status field names in `app/Controllers/WebhookController.php` and `MoolreService::readState()` |
+1. **Test first.** Put your test secret key in `.env` and set
+   `PAYMENTS_MODE=sandbox`:
 
-Then set the credentials (`MOOLRE_API_USER`, `MOOLRE_API_KEY`,
-`MOOLRE_API_PUBKEY`, `MOOLRE_VAS_KEY`, `MOOLRE_ACCOUNT_NUMBER`),
-`MOOLRE_CALLBACK_URL=https://paysmallsmall.com/webhook/moolre`, a strong
-`MOOLRE_WEBHOOK_SECRET`, and flip `PAYMENTS_MODE`. Test one real GHS 1 collection
-end-to-end (approve prompt → SMS receipt → ledger row `success`) before opening up.
+   ```bash
+   sed -i 's/^PAYMENTS_MODE=.*/PAYMENTS_MODE=sandbox/; s/^PAYSTACK_SECRET_KEY=.*/PAYSTACK_SECRET_KEY=sk_test_xxxxxxxx/' .env
+   ```
 
-## 9. Moolre dashboard settings
+   Start a plan, pay on Paystack's test checkout, and check Admin → All plans:
+   the installment is credited and the ledger row is `success`.
+2. **Set the webhook URL** (section 9) — without it, payments still settle via
+   the callback redirect and the reconcile cron, just slower.
+3. **Disable transfer OTP** (Paystack dashboard → Settings → Preferences →
+   Transfers). If OTP is on, every payout waits for someone to type a code and
+   merchants are never paid automatically.
+4. **Fund payouts.** Transfers are paid from your Paystack *balance*. Make sure
+   collections settle to the balance (or top it up) so payouts don't fail with
+   "balance is not enough". A failed payout can be retried from Admin → plan →
+   **Retry payout**.
+5. **Go live:** swap in the live secret key and set `PAYMENTS_MODE=live`. Test
+   one real GHS 1 collection end to end (pay → SMS receipt → ledger row
+   `success`) before opening up.
 
-Point these URLs at the app once you have live credentials:
+Merchants pick their MoMo network (MTN / Telecel / AirtelTigo) or bank on the
+register and Shop settings pages; payouts go to that account.
 
-- Payment webhook/callback: `https://paysmallsmall.com/webhook/moolre`
-- USSD callback: `https://paysmallsmall.com/webhook/ussd`
-- Set the same webhook secret you put in `.env` (`MOOLRE_WEBHOOK_SECRET`).
+## 9. Paystack dashboard settings
+
+Settings → API Keys & Webhooks:
+
+- **Webhook URL:** `https://paysmallsmall.com/webhook/paystack`. Events are
+  checked with the `x-paystack-signature` header (HMAC-SHA512 with your secret
+  key), so no separate webhook secret is needed.
+- **Callback URL:** leave empty — the app sends its own per payment.
+
+USSD still runs on your USSD gateway: point its callback at
+`https://paysmallsmall.com/webhook/ussd`.
 
 ## Quick smoke test after deploy
 

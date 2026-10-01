@@ -36,7 +36,7 @@ $router->post('/plan/{id}/check', PlanController::class, 'check');
 $router->get('/plan/{id}/status', PlanController::class, 'status');
 $router->post('/plan/{id}/cancel', PlanController::class, 'cancel');
 $router->post('/plan/{id}/delete', PlanController::class, 'delete');
-// Mock-mode stand-in for Moolre's hosted payment page (demo without real money).
+// Mock-mode stand-in for Paystack's hosted checkout (demo without real money).
 $router->get('/checkout/mock', PlanController::class, 'mockCheckout');
 $router->post('/checkout/mock/confirm', PlanController::class, 'mockConfirm');
 
@@ -81,7 +81,9 @@ $router->get('/admin/ledger', AdminController::class, 'ledger');
 $router->post('/admin/simulate-payment/{plan_id}', AdminController::class, 'simulatePayment');
 $router->post('/admin/run-reminders', AdminController::class, 'runReminders');
 $router->post('/admin/reconcile', AdminController::class, 'reconcile');
+$router->post('/admin/plan/{id}/retry-payout', AdminController::class, 'retryPayout');
+$router->post('/admin/plan/{id}/retry-refunds', AdminController::class, 'retryRefunds');
 
 // Webhooks (no CSRF — external callers)
-$router->post('/webhook/moolre', WebhookController::class, 'moolre');
+$router->post('/webhook/paystack', WebhookController::class, 'paystack');
 $router->post('/webhook/ussd', WebhookController::class, 'ussd');

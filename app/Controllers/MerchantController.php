@@ -10,6 +10,7 @@ use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Services\PaystackService;
 
 final class MerchantController extends Controller
 {
@@ -20,7 +21,10 @@ final class MerchantController extends Controller
 
     public function registerForm(): void
     {
-        $this->render('merchant/register', ['title' => 'Register your shop — PaySmallSmall']);
+        $this->render('merchant/register', [
+            'title' => 'Register your shop — PaySmallSmall',
+            'banks' => (new PaystackService())->ghanaBanks(),
+        ]);
     }
 
     public function register(): void
@@ -32,8 +36,6 @@ final class MerchantController extends Controller
             'phone' => normalize_phone((string) ($_POST['phone'] ?? '')),
             'location' => trim((string) ($_POST['location'] ?? '')),
             'password' => (string) ($_POST['password'] ?? ''),
-            'payout_channel' => in_array($_POST['payout_channel'] ?? '', ['momo', 'bank'], true) ? $_POST['payout_channel'] : 'momo',
-            'payout_number' => preg_replace('/\D+/', '', (string) ($_POST['payout_number'] ?? '')),
             'id_number' => strtoupper(trim((string) ($_POST['id_number'] ?? ''))),
             'business_reg' => trim((string) ($_POST['business_reg'] ?? '')),
         ];
@@ -59,9 +61,12 @@ final class MerchantController extends Controller
             flash('error', 'This number already has a shop. Log in instead.');
             redirect('/merchant/login');
         }
-        if ($d['payout_number'] === '') {
-            $d['payout_number'] = $d['phone'];
+        $payout = $this->payoutFromPost($d['phone']);
+        if (is_string($payout)) {
+            flash('error', $payout);
+            redirect('/merchant/register');
         }
+        $d += $payout;
 
         $id = Merchant::create($d);
 
@@ -134,6 +139,7 @@ final class MerchantController extends Controller
         $this->render('merchant/settings', [
             'title' => 'Shop settings — PaySmallSmall',
             'merchant' => $merchant,
+            'banks' => (new PaystackService())->ghanaBanks(),
         ]);
     }
 
@@ -146,21 +152,58 @@ final class MerchantController extends Controller
             'shop_name' => trim((string) ($_POST['shop_name'] ?? '')),
             'owner_name' => trim((string) ($_POST['owner_name'] ?? '')),
             'location' => trim((string) ($_POST['location'] ?? '')),
-            'payout_channel' => in_array($_POST['payout_channel'] ?? '', ['momo', 'bank'], true) ? $_POST['payout_channel'] : 'momo',
-            'payout_number' => preg_replace('/\D+/', '', (string) ($_POST['payout_number'] ?? '')),
         ];
 
         if ($d['shop_name'] === '' || $d['owner_name'] === '') {
             flash('error', 'Shop name and owner name are required.');
             redirect('/merchant/settings');
         }
-        if ($d['payout_number'] === '') {
-            $d['payout_number'] = $merchant['phone'];
+        $payout = $this->payoutFromPost($merchant['phone']);
+        if (is_string($payout)) {
+            flash('error', $payout);
+            redirect('/merchant/settings');
         }
+        $d += $payout;
 
         Merchant::updateDetails((int) $merchant['id'], $d);
         flash('success', 'Shop details saved.');
         redirect('/merchant/dashboard');
+    }
+
+    /**
+     * Read + validate the payout account fields (partials/payout-fields).
+     * Returns ['payout_channel', 'payout_number', 'payout_bank_code'] or an
+     * error message for the customer.
+     */
+    private function payoutFromPost(string $businessPhone): array|string
+    {
+        $channel = ($_POST['payout_channel'] ?? '') === 'bank' ? 'bank' : 'momo';
+        $number = preg_replace('/\D+/', '', (string) ($_POST['payout_number'] ?? ''));
+
+        if ($channel === 'momo') {
+            $phone = $number === '' ? $businessPhone : normalize_phone($number);
+            if ($phone === null) {
+                return 'That MoMo number doesn\'t look right. Use 024XXXXXXX or 233XXXXXXXXX.';
+            }
+            $network = strtoupper(trim((string) ($_POST['payout_network'] ?? '')));
+            if (!isset(PaystackService::MOMO_NETWORKS[$network])) {
+                $network = (string) momo_network($phone);
+            }
+            if ($network === '') {
+                return 'Pick your MoMo network so we can pay you.';
+            }
+            return ['payout_channel' => 'momo', 'payout_number' => $phone, 'payout_bank_code' => $network];
+        }
+
+        $bank = strtoupper(trim((string) ($_POST['payout_bank'] ?? '')));
+        $banks = (new PaystackService())->ghanaBanks();
+        if ($bank === '' || !preg_match('/^[A-Z0-9]{1,20}$/', $bank) || ($banks && !isset($banks[$bank]))) {
+            return 'Choose your bank so we can pay you.';
+        }
+        if (strlen($number) < 6) {
+            return 'Enter your bank account number.';
+        }
+        return ['payout_channel' => 'bank', 'payout_number' => $number, 'payout_bank_code' => $bank];
     }
 
     /** Merchant confirms they've handed over a paid-out item — closes the loop. */

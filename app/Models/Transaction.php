@@ -43,19 +43,33 @@ final class Transaction
         );
     }
 
-    /**
-     * True if this Moolre transaction id has already been credited to some
-     * transaction of ours. Stops two plans with the same installment amount from
-     * both claiming the same settled payment when matching by amount.
-     */
-    public static function providerTxIdUsed(string $providerTxId): bool
+    /** True if the plan already has a payout pending or paid — never start a second one. */
+    public static function openPayoutForPlan(int $planId): bool
     {
-        if ($providerTxId === '') {
-            return false;
-        }
         return (bool) DB::run(
-            "SELECT 1 FROM transactions WHERE external_ref = ? AND status = 'success' LIMIT 1",
-            [$providerTxId]
+            "SELECT 1 FROM transactions WHERE plan_id = ? AND type = 'disbursement' AND status IN ('pending','success') LIMIT 1",
+            [$planId]
+        )->fetchColumn();
+    }
+
+    /** True if an installment's payment already has a refund pending or done. */
+    public static function hasOpenRefund(int $installmentId): bool
+    {
+        return (bool) DB::run(
+            "SELECT 1 FROM transactions WHERE installment_id = ? AND type = 'refund' AND status IN ('pending','success') LIMIT 1",
+            [$installmentId]
+        )->fetchColumn();
+    }
+
+    /** Failed refunds on a plan with no successful/pending retry — shown to admin. */
+    public static function outstandingRefundCount(int $planId): int
+    {
+        return (int) DB::run(
+            "SELECT COUNT(*) FROM transactions c
+             WHERE c.plan_id = ? AND c.type = 'collection' AND c.status = 'success' AND c.installment_id IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM transactions r WHERE r.installment_id = c.installment_id
+                               AND r.type = 'refund' AND r.status IN ('pending','success'))",
+            [$planId]
         )->fetchColumn();
     }
 

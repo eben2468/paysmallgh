@@ -1,7 +1,7 @@
 # PaySmallSmall
 
-Installment/layaway platform for Ghanaian merchants and shoppers, built on Moolre
-rails (Collections, Disbursements, SMS, USSD) for the Moolre Startup Challenge.
+Installment/layaway platform for Ghanaian merchants and shoppers. Payments
+(collections, merchant payouts, refunds) run on Paystack; SMS runs on Moolre.
 
 A customer picks a product, commits to a weekly plan, and pays the first
 installment by MoMo on the spot. Money accumulates in platform escrow; every
@@ -40,18 +40,19 @@ public/          document root: front controller, css, js, uploads
 app/Core/        config, db, router, view, auth, csrf, helpers
 app/Controllers/ one per area (shop, plans, merchant, admin, webhooks)
 app/Models/      thin static query classes per table
-app/Services/    MoolreService (ONLY Moolre gateway), PlanService (money logic),
-                 SmsTemplates, UssdMenu
+app/Services/    PaystackService (ONLY payments gateway), SmsService (ONLY SMS
+                 gateway), PlanService (money logic), SmsTemplates, UssdMenu
 app/Views/       php templates, one layout
-database/        schema.sql + seed.php
-scripts/         reminders.php (daily cron)
+database/        schema.sql + seed.php + migrations/
+scripts/         reminders.php (daily cron), reconcile.php (every 2 min)
 ```
 
 - All money is **pesewas (integers)**.
 - `transactions` is an **append-only ledger** — every collection, disbursement
   and refund, with provider references and raw payloads.
 - `PAYMENTS_MODE=mock` makes every payment succeed instantly through the same
-  code path a real webhook would take — full demo without Moolre credentials.
+  code path a real webhook would take — full demo without Paystack keys.
+  `sandbox` uses Paystack test keys, `live` real money (see `DEPLOY.md` §8).
 
 See `DEPLOY.md` for production (CloudPanel) and `DECISIONS.md` for the choices
 made along the way.
