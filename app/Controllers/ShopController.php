@@ -36,7 +36,7 @@ final class ShopController extends Controller
         $this->render('shop/show', [
             'title' => $product['name'] . ' — PaySmallSmall',
             'product' => $product,
-            'plans' => $this->planOptions((int) $product['cash_price_pesewas']),
+            'plans' => $this->planOptions((int) $product['cash_price_pesewas'], Product::allowedFrequencies($product)),
             'images' => Product::images((int) $id),
             'reviews' => Review::forProduct((int) $id),
             'reviewSummary' => Review::summary((int) $id),
@@ -52,7 +52,7 @@ final class ShopController extends Controller
      *
      * @return array<string, array{unit:string, noun:string, options: list<array{count:int, per:int, perLabel:string}>}>
      */
-    private function planOptions(int $price): array
+    private function planOptions(int $price, array $allowed): array
     {
         $floor = 100; // GHS 1.00 minimum per installment
         $defs = [
@@ -63,6 +63,9 @@ final class ShopController extends Controller
 
         $plans = [];
         foreach ($defs as $freq => $def) {
+            if (!in_array($freq, $allowed, true)) {
+                continue; // the merchant doesn't offer this schedule
+            }
             $options = [];
             foreach ($def['counts'] as $count) {
                 $per = (int) ceil($price / $count);
@@ -77,6 +80,11 @@ final class ShopController extends Controller
             }
             $plans[$freq] = ['unit' => $def['unit'], 'noun' => $def['noun'], 'options' => $options];
         }
+
+        // Always available: pay the whole cash price now in one payment.
+        $plans['once'] = ['unit' => '', 'noun' => '', 'full' => true, 'options' => [
+            ['count' => 1, 'per' => $price, 'perLabel' => ghs($price)],
+        ]];
         return $plans;
     }
 }

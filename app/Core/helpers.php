@@ -148,6 +148,42 @@ function momo_network(string $phone): ?string
     };
 }
 
+/**
+ * Words for a plan's payment rhythm, so every page says it the same way.
+ * 'once' = paid in full in a single payment.
+ * @return array{label:string, unit:string, units:string, per:string, short:string, this:string}
+ */
+function freq_words(string $frequency): array
+{
+    return match ($frequency) {
+        'daily' => ['label' => 'Daily', 'unit' => 'day', 'units' => 'days', 'per' => 'a day', 'short' => 'day', 'this' => "today's"],
+        'monthly' => ['label' => 'Monthly', 'unit' => 'month', 'units' => 'months', 'per' => 'a month', 'short' => 'mo', 'this' => "this month's"],
+        'once' => ['label' => 'Pay in full', 'unit' => 'payment', 'units' => 'payment', 'per' => 'once', 'short' => '', 'this' => 'the full'],
+        default => ['label' => 'Weekly', 'unit' => 'week', 'units' => 'weeks', 'per' => 'a week', 'short' => 'wk', 'this' => "this week's"],
+    };
+}
+
+/** "GHS 100 × 12 weeks = GHS 1,200", or "One payment of GHS 1,200" for pay-in-full. */
+function plan_math(array $plan): string
+{
+    $per = (int) $plan['installment_pesewas'];
+    $n = (int) $plan['installments_total'];
+    if (($plan['frequency'] ?? '') === 'once') {
+        return 'One payment of ' . ghs($per);
+    }
+    $w = freq_words((string) ($plan['frequency'] ?? 'weekly'));
+    return ghs($per) . ' × ' . $n . ' ' . ($n === 1 ? $w['unit'] : $w['units']) . ' = ' . ghs($per * $n);
+}
+
+/** Short rhythm for tables: "GHS 100/wk", or "Paid in full". */
+function plan_rate(array $plan): string
+{
+    if (($plan['frequency'] ?? '') === 'once') {
+        return 'Paid in full';
+    }
+    return ghs((int) $plan['installment_pesewas']) . '/' . freq_words((string) ($plan['frequency'] ?? 'weekly'))['short'];
+}
+
 /** A status pill (plans, merchants, transactions) with consistent colours and wording. */
 function status_tag(string $status, ?string $label = null): string
 {
@@ -301,6 +337,10 @@ function product_micon(string $category): string
         'school' => 'school',
         'school items' => 'school',
         'general' => 'inventory_2',
+        'accessories' => 'watch',
+        'beauty' => 'spa',
+        'kitchen' => 'blender',
+        'building' => 'construction',
     ];
     return $map[strtolower($category)] ?? 'inventory_2';
 }

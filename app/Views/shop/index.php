@@ -9,7 +9,7 @@
         </a>
         <?php foreach (($categories ?? []) as $cat): ?>
           <a class="filter-item <?= $current === $cat ? 'active' : '' ?>" href="<?= url('/shop?category=' . urlencode($cat)) ?>">
-            <?= micon(product_micon($cat), ['size' => 18]) ?> <?= e(ucfirst($cat)) ?>
+            <?= micon(product_micon($cat), ['size' => 18]) ?> <?= e(\App\Models\Product::categoryLabel($cat)) ?>
           </a>
         <?php endforeach; ?>
       </div>

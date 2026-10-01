@@ -49,6 +49,8 @@ CREATE TABLE IF NOT EXISTS products (
   photo VARCHAR(255) NOT NULL DEFAULT '',
   cash_price_pesewas INT UNSIGNED NOT NULL,
   category VARCHAR(60) NOT NULL DEFAULT 'general',
+  -- Installment schedules the merchant allows (paying in full is always allowed).
+  plan_frequencies VARCHAR(30) NOT NULL DEFAULT 'daily,weekly,monthly',
   active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -75,7 +77,8 @@ CREATE TABLE IF NOT EXISTS plans (
   customer_id INT UNSIGNED NOT NULL,
   total_pesewas INT UNSIGNED NOT NULL,
   installment_pesewas INT UNSIGNED NOT NULL,
-  frequency ENUM('daily','weekly','monthly') NOT NULL DEFAULT 'weekly',
+  -- once = paid in full in a single payment.
+  frequency ENUM('daily','weekly','monthly','once') NOT NULL DEFAULT 'weekly',
   installments_total SMALLINT UNSIGNED NOT NULL,
   installments_paid SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   -- pending: created, first payment not yet confirmed. No payment, no plan.

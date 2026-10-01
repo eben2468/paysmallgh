@@ -2,7 +2,7 @@
 <nav class="crumbs wrap" aria-label="Breadcrumb">
   <a href="<?= url('/') ?>">Home</a><span class="sep">/</span>
   <a href="<?= url('/shop') ?>">Shop</a><span class="sep">/</span>
-  <a href="<?= url('/shop?category=' . urlencode($product['category'])) ?>"><?= e(ucfirst($product['category'])) ?></a><span class="sep">/</span>
+  <a href="<?= url('/shop?category=' . urlencode($product['category'])) ?>"><?= e(\App\Models\Product::categoryLabel($product['category'])) ?></a><span class="sep">/</span>
   <span class="here"><?= e($product['name']) ?></span>
 </nav>
 
@@ -46,7 +46,7 @@
 
   <div>
     <h1 class="product-title"><?= e($product['name']) ?></h1>
-    <p class="product-meta"><?= e($product['shop_name']) ?> &middot; <?= e(ucfirst($product['category'])) ?></p>
+    <p class="product-meta"><?= e($product['shop_name']) ?> &middot; <?= e(\App\Models\Product::categoryLabel($product['category'])) ?></p>
     <?php if (($reviewSummary['count'] ?? 0) > 0): ?>
       <p class="rating-line"><?= stars((float) $reviewSummary['avg'], 18) ?>
         <a href="#reviews"><strong><?= number_format((float) $reviewSummary['avg'], 1) ?></strong>
@@ -59,7 +59,8 @@
     <?php
       $defaultFreq = isset($plans['weekly']) ? 'weekly' : array_key_first($plans);
       $firstOpt = $plans[$defaultFreq]['options'][0];
-      $freqLabels = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
+      $freqLabels = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly', 'once' => 'Pay in full'];
+      $fullPrice = ghs((int) $product['cash_price_pesewas']);
     ?>
     <div class="picker" data-picker data-plans='<?= e(json_encode($plans)) ?>'>
       <h2>Choose how you'll pay</h2>
@@ -71,7 +72,7 @@
 
         <div class="freq-tabs" role="tablist" aria-label="How often you pay">
           <?php foreach ($plans as $freq => $fp): ?>
-            <button type="button" class="freq-tab<?= $freq === $defaultFreq ? ' active' : '' ?>" data-freq="<?= e($freq) ?>">
+            <button type="button" class="freq-tab<?= $freq === $defaultFreq ? ' active' : '' ?><?= $freq === 'once' ? ' is-full' : '' ?>" data-freq="<?= e($freq) ?>">
               <?= e($freqLabels[$freq] ?? ucfirst($freq)) ?>
             </button>
           <?php endforeach; ?>
@@ -89,9 +90,11 @@
           <?php endforeach; ?>
         </div>
 
-        <p class="picker-first">You pay the first <strong data-first-amount><?= $firstOpt['perLabel'] ?></strong> today by MoMo — that's what starts the plan.</p>
-        <button class="btn btn-primary btn-block btn-lg" type="submit">Start my plan</button>
-        <p class="picker-note">Change your mind? Cancel anytime and get a refund (minus 5%).</p>
+        <p class="picker-first" data-mode-plan>You pay the first <strong data-first-amount><?= $firstOpt['perLabel'] ?></strong> today by MoMo — that's what starts the plan.</p>
+        <p class="picker-first" data-mode-full hidden>You pay <strong><?= $fullPrice ?></strong> today, once. The shop is paid and the item is yours — collect it from <?= e($product['shop_name']) ?>.</p>
+        <button class="btn btn-primary btn-block btn-lg" type="submit" data-submit data-label-plan="Start my plan" data-label-full="Pay <?= e($fullPrice) ?> now">Start my plan</button>
+        <p class="picker-note" data-mode-plan>Change your mind? Cancel anytime and get a refund (minus 5%).</p>
+        <p class="picker-note" data-mode-full hidden>Got the money now? Skip the plan and own it today.</p>
       </form>
     </div>
 
@@ -172,6 +175,6 @@
 
 <div class="buy-bar-spacer" aria-hidden="true"></div>
 <div class="buy-bar">
-  <div class="buy-price"><span data-buy-amount><?= $firstOpt['perLabel'] ?></span> <small>first payment today</small></div>
-  <button class="btn btn-primary" type="submit" form="plan-form">Start plan</button>
+  <div class="buy-price"><span data-buy-amount><?= $firstOpt['perLabel'] ?></span> <small data-buy-note data-note-plan="first payment today" data-note-full="pay once, own it today">first payment today</small></div>
+  <button class="btn btn-primary" type="submit" form="plan-form" data-buy-submit data-label-plan="Start plan" data-label-full="Pay now">Start plan</button>
 </div>

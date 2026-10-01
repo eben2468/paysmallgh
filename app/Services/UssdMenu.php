@@ -67,6 +67,10 @@ final class UssdMenu
         switch ($input) {
             case '1':
             case '2':
+                if ($input === '2') {
+                    // Only plans with something left to pay (not fully paid ones awaiting payout).
+                    $plans = array_values(array_filter($plans, fn($p) => (int) $p['installments_paid'] < (int) $p['installments_total']));
+                }
                 if (!$plans) {
                     return ['You have no active plans right now. Start one at any partner shop or online.', false];
                 }

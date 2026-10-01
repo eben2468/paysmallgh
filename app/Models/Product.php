@@ -7,6 +7,42 @@ use App\Core\Database as DB;
 
 final class Product
 {
+    /** Product categories merchants pick from (slug => label). Slugs are stored. */
+    public const CATEGORIES = [
+        'phones' => 'Phones & tablets',
+        'electronics' => 'Electronics',
+        'appliances' => 'Home appliances',
+        'furniture' => 'Furniture',
+        'fashion' => 'Fashion & clothing',
+        'accessories' => 'Accessories',
+        'beauty' => 'Beauty & personal care',
+        'school' => 'School items',
+        'kitchen' => 'Kitchen & household',
+        'building' => 'Building & tools',
+        'general' => 'Other',
+    ];
+
+    /** Installment schedules a merchant can allow (paying in full is always allowed). */
+    public const FREQUENCIES = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
+
+    /** Human label for a stored category slug. */
+    public static function categoryLabel(string $slug): string
+    {
+        return self::CATEGORIES[$slug] ?? ucfirst($slug);
+    }
+
+    /**
+     * Installment schedules the merchant allows for this product, in a fixed
+     * order. Older rows without the column allow all three.
+     * @return list<string>
+     */
+    public static function allowedFrequencies(array $product): array
+    {
+        $raw = (string) ($product['plan_frequencies'] ?? 'daily,weekly,monthly');
+        $set = array_intersect(array_keys(self::FREQUENCIES), array_map('trim', explode(',', $raw)));
+        return $set ? array_values($set) : array_keys(self::FREQUENCIES);
+    }
+
     public static function find(int $id): ?array
     {
         return DB::run(
@@ -66,9 +102,9 @@ final class Product
     public static function create(array $d): int
     {
         DB::run(
-            'INSERT INTO products (merchant_id, name, description, photo, cash_price_pesewas, category, active)
-             VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [$d['merchant_id'], $d['name'], $d['description'], $d['photo'], $d['cash_price_pesewas'], $d['category'], $d['active']]
+            'INSERT INTO products (merchant_id, name, description, photo, cash_price_pesewas, category, plan_frequencies, active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [$d['merchant_id'], $d['name'], $d['description'], $d['photo'], $d['cash_price_pesewas'], $d['category'], $d['plan_frequencies'] ?? 'daily,weekly,monthly', $d['active']]
         );
         return DB::lastId();
     }
@@ -77,8 +113,8 @@ final class Product
     public static function updateDetails(int $id, array $d): void
     {
         DB::run(
-            'UPDATE products SET name = ?, description = ?, cash_price_pesewas = ?, category = ?, active = ? WHERE id = ?',
-            [$d['name'], $d['description'], $d['cash_price_pesewas'], $d['category'], $d['active'], $id]
+            'UPDATE products SET name = ?, description = ?, cash_price_pesewas = ?, category = ?, plan_frequencies = ?, active = ? WHERE id = ?',
+            [$d['name'], $d['description'], $d['cash_price_pesewas'], $d['category'], $d['plan_frequencies'], $d['active'], $id]
         );
     }
 

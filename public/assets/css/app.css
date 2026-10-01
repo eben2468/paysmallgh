@@ -1681,3 +1681,26 @@ a.cell-main:hover { color: var(--primary); }
   .acct-mobile form { margin: 0; }
   .acct-mobile button { display: flex; align-items: center; gap: .3rem; width: 100%; padding: .6rem .4rem; border: 0; background: transparent; font: inherit; font-size: .92rem; font-weight: 600; color: var(--on-error-container); text-align: left; cursor: pointer; }
 }
+
+/* ---------- Choice cards (checkbox tiles, e.g. payment schedules) ---------- */
+.choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+.choice { position: relative; cursor: pointer; }
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice-box {
+  display: flex; flex-direction: column; gap: .2rem; height: 100%;
+  padding: .85rem .9rem; border: 1.5px solid var(--surface-variant); border-radius: var(--radius-lg);
+  background: var(--surface); transition: border-color .15s, background .15s;
+}
+.choice-box .material-symbols-outlined { color: var(--outline); }
+.choice-box b { font-size: .95rem; }
+.choice-box span:last-child { font-size: .8rem; color: var(--ink-variant); line-height: 1.4; }
+.choice:hover .choice-box { border-color: var(--outline-variant); }
+.choice input:checked + .choice-box { border-color: var(--primary); background: var(--surface-low); }
+.choice input:checked + .choice-box .material-symbols-outlined { color: var(--primary); font-variation-settings: "FILL" 1; }
+.choice input:focus-visible + .choice-box { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (max-width: 600px) { .choice-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Pay-in-full option on the product page ---------- */
+.picker-full-note { margin-top: .6rem; font-size: .85rem; color: var(--ink-variant); }
+.freq-tab.is-full { border-style: dashed; }
+.freq-tab.is-full.active { border-style: solid; }

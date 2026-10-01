@@ -11,6 +11,7 @@
       action="<?= url($product ? '/merchant/products/' . $product['id'] . '/edit' : '/merchant/products/new') ?>">
   <?= Csrf::field() ?>
   <div class="grid-2">
+   <div class="stack">
     <section class="panel">
       <div class="panel-head"><h2><?= micon('edit_note', ['size' => 20]) ?> Details</h2></div>
       <div class="panel-body">
@@ -27,10 +28,16 @@
           </div>
           <div class="field">
             <label for="category">Category</label>
-            <input id="category" name="category" type="text" maxlength="60" list="cats" value="<?= e($product['category'] ?? '') ?>" placeholder="phones, furniture, fashion…">
-            <datalist id="cats">
-              <option value="phones"><option value="electronics"><option value="furniture"><option value="fashion"><option value="general">
-            </datalist>
+            <?php $cat = (string) ($product['category'] ?? ''); ?>
+            <select id="category" name="category" required>
+              <option value="" <?= $cat === '' ? 'selected' : '' ?> disabled>Choose a category</option>
+              <?php foreach (\App\Models\Product::CATEGORIES as $slug => $label): ?>
+                <option value="<?= e($slug) ?>" <?= $cat === $slug ? 'selected' : '' ?>><?= e($label) ?></option>
+              <?php endforeach; ?>
+              <?php if ($cat !== '' && !isset(\App\Models\Product::CATEGORIES[$cat])): ?>
+                <option value="<?= e($cat) ?>" selected><?= e(ucfirst($cat)) ?> (current)</option>
+              <?php endif; ?>
+            </select>
           </div>
         </div>
         <div class="field">
@@ -42,6 +49,32 @@
         </div>
       </div>
     </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2><?= micon('calendar_month', ['size' => 20]) ?> How customers can pay</h2></div>
+      <div class="panel-body">
+        <p class="small muted mb-2">Tick the schedules you're happy with. Customers only see what you allow.</p>
+        <?php $allowed = $product ? \App\Models\Product::allowedFrequencies($product) : array_keys(\App\Models\Product::FREQUENCIES); ?>
+        <div class="choice-grid">
+          <?php foreach ([
+              'daily' => ['today', 'Daily', 'Small amounts every day — good for traders paid daily.'],
+              'weekly' => ['date_range', 'Weekly', 'The most popular. Pay every week, e.g. every Friday.'],
+              'monthly' => ['calendar_month', 'Monthly', 'For salary earners — one payment a month.'],
+          ] as $key => [$icon, $label, $hint]): ?>
+            <label class="choice">
+              <input type="checkbox" name="frequencies[]" value="<?= e($key) ?>" <?= in_array($key, $allowed, true) ? 'checked' : '' ?>>
+              <span class="choice-box">
+                <?= micon($icon, ['size' => 22]) ?>
+                <b><?= e($label) ?></b>
+                <span><?= e($hint) ?></span>
+              </span>
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <p class="small muted mt-2"><?= micon('payments', ['size' => 16]) ?> Customers can <b>always pay the full price at once</b> too. You're paid out as soon as that payment clears.</p>
+      </div>
+    </section>
+   </div>
 
     <section class="panel">
       <div class="panel-head"><h2><?= micon('photo_library', ['size' => 20]) ?> Photos</h2></div>

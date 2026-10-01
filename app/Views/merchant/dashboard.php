@@ -2,7 +2,6 @@
 use App\Core\Csrf;
 
 $toRelease = array_values(array_filter($plans, fn($p) => $p['status'] === 'completed' && ($p['released_at'] ?? null) === null));
-$unit = ['daily' => 'day', 'weekly' => 'wk', 'monthly' => 'mo'];
 $first = explode(' ', (string) $merchant['owner_name'])[0];
 ?>
 <div class="pg-head">
@@ -92,7 +91,7 @@ $first = explode(' ', (string) $merchant['owner_name'])[0];
                 <span class="cell-sub"><?= e($p['product_name']) ?> &middot; <span class="mono"><?= e(pretty_phone($p['customer_phone'])) ?></span></span>
               </td>
               <td class="cell-mini-bar">
-                <span class="small"><?= $paid ?> of <?= $tot ?> &middot; <?= e(ghs((int) $p['installment_pesewas'])) ?>/<?= e($unit[$p['frequency']] ?? 'wk') ?></span>
+                <span class="small"><?= $paid ?> of <?= $tot ?> &middot; <?= e(plan_rate($p)) ?></span>
                 <?= progress_bar($pc, $p['status'] === 'completed' ? 'success' : ($grace ? 'warn' : 'primary')) ?>
               </td>
               <td class="right nowrap"><strong><?= e(ghs($paid * (int) $p['installment_pesewas'])) ?></strong></td>

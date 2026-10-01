@@ -5,7 +5,6 @@ $paid = (int) $plan['installments_paid'];
 $total = (int) $plan['installments_total'];
 $pct = $total > 0 ? (int) round($paid / $total * 100) : 0;
 $left = max(0, ($total - $paid) * (int) $plan['installment_pesewas']);
-$unitNoun = ['daily' => 'days', 'weekly' => 'weeks', 'monthly' => 'months'][$plan['frequency'] ?? 'weekly'] ?? 'payments';
 $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
 ?>
 <a class="pg-back" href="<?= url('/admin/plans') ?>"><?= micon('arrow_back', ['size' => 16]) ?> Plans</a>
@@ -59,7 +58,7 @@ $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
   <div class="kpi">
     <div class="kpi-top"><span class="kpi-label">Still to pay</span></div>
     <div class="kpi-value"><?= e(ghs($left)) ?></div>
-    <span class="kpi-sub"><?= e(ghs((int) $plan['installment_pesewas'])) ?> &times; <?= $total ?> <?= e($unitNoun) ?></span>
+    <span class="kpi-sub"><?= e(plan_math($plan)) ?></span>
   </div>
   <div class="kpi">
     <div class="kpi-top"><span class="kpi-label">Progress</span></div>
@@ -76,7 +75,7 @@ $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
         <dl class="kv">
           <div><dt>Customer</dt><dd><a href="<?= url('/admin/user/' . (int) $plan['customer_id']) ?>"><?= e($plan['customer_name']) ?></a> &middot; <span class="mono"><?= e(pretty_phone($plan['customer_phone'])) ?></span></dd></div>
           <div><dt>Shop</dt><dd><a href="<?= url('/admin/merchant/' . (int) $plan['merchant_id']) ?>"><?= e($plan['shop_name']) ?></a> &middot; <span class="mono"><?= e(pretty_phone($plan['merchant_phone'])) ?></span></dd></div>
-          <div><dt>Plan</dt><dd><?= e(ghs((int) $plan['installment_pesewas'])) ?> &times; <?= $total ?> <?= e($unitNoun) ?> = <?= e(ghs((int) $plan['installment_pesewas'] * $total)) ?></dd></div>
+          <div><dt>Plan</dt><dd><?= e(plan_math($plan)) ?></dd></div>
           <div><dt>Cash price</dt><dd><?= e(ghs((int) $plan['total_pesewas'])) ?></dd></div>
           <div><dt>Payout to</dt><dd><?= $plan['payout_channel'] === 'bank' ? 'Bank' : 'MoMo' ?> &middot; <span class="mono"><?= e(pretty_phone($plan['payout_number'] ?: $plan['merchant_phone'])) ?></span></dd></div>
           <div><dt>Started</dt><dd><?= e(when($plan['created_at'])) ?></dd></div>

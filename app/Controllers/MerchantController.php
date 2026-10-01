@@ -269,13 +269,29 @@ final class MerchantController extends Controller
             'description' => trim((string) ($_POST['description'] ?? '')),
             'photo' => '',
             'cash_price_pesewas' => (int) round($priceCedis * 100),
-            'category' => trim(strtolower((string) ($_POST['category'] ?? 'general'))) ?: 'general',
+            'category' => trim(strtolower((string) ($_POST['category'] ?? ''))),
+            'plan_frequencies' => implode(',', array_values(array_intersect(
+                array_keys(Product::FREQUENCIES),
+                array_map('strval', (array) ($_POST['frequencies'] ?? []))
+            ))),
             'active' => isset($_POST['active']) ? 1 : 0,
         ];
+        $back = $id ? "/merchant/products/{$id}/edit" : '/merchant/products/new';
 
         if ($d['name'] === '' || $d['cash_price_pesewas'] < 1000) {
             flash('error', 'Give the product a name and a price of at least GHS 10.');
-            redirect($id ? "/merchant/products/{$id}/edit" : '/merchant/products/new');
+            redirect($back);
+        }
+        // Category must come from the list — except a product already saved
+        // under an older custom category may keep it.
+        $current = $id !== null ? (Product::find((int) $id)['category'] ?? null) : null;
+        if (!isset(Product::CATEGORIES[$d['category']]) && $d['category'] !== $current) {
+            flash('error', 'Pick a category from the list.');
+            redirect($back);
+        }
+        if ($d['plan_frequencies'] === '') {
+            flash('error', 'Tick at least one way customers can pay small small: daily, weekly or monthly.');
+            redirect($back);
         }
 
         if ($id !== null) {

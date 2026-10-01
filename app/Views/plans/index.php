@@ -21,7 +21,8 @@
             $pct = $total > 0 ? (int) round($paid / $total * 100) : 0;
             $left = max(0, ($total - $paid) * (int) $plan['installment_pesewas']);
             $totalAmt = $total * (int) $plan['installment_pesewas'];
-            $done = $plan['status'] === 'completed';
+            // Fully paid (payout to the shop may still be going through) counts as done.
+            $done = $plan['status'] === 'completed' || ($total > 0 && $paid >= $total);
             $pending = $plan['status'] === 'pending';
             $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
             $variant = $done ? 'success' : ($grace ? 'warn' : 'primary');

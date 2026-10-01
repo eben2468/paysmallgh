@@ -8,7 +8,9 @@
   $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
   $variant = $done ? 'success' : ($grace ? 'warn' : 'primary');
   $stamped = flash('stamped') !== null;
-  $unitNoun = ['daily' => 'days', 'weekly' => 'weeks', 'monthly' => 'months'][$plan['frequency'] ?? 'weekly'] ?? 'payments';
+  $isFull = ($plan['frequency'] ?? '') === 'once';
+  // Every installment paid; only the shop payout is still going through.
+  $fullyPaid = $paid >= $total;
 ?>
 <section class="wrap detail-grid">
   <div>
@@ -22,7 +24,7 @@
         </span>
       <?php endif; ?>
 
-      <span class="receipt-tag">Your plan</span>
+      <span class="receipt-tag"><?= $isFull ? 'Bought outright' : 'Your plan' ?></span>
       <h1 class="receipt-title"><?= e($plan['product_name']) ?></h1>
       <p class="receipt-sub"><?= e($plan['shop_name']) ?></p>
       <p class="mt-1">
@@ -33,7 +35,7 @@
 
       <div class="perf"></div>
 
-      <div class="receipt-math"><?= ghs((int) $plan['installment_pesewas']) ?> &times; <?= $total ?> <?= $unitNoun ?> = <?= ghs((int) $plan['installment_pesewas'] * $total) ?></div>
+      <div class="receipt-math"><?= e(plan_math($plan)) ?></div>
 
       <div class="progress-legend">
         <span><b><?= $paid ?> of <?= $total ?></b> paid</span>
@@ -59,10 +61,15 @@
           </form>
         <?php endif; ?>
       </div>
+    <?php elseif ($plan['status'] === 'active' && $fullyPaid): ?>
+      <div class="pay-pending mt-3">
+        <p class="pay-pending-title"><?= micon('task_alt', ['size' => 20]) ?> All paid — nothing more to pay</p>
+        <p class="small">We're sending the money to <?= e($plan['shop_name']) ?> now. You'll get an SMS the moment your <?= e($plan['product_name']) ?> is ready to collect.</p>
+      </div>
     <?php elseif ($plan['status'] === 'active'): ?>
       <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-3">
         <?= Csrf::field() ?>
-        <button class="btn btn-momo btn-lg btn-block" type="submit"><?= micon('smartphone', ['size' => 20]) ?> Pay this week's <?= ghs((int) $plan['installment_pesewas']) ?></button>
+        <button class="btn btn-momo btn-lg btn-block" type="submit"><?= micon('smartphone', ['size' => 20]) ?> Pay <?= e(freq_words((string) $plan['frequency'])['this']) ?> <?= ghs((int) $plan['installment_pesewas']) ?></button>
       </form>
       <form method="post" action="<?= url('/plan/' . $plan['id'] . '/cancel') ?>" class="mt-2"
             data-confirm="Cancel this plan? You'll get back what you've paid minus a 5% fee.">
@@ -75,7 +82,7 @@
         <p class="small">The first payment wasn't completed. Start it now to lock in your plan.</p>
         <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-2">
           <?= Csrf::field() ?>
-          <button class="btn btn-primary" type="submit">Pay first <?= ghs((int) $plan['installment_pesewas']) ?> now</button>
+          <button class="btn btn-primary" type="submit"><?= $isFull ? 'Pay ' . ghs((int) $plan['installment_pesewas']) . ' now' : 'Pay first ' . ghs((int) $plan['installment_pesewas']) . ' now' ?></button>
         </form>
       </div>
     <?php elseif ($done): ?>

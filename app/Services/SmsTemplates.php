@@ -19,8 +19,14 @@ final class SmsTemplates
 
     public static function planStarted(string $product, string $installmentGhs, string $freq, int $count): string
     {
-        $per = $freq === 'daily' ? 'a day' : 'a week';
+        $per = freq_words($freq)['per'];
         return "Your plan for {$product} has started! {$installmentGhs} {$per} x {$count}. First payment received. #PaySmallSmall";
+    }
+
+    /** Bought outright in one payment. */
+    public static function paidInFull(string $product, string $amountGhs): string
+    {
+        return "Paid in full! {$amountGhs} received for your {$product}. We'll text you when it's ready to collect. #PaySmallSmall";
     }
 
     public static function planCompleteCustomer(string $product, string $shop): string

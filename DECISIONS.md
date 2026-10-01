@@ -53,3 +53,11 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **Admin is split into clear sections:** Dashboard (key numbers + "Needs your attention"), Merchants, Customers, Plans, Transactions, SMS log, and System (Paystack/SMS status, test SMS, run-now jobs). Lists have filter tabs, and actions return you to the page you were on.
 - **One wording everywhere:** "Log in" / "Log out" (never "Sign in"), "Create account" for customers, "Register your shop" for merchants.
 - **The header knows everyone who's logged in** on that browser (customer, merchant, admin), with a dashboard link and a separate Log out for each. Login pages skip straight to your dashboard if you're already logged in.
+
+## 2026-10-02 — Merchant payment options, category list, pay in full
+
+- **Merchants choose the schedules per product** (`products.plan_frequencies`: any of daily/weekly/monthly, at least one). The product page only offers those, and `PlanController` rejects any other choice server-side.
+- **Pay in full is always on** (merchants can't switch it off — it only helps them). It's stored as a one-payment plan with `frequency = 'once'`, so it reuses the same checkout, escrow ledger, automatic payout and SMS flow. The customer gets a "paid in full" SMS, then the usual "go collect it" once the shop is paid.
+- **Categories come from a fixed list** (`Product::CATEGORIES`). Products saved earlier under a custom category keep it until edited.
+- **A fully paid plan can't be cancelled** while its payout is going through. Cancelling then would refund the customer and pay the shop for the same money.
+- Plan wording ("GHS 100 × 12 weeks", "Pay this month's…") now comes from shared helpers (`freq_words`, `plan_math`, `plan_rate`). This also fixes monthly plans being called "a week" in the start SMS.

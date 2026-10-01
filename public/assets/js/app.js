@@ -130,6 +130,17 @@
       if (buyAmount) buyAmount.textContent = opt.perLabel;
     }
 
+    // Plan vs pay-in-full: swap the explanatory lines and button labels.
+    function setMode(full) {
+      document.querySelectorAll('[data-mode-plan]').forEach(function (el) { el.hidden = full; });
+      document.querySelectorAll('[data-mode-full]').forEach(function (el) { el.hidden = !full; });
+      document.querySelectorAll('[data-submit], [data-buy-submit]').forEach(function (b) {
+        b.textContent = b.getAttribute(full ? 'data-label-full' : 'data-label-plan');
+      });
+      var note = document.querySelector('[data-buy-note]');
+      if (note) note.textContent = note.getAttribute(full ? 'data-note-full' : 'data-note-plan');
+    }
+
     function render(freq) {
       var fp = plans[freq];
       if (!fp) return;
@@ -139,15 +150,18 @@
         var id = 'opt-' + freq + '-' + opt.count;
         var wrap = document.createElement('div');
         wrap.className = 'picker-option';
+        var label = fp.full
+          ? '<span class="picker-per">' + opt.perLabel + '</span><span class="picker-weeks">one payment &mdash; it\'s yours today</span>'
+          : '<span class="picker-per">' + opt.perLabel + '<span class="muted"> / ' + fp.unit + '</span></span>' +
+            '<span class="picker-weeks">for ' + opt.count + ' ' + fp.noun + '</span>';
         wrap.innerHTML =
           '<input type="radio" name="_dur" id="' + id + '" value="' + opt.count + '"' + (i === 0 ? ' checked' : '') + '>' +
-          '<label for="' + id + '"><span class="picker-per">' + opt.perLabel +
-          '<span class="muted"> / ' + fp.unit + '</span></span>' +
-          '<span class="picker-weeks">for ' + opt.count + ' ' + fp.noun + '</span></label>';
+          '<label for="' + id + '">' + label + '</label>';
         optsBox.appendChild(wrap);
         wrap.querySelector('input').addEventListener('change', function () { select(opt); });
       });
       if (fp.options[0]) select(fp.options[0]);
+      setMode(!!fp.full);
       tabs.forEach(function (t) { t.classList.toggle('active', t.getAttribute('data-freq') === freq); });
     }
 

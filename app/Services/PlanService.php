@@ -195,7 +195,14 @@ final class PlanService
         DB::run('UPDATE plans SET installments_paid = installments_paid + 1 WHERE id = ?', [$tx['plan_id']]);
         $plan = Plan::find((int) $tx['plan_id']);
 
-        if ($plan['status'] === 'pending') {
+        if ($plan['status'] === 'pending' && $plan['frequency'] === 'once') {
+            // Bought outright: no plan to "start" — payout follows right below.
+            Plan::setStatus((int) $plan['id'], 'active');
+            $this->sms->send($plan['customer_phone'], SmsTemplates::paidInFull(
+                $plan['product_name'],
+                ghs((int) $plan['installment_pesewas'])
+            ));
+        } elseif ($plan['status'] === 'pending') {
             Plan::setStatus((int) $plan['id'], 'active');
             $this->sms->send($plan['customer_phone'], SmsTemplates::planStarted(
                 $plan['product_name'],
@@ -433,6 +440,14 @@ final class PlanService
      */
     public function cancel(int $planId): bool
     {
+        // Fully paid = the merchant payout is under way; refunding as well would
+        // pay out the same money twice. Nothing left to cancel.
+        $existing = Plan::find($planId);
+        if (!$existing || (int) $existing['installments_paid'] >= (int) $existing['installments_total']
+            || Transaction::openPayoutForPlan($planId)) {
+            return false;
+        }
+
         // Claim the cancellation atomically so a double-tap can't refund twice.
         $claimed = DB::run("UPDATE plans SET status = 'cancelled' WHERE id = ? AND status = 'active'", [$planId])->rowCount() > 0;
         if (!$claimed) {

@@ -18,15 +18,12 @@ final class PlanController extends Controller
     public function start(): void
     {
         $product = Product::find((int) ($_POST['product_id'] ?? 0));
-        $frequency = (string) ($_POST['frequency'] ?? 'weekly');
-        $count = (int) ($_POST['count'] ?? 0);
-        if (!in_array($frequency, ['daily', 'weekly', 'monthly'], true)) {
-            $frequency = 'weekly';
+        $choice = $this->validChoice($product, (string) ($_POST['frequency'] ?? ''), (int) ($_POST['count'] ?? 0));
+        if ($choice === null) {
+            flash('error', 'That payment option isn\'t available for this item. Pick again.');
+            redirect($product ? '/product/' . (int) $product['id'] : '/shop');
         }
-        if (!$product || !$product['active'] || $count < 1 || $count > 120) {
-            flash('error', 'Something went wrong with that plan. Try again.');
-            redirect('/shop');
-        }
+        [$frequency, $count] = $choice;
 
         // Guest? Remember exactly which plan they picked, send them to log in, and
         // resume the very same plan afterwards — no going back to re-select.
@@ -59,17 +56,33 @@ final class PlanController extends Controller
         }
 
         $product = Product::find((int) ($intent['product_id'] ?? 0));
-        $frequency = (string) ($intent['frequency'] ?? 'weekly');
-        $count = (int) ($intent['count'] ?? 0);
-        if (!in_array($frequency, ['daily', 'weekly', 'monthly'], true)) {
-            $frequency = 'weekly';
-        }
-        if (!$product || !$product['active'] || $count < 1 || $count > 120) {
+        $choice = $this->validChoice($product, (string) ($intent['frequency'] ?? ''), (int) ($intent['count'] ?? 0));
+        if ($choice === null) {
             flash('error', 'That plan is no longer available. Pick it again.');
             redirect('/shop');
         }
+        [$frequency, $count] = $choice;
 
         $this->beginPlan($user, $product, $frequency, $count);
+    }
+
+    /**
+     * Check a customer's pick against what the merchant allows for this item.
+     * 'once' (pay in full) is always allowed and is always exactly 1 payment.
+     * Returns [frequency, count] or null if the item/option isn't available.
+     */
+    private function validChoice(?array $product, string $frequency, int $count): ?array
+    {
+        if (!$product || !$product['active'] || ($product['merchant_status'] ?? '') !== 'approved') {
+            return null;
+        }
+        if ($frequency === 'once') {
+            return ['once', 1];
+        }
+        if (!in_array($frequency, Product::allowedFrequencies($product), true) || $count < 1 || $count > 120) {
+            return null;
+        }
+        return [$frequency, $count];
     }
 
     /** Shared: recompute the installment, create the plan and go to checkout. */

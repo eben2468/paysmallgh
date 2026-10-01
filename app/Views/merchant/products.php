@@ -19,15 +19,16 @@
   <?php else: ?>
     <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Product</th><th>Category</th><th class="right">Cash price</th><th>In shop</th><th class="right">Actions</th></tr></thead>
+        <thead><tr><th>Product</th><th>Category</th><th class="right">Cash price</th><th>Customers can pay</th><th>In shop</th><th class="right">Actions</th></tr></thead>
         <tbody>
           <?php foreach ($products as $p): ?>
             <tr>
               <td>
                 <a class="cell-main" href="<?= url('/merchant/products/' . $p['id'] . '/edit') ?>"><?= e($p['name']) ?></a>
               </td>
-              <td class="small muted"><?= e(ucfirst((string) $p['category'])) ?></td>
+              <td class="small muted"><?= e(\App\Models\Product::categoryLabel((string) $p['category'])) ?></td>
               <td class="right nowrap mono"><?= e(ghs((int) $p['cash_price_pesewas'])) ?></td>
+              <td class="small"><?= e(implode(' · ', array_map(fn($f) => \App\Models\Product::FREQUENCIES[$f], \App\Models\Product::allowedFrequencies($p)))) ?><span class="cell-sub">or in full</span></td>
               <td>
                 <?php if ($p['active']): ?>
                   <span class="tag tag-active"><?= micon('visibility', ['size' => 14]) ?> Visible</span>

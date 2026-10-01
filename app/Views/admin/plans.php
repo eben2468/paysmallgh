@@ -9,7 +9,6 @@ $tabs = [
     'completed' => 'Completed',
     'cancelled' => 'Cancelled',
 ];
-$unit = ['daily' => 'day', 'weekly' => 'wk', 'monthly' => 'mo'];
 ?>
 <div class="pg-head">
   <div>
@@ -55,7 +54,7 @@ $unit = ['daily' => 'day', 'weekly' => 'wk', 'monthly' => 'mo'];
               <td><?= e($p['customer_name']) ?></td>
               <td><?= e($p['shop_name']) ?></td>
               <td class="cell-mini-bar">
-                <span class="small"><?= (int) $p['installments_paid'] ?> of <?= $tot ?> &middot; <?= e(ghs((int) $p['installment_pesewas'])) ?>/<?= e($unit[$p['frequency']] ?? 'wk') ?></span>
+                <span class="small"><?= (int) $p['installments_paid'] ?> of <?= $tot ?> &middot; <?= e(plan_rate($p)) ?></span>
                 <?= progress_bar($pc, $p['status'] === 'completed' ? 'success' : ($grace ? 'warn' : 'primary')) ?>
               </td>
               <td>
