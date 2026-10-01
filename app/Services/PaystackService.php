@@ -565,6 +565,13 @@ final class PaystackService
         curl_setopt_array($ch, $opts);
 
         $response = curl_exec($ch);
+        // DNS lookup or TCP connect failed: the request never left this server,
+        // so one retry can't duplicate a charge. Smooths over network blips.
+        if (in_array(curl_errno($ch), [CURLE_COULDNT_RESOLVE_HOST, CURLE_COULDNT_CONNECT], true)) {
+            error_log('[Paystack] ' . curl_error($ch) . ' — retrying ' . $method . ' ' . $path);
+            usleep(800000);
+            $response = curl_exec($ch);
+        }
         $httpStatus = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $err = curl_error($ch);
         curl_close($ch);
