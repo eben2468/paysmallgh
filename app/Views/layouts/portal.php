@@ -84,6 +84,11 @@ $initial = strtoupper(mb_substr($owner, 0, 1));
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="icon" href="<?= asset('/assets/img/favicon.ico') ?>" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="<?= asset('/assets/img/favicon-32.png') ?>">
+<link rel="icon" type="image/png" sizes="192x192" href="<?= asset('/assets/img/favicon-192.png') ?>">
+<link rel="apple-touch-icon" href="<?= asset('/assets/img/apple-touch-icon.png') ?>">
+<meta name="theme-color" content="#00342b">
 <link rel="stylesheet" href="<?= asset('/assets/css/app.css') ?>">
 </head>
 <body class="portal-body">
@@ -92,7 +97,7 @@ $initial = strtoupper(mb_substr($owner, 0, 1));
 <div class="portal">
   <aside class="portal-side" id="portal-side" aria-label="<?= $isAdmin ? 'Admin' : 'Merchant' ?> navigation">
     <div class="portal-brand">
-      <a class="logo logo-light" href="<?= url($isAdmin ? '/admin' : '/merchant/dashboard') ?>">Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></a>
+      <a class="logo logo-light" href="<?= url($isAdmin ? '/admin' : '/merchant/dashboard') ?>"><img class="logo-mark-img" src="<?= asset('/assets/img/logo-mark.png') ?>" alt="" width="32" height="32"><span>Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></span></a>
       <span class="portal-tag"><?= $isAdmin ? 'Admin' : 'Merchant' ?></span>
     </div>
 

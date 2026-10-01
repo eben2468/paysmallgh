@@ -2,7 +2,7 @@
 <section class="auth wrap">
   <div class="auth-card">
     <aside class="auth-aside is-buyer">
-      <span class="auth-logo">Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></span>
+      <span class="auth-logo"><img class="logo-mark-img" src="<?= asset('/assets/img/logo-mark.png') ?>" alt="" width="32" height="32"><span>Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></span></span>
       <span class="auth-eyebrow">For shoppers</span>
       <h2>Welcome back. Your plans are waiting.</h2>
       <ul class="auth-points">

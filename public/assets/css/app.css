@@ -1704,3 +1704,15 @@ a.cell-main:hover { color: var(--primary); }
 .picker-full-note { margin-top: .6rem; font-size: .85rem; color: var(--ink-variant); }
 .freq-tab.is-full { border-style: dashed; }
 .freq-tab.is-full.active { border-style: solid; }
+
+/* ---------- Brand logo images ---------- */
+.logo.logo-img { display: inline-flex; align-items: center; line-height: 0; }
+.logo.logo-img img { height: 44px; width: auto; display: block; }
+.footer-logo img { height: 112px; width: auto; display: block; margin-left: -6px; }
+/* Bag mark beside the white wordmark on dark-green panels (portal sidebar, login asides). */
+.logo-mark-img { height: 30px; width: auto; flex-shrink: 0; }
+.logo.logo-light, .auth-logo { display: inline-flex; align-items: center; gap: .45rem; }
+@media (max-width: 767px) {
+  .logo.logo-img img { height: 34px; }
+  .footer-logo img { height: 92px; }
+}

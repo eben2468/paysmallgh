@@ -71,6 +71,11 @@ $accountBlock = static function (array $a, bool $showHead): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<link rel="icon" href="<?= asset('/assets/img/favicon.ico') ?>" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="<?= asset('/assets/img/favicon-32.png') ?>">
+<link rel="icon" type="image/png" sizes="192x192" href="<?= asset('/assets/img/favicon-192.png') ?>">
+<link rel="apple-touch-icon" href="<?= asset('/assets/img/apple-touch-icon.png') ?>">
+<meta name="theme-color" content="#00342b">
 <link rel="stylesheet" href="<?= asset('/assets/css/app.css') ?>">
 </head>
 <body>
@@ -87,7 +92,7 @@ $accountBlock = static function (array $a, bool $showHead): string {
   <div class="wrap header-row">
     <button class="nav-toggle" aria-label="Menu" aria-expanded="false" data-nav-toggle><?= micon('menu', ['size' => 26]) ?></button>
 
-    <a class="logo" href="<?= url('/') ?>">Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></a>
+    <a class="logo logo-img" href="<?= url('/') ?>"><img src="<?= asset('/assets/img/logo-header.png') ?>" alt="PaySmallSmall" width="283" height="60"></a>
 
     <nav class="primary-nav" aria-label="Primary">
       <a class="<?= $is('/shop') ?>" href="<?= url('/shop') ?>">Browse</a>
@@ -151,7 +156,7 @@ $accountBlock = static function (array $a, bool $showHead): string {
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div>
-      <p class="footer-logo">PaySmallSmall</p>
+      <p class="footer-logo"><img src="<?= asset('/assets/img/logo.png') ?>" alt="PaySmallSmall — secure layaway for Ghana" width="224" height="150"></p>
       <p class="footer-note">Lay-away for the MoMo age. Your money sits safe in escrow until the item is fully yours.</p>
     </div>
     <div>
