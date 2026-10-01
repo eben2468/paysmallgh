@@ -25,8 +25,13 @@ final class Auth
 
         $lifetime = max(1, Config::int('SESSION_LIFETIME_DAYS', 30)) * 86400;
         $dir = BASE_PATH . '/storage/sessions';
-        if (is_dir($dir) || @mkdir($dir, 0700, true)) {
+        if ((is_dir($dir) || @mkdir($dir, 0700, true)) && is_writable($dir)) {
             session_save_path($dir);
+        } else {
+            // Wrong owner/permissions (e.g. folder created as root). Fall back to
+            // PHP's default session storage so pages keep working, and say why.
+            error_log('[session] ' . $dir . ' is not writable by ' . (function_exists('posix_geteuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? '?') : get_current_user())
+                . ' — logins use the default session path and may expire early. Fix: chown the folder to the site user.');
         }
         ini_set('session.gc_maxlifetime', (string) $lifetime);
         ini_set('session.use_strict_mode', '1');
