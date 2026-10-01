@@ -29,6 +29,8 @@ $router->get('/logout', AuthController::class, 'logout');
 // Plans (customer)
 $router->post('/plan/start', PlanController::class, 'start');
 $router->get('/plan/resume', PlanController::class, 'resume');
+// Paystack return-after-checkout (works with or without a login).
+$router->get('/payment/return', PlanController::class, 'paymentReturn');
 $router->get('/plans', PlanController::class, 'index');
 $router->get('/plan/{id}', PlanController::class, 'show');
 $router->post('/plan/{id}/pay', PlanController::class, 'pay');

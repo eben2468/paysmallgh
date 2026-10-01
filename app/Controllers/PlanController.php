@@ -110,6 +110,44 @@ final class PlanController extends Controller
         redirect($to);
     }
 
+    /**
+     * Where Paystack sends the customer after checkout (?reference=…).
+     *
+     * Confirms the payment FIRST, without needing a login: on phones the
+     * customer often comes back in a different browser (a MoMo or banking
+     * app's in-app browser) that doesn't have their login cookie. The
+     * reference only matches a payment we created, and the result always
+     * comes from Paystack's API, so this is safe for anyone to hit. Then:
+     * logged in as the owner -> straight to the plan; otherwise -> log in,
+     * and come back to the plan after.
+     */
+    public function paymentReturn(): void
+    {
+        $ref = (string) ($_GET['reference'] ?? $_GET['trxref'] ?? '');
+        $tx = $ref !== '' ? Transaction::findByRef($ref) : null;
+        if (!$tx || $tx['type'] !== 'collection' || !$tx['plan_id']) {
+            redirect(Auth::userId() ? '/plans' : '/login');
+        }
+
+        $result = (new PlanService())->reconcileTransaction($tx);
+        $plan = Plan::find((int) $tx['plan_id']);
+        $planPath = '/plan/' . (int) $tx['plan_id'];
+
+        if (Auth::userId() !== null && $plan && (int) $plan['customer_id'] === Auth::userId()) {
+            $this->flashPaymentResult($result);
+            redirect($planPath);
+        }
+
+        // Not logged in on this browser: the payment is already confirmed above.
+        $_SESSION['after_login'] = $planPath;
+        flash('error', match ($result) {
+            'active', 'completed' => 'Payment received — thank you! Log in to see your plan and receipt.',
+            'failed' => 'That payment didn\'t go through. Log in to try again.',
+            default => 'Your payment is still processing. Log in to check on your plan.',
+        });
+        redirect('/login');
+    }
+
     public function index(): void
     {
         $user = $this->requireUser();

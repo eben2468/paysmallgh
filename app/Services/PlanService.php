@@ -77,9 +77,10 @@ final class PlanService
         ]);
 
         $desc = sprintf('%s — payment %d of %d', $plan['product_name'], $inst['number'], $plan['installments_total']);
-        // Paystack sends the customer back here with ?reference=… appended;
-        // PlanController::show() verifies it on arrival.
-        $callback = absolute_url('/plan/' . $planId);
+        // Paystack sends the customer back here with ?reference=… appended.
+        // PlanController::paymentReturn() confirms it even if this browser
+        // isn't logged in, then routes them to their plan.
+        $callback = absolute_url('/payment/return');
         $link = $this->paystack->paymentLink(
             $plan['customer_phone'],
             (int) $inst['amount_pesewas'],

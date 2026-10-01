@@ -82,9 +82,15 @@ final class AuthController extends Controller
     {
         $target = $_SESSION['after_login'] ?? null;
         unset($_SESSION['after_login']);
-        if (is_string($target) && str_starts_with($target, '/')) {
-            header('Location: ' . $target);
-            exit;
+        // Only same-site paths ("/x", never "//host"). Stored targets may or may
+        // not include the app's base folder (REQUEST_URI does) — strip it so
+        // redirect() adds it back exactly once.
+        if (is_string($target) && str_starts_with($target, '/') && !str_starts_with($target, '//')) {
+            $base = rtrim(url('/'), '/');
+            if ($base !== '' && str_starts_with($target, $base . '/')) {
+                $target = substr($target, strlen($base));
+            }
+            redirect($target);
         }
         redirect('/plans');
     }
