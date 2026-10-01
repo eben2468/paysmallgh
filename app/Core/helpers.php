@@ -48,6 +48,18 @@ function absolute_url(string $path = '/'): string
     return $appUrl . '/' . ltrim($path, '/');
 }
 
+/**
+ * URL for a file in /public with a version stamp (?v=<last modified time>), so
+ * browsers fetch a fresh copy the moment the file changes instead of reusing
+ * a cached old stylesheet or script.
+ */
+function asset(string $path): string
+{
+    $file = BASE_PATH . '/public/' . ltrim($path, '/');
+    $v = is_file($file) ? (string) filemtime($file) : '';
+    return url($path) . ($v !== '' ? '?v=' . $v : '');
+}
+
 /** Redirect and stop. */
 function redirect(string $path): never
 {

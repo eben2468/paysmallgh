@@ -52,8 +52,19 @@ spl_autoload_register(function (string $class): void {
         'woff' => 'font/woff', 'woff2' => 'font/woff2', 'ttf' => 'font/ttf', 'eot' => 'application/vnd.ms-fontobject',
     ];
     $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    $mtime = (int) filemtime($file);
+    $etag = '"' . dechex($mtime) . '-' . dechex((int) filesize($file)) . '"';
     header('Content-Type: ' . ($mimes[$ext] ?? 'application/octet-stream'));
-    header('Cache-Control: public, max-age=2592000');
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $mtime) . ' GMT');
+    header('ETag: ' . $etag);
+    // Versioned links (asset() adds ?v=<mtime>) change whenever the file does,
+    // so they can be cached hard. Anything else must re-check, or browsers keep
+    // serving an old stylesheet after an update.
+    header(isset($_GET['v']) ? 'Cache-Control: public, max-age=31536000, immutable' : 'Cache-Control: no-cache');
+    if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+        http_response_code(304);
+        exit;
+    }
     header('Content-Length: ' . filesize($file));
     readfile($file);
     exit;

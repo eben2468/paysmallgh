@@ -84,7 +84,7 @@ $initial = strtoupper(mb_substr($owner, 0, 1));
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="<?= url('/assets/css/app.css') ?>">
+<link rel="stylesheet" href="<?= asset('/assets/css/app.css') ?>">
 </head>
 <body class="portal-body">
 <a class="skip-link" href="#main">Skip to content</a>
@@ -182,6 +182,6 @@ $initial = strtoupper(mb_substr($owner, 0, 1));
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') set(false); });
   })();
 </script>
-<script src="<?= url('/assets/js/app.js') ?>"></script>
+<script src="<?= asset('/assets/js/app.js') ?>"></script>
 </body>
 </html>

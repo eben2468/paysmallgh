@@ -71,7 +71,7 @@ $accountBlock = static function (array $a, bool $showHead): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="<?= url('/assets/css/app.css') ?>">
+<link rel="stylesheet" href="<?= asset('/assets/css/app.css') ?>">
 </head>
 <body>
 <a class="skip-link" href="#main">Skip to content</a>
@@ -185,6 +185,6 @@ $accountBlock = static function (array $a, bool $showHead): string {
   <?php endif; ?>
 </nav>
 
-<script src="<?= url('/assets/js/app.js') ?>"></script>
+<script src="<?= asset('/assets/js/app.js') ?>"></script>
 </body>
 </html>
