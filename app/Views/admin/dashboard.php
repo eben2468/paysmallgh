@@ -1,149 +1,188 @@
-<?php use App\Core\Csrf; ?>
-<section class="page-head wrap">
-  <h1>Admin</h1>
-  <p>Payments mode: <span class="mode-banner"><?= e($mode) ?></span></p>
-</section>
+<?php
+use App\Core\Csrf;
 
-<section class="wrap" style="padding-bottom:3rem">
-  <div class="admin-nav">
-    <a class="btn btn-sm" href="<?= url('/admin/plans') ?>">All plans</a>
-    <a class="btn btn-sm" href="<?= url('/admin/users') ?>">Customers</a>
-    <a class="btn btn-sm" href="<?= url('/admin/ledger') ?>">Ledger &amp; SMS</a>
-    <form class="inline-form" method="post" action="<?= url('/admin/logout') ?>">
+$p = $stats['plans'];
+$money = $stats['money'];
+$int = $integrations;
+
+// Things an admin should act on, most urgent first. Only non-zero rows show.
+$attention = array_filter([
+    ['merchants', 'storefront', 'Shops waiting for approval', 'Review their Ghana Card, then approve.', $stats['merchants_pending'], url('/admin/merchants?status=pending'), ''],
+    ['payouts', 'payments', 'Payouts that failed', 'Fully paid plans whose merchant payout needs a retry.', $stats['stuck_payouts'], url('/admin/plans?status=active'), 'is-bad'],
+    ['refunds', 'undo', 'Refunds that failed', 'Cancelled plans with money still to send back.', $stats['stuck_refunds'], url('/admin/plans?status=cancelled'), 'is-bad'],
+    ['flagged', 'warning', 'Plans past the grace period', 'Customer stopped paying — merchant has been told.', $p['flagged'] ?? 0, url('/admin/plans?status=attention'), 'is-bad'],
+    ['grace', 'schedule', 'Plans in the grace period', 'Missed a payment; friendly reminder sent.', $p['in_grace'] ?? 0, url('/admin/plans?status=attention'), ''],
+    ['tx', 'sync', 'Payments awaiting confirmation', 'Reconcile to check them with Paystack now.', $stats['tx_pending'], url('/admin/ledger?type=pending'), ''],
+], fn($row) => $row[4] > 0);
+?>
+<div class="pg-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p>How PaySmallSmall is doing today, and anything that needs you.</p>
+  </div>
+  <div class="pg-actions">
+    <form class="inline-form" method="post" action="<?= url('/admin/reconcile') ?>">
       <?= Csrf::field() ?>
-      <button class="btn btn-sm btn-quiet" type="submit">Log out</button>
+      <button class="btn btn-sm btn-ghost" type="submit"><?= micon('sync', ['size' => 18]) ?> Reconcile payments</button>
     </form>
+    <a class="btn btn-sm btn-primary" href="<?= url('/admin/plans') ?>"><?= micon('receipt_long', ['size' => 18]) ?> All plans</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi is-money">
+    <div class="kpi-top"><span class="kpi-label">Held in escrow</span><span class="kpi-ic"><?= micon('lock', ['size' => 20, 'fill' => true]) ?></span></div>
+    <div class="kpi-value"><?= e(ghs((int) ($p['escrow'] ?? 0))) ?></div>
+    <span class="kpi-sub">On <?= (int) ($p['active'] ?? 0) ?> active plan<?= ($p['active'] ?? 0) === 1 ? '' : 's' ?></span>
+  </div>
+  <a class="kpi" href="<?= url('/admin/plans?status=active') ?>">
+    <div class="kpi-top"><span class="kpi-label">Active plans</span><span class="kpi-ic"><?= micon('receipt_long') ?></span></div>
+    <div class="kpi-value"><?= (int) ($p['active'] ?? 0) ?></div>
+    <span class="kpi-sub"><?= (int) ($p['completed'] ?? 0) ?> completed &middot; <?= (int) ($p['pending'] ?? 0) ?> awaiting first payment</span>
+  </a>
+  <a class="kpi" href="<?= url('/admin/ledger?type=collection') ?>">
+    <div class="kpi-top"><span class="kpi-label">Collected</span><span class="kpi-ic"><?= micon('south_west') ?></span></div>
+    <div class="kpi-value"><?= e(ghs((int) ($money['collected'] ?? 0))) ?></div>
+    <span class="kpi-sub"><?= e(ghs((int) ($money['paid_out'] ?? 0))) ?> paid out to shops</span>
+  </a>
+  <a class="kpi" href="<?= url('/admin/merchants') ?>">
+    <div class="kpi-top"><span class="kpi-label">Shops</span><span class="kpi-ic"><?= micon('storefront') ?></span></div>
+    <div class="kpi-value"><?= (int) $stats['merchants_total'] ?></div>
+    <span class="kpi-sub"><?= (int) $stats['customers'] ?> customers &middot; <?= (int) $stats['merchants_pending'] ?> shop<?= $stats['merchants_pending'] === 1 ? '' : 's' ?> to approve</span>
+  </a>
+</div>
+
+<div class="grid-2">
+  <div class="stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><?= micon('notifications_active', ['size' => 20]) ?> Needs your attention</h2>
+      </div>
+      <?php if (!$attention): ?>
+        <ul class="attn-list">
+          <li><div class="attn-item">
+            <span class="attn-ic is-ok"><?= micon('check_circle', ['size' => 20, 'fill' => true]) ?></span>
+            <span class="attn-text"><b>All clear</b><span>No approvals, failed payouts or stalled plans right now.</span></span>
+          </div></li>
+        </ul>
+      <?php else: ?>
+        <ul class="attn-list">
+          <?php foreach ($attention as [$key, $icon, $label, $hint, $count, $href, $tone]): ?>
+            <li><a class="attn-item" href="<?= e($href) ?>">
+              <span class="attn-ic <?= e($tone) ?>"><?= micon($icon, ['size' => 20]) ?></span>
+              <span class="attn-text"><b><?= e($label) ?></b><span><?= e($hint) ?></span></span>
+              <span class="attn-count"><?= (int) $count ?></span>
+              <?= micon('chevron_right', ['size' => 20]) ?>
+            </a></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><?= micon('account_balance', ['size' => 20]) ?> Latest money movements</h2>
+        <a class="panel-link" href="<?= url('/admin/ledger') ?>">All transactions <?= micon('arrow_forward', ['size' => 16]) ?></a>
+      </div>
+      <?php if (empty($recent)): ?>
+        <div class="panel-empty"><?= micon('receipt') ?>No transactions yet.</div>
+      <?php else: ?>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>When</th><th>Type</th><th>Plan</th><th class="right">Amount</th><th>Status</th></tr></thead>
+            <tbody>
+              <?php foreach ($recent as $t): ?>
+                <tr>
+                  <td class="small muted nowrap"><?= e(when($t['created_at'])) ?></td>
+                  <td><?= e(ucfirst($t['type'])) ?></td>
+                  <td><?= $t['plan_id'] ? '<a href="' . url('/admin/plan/' . (int) $t['plan_id']) . '">#' . (int) $t['plan_id'] . '</a>' : '—' ?></td>
+                  <td class="right nowrap"><strong><?= e(ghs((int) $t['amount_pesewas'])) ?></strong></td>
+                  <td><?= status_tag($t['status']) ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+    </section>
   </div>
 
-  <!-- Payments integration -->
-  <div class="card mb-3" style="max-width:760px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
-      <div>
-        <h2 style="font-size:1.2rem;color:var(--primary)"><?= micon('payments', ['size' => 20, 'fill' => true]) ?> Payments (Paystack)</h2>
-        <p class="muted small mt-1">Collections, merchant payouts and refunds.</p>
+  <div class="stack">
+    <section class="panel">
+      <div class="panel-head">
+        <h2><?= micon('how_to_reg', ['size' => 20]) ?> Shops to approve</h2>
+        <a class="panel-link" href="<?= url('/admin/merchants?status=pending') ?>">See all <?= micon('arrow_forward', ['size' => 16]) ?></a>
       </div>
-      <div style="text-align:right">
-        <?php if ($mode === 'mock'): ?>
-          <span class="tag tag-pending"><?= micon('schedule', ['size' => 14]) ?> Mock (no real money)</span>
-        <?php elseif (!$paystack['has_key']): ?>
-          <span class="tag tag-flagged"><?= micon('warning', ['size' => 14]) ?> No secret key</span>
-        <?php elseif ($mode === 'live' && $paystack['key_kind'] !== 'live'): ?>
-          <span class="tag tag-flagged"><?= micon('warning', ['size' => 14]) ?> Live mode, non-live key</span>
-        <?php else: ?>
-          <span class="tag tag-active"><?= micon('check_circle', ['size' => 14, 'fill' => true]) ?> <?= e(ucfirst($mode)) ?></span>
-        <?php endif; ?>
+      <?php if (empty($pendingMerchants)): ?>
+        <div class="panel-empty"><?= micon('task_alt') ?>No shops waiting.</div>
+      <?php else: ?>
+        <ul class="attn-list">
+          <?php foreach ($pendingMerchants as $m): ?>
+            <li><div class="attn-item">
+              <span class="avatar avatar-sm"><?= e(strtoupper(mb_substr($m['shop_name'], 0, 1))) ?></span>
+              <span class="attn-text">
+                <b><a href="<?= url('/admin/merchant/' . $m['id']) ?>"><?= e($m['shop_name']) ?></a></b>
+                <span><?= e($m['owner_name']) ?> &middot; <?= e($m['location'] ?: pretty_phone($m['phone'])) ?></span>
+              </span>
+              <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/approve') ?>">
+                <?= Csrf::field() ?>
+                <button class="btn btn-sm btn-green" type="submit">Approve</button>
+              </form>
+            </div></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><?= micon('warning', ['size' => 20]) ?> Plans behind on payment</h2>
+        <a class="panel-link" href="<?= url('/admin/plans?status=attention') ?>">See all <?= micon('arrow_forward', ['size' => 16]) ?></a>
       </div>
-    </div>
-    <div class="stack-gap mt-2" style="gap:.4rem">
-      <div class="pay-item"><span class="muted small">Secret key</span><span class="mono"><?= $paystack['has_key'] ? e($paystack['key_kind']) . ' key configured' : 'missing' ?></span></div>
-      <div class="pay-item"><span class="muted small">Webhook URL (set in Paystack &rarr; Settings &rarr; API Keys &amp; Webhooks)</span><span class="mono"><?= e($paystack['webhook']) ?></span></div>
-    </div>
+      <?php if (empty($attentionPlans)): ?>
+        <div class="panel-empty"><?= micon('thumb_up') ?>Everyone is paying on time.</div>
+      <?php else: ?>
+        <ul class="attn-list">
+          <?php foreach ($attentionPlans as $pl): ?>
+            <li><a class="attn-item" href="<?= url('/admin/plan/' . $pl['id']) ?>">
+              <span class="attn-text">
+                <b><?= e($pl['customer_name']) ?></b>
+                <span><?= e($pl['product_name']) ?> &middot; <?= (int) $pl['installments_paid'] ?>/<?= (int) $pl['installments_total'] ?> paid</span>
+              </span>
+              <?= status_tag($pl['grace_state']) ?>
+            </a></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2><?= micon('hub', ['size' => 20]) ?> Connections</h2>
+        <a class="panel-link" href="<?= url('/admin/system') ?>">System <?= micon('arrow_forward', ['size' => 16]) ?></a>
+      </div>
+      <div class="panel-body">
+        <div class="status-row">
+          <span>Payments (Paystack)</span>
+          <?php if ($int['mode'] === 'mock'): ?>
+            <span class="tag tag-pending">Mock — no real money</span>
+          <?php elseif (!$int['paystack']['has_key']): ?>
+            <span class="tag tag-flagged">No secret key</span>
+          <?php else: ?>
+            <span class="tag tag-active"><?= e(ucfirst($int['mode'])) ?> &middot; <?= e($int['paystack']['key_kind']) ?> key</span>
+          <?php endif; ?>
+        </div>
+        <div class="status-row">
+          <span>SMS (Moolre)</span>
+          <?php if (!$int['sms']['has_key']): ?>
+            <span class="tag tag-flagged">No VAS key</span>
+          <?php elseif ($int['sms']['live']): ?>
+            <span class="tag tag-active">Live &middot; <?= e($int['sms']['sender']) ?></span>
+          <?php else: ?>
+            <span class="tag tag-pending">Mock — logging only</span>
+          <?php endif; ?>
+        </div>
+      </div>
+    </section>
   </div>
-
-  <!-- SMS integration -->
-  <div class="card mb-3" style="max-width:760px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
-      <div>
-        <h2 style="font-size:1.2rem;color:var(--primary)"><?= micon('sms', ['size' => 20, 'fill' => true]) ?> SMS (Moolre)</h2>
-        <p class="muted small mt-1">Sends via <span class="mono"><?= e($sms['endpoint']) ?></span></p>
-      </div>
-      <div style="text-align:right">
-        <?php if ($sms['live'] && $sms['has_key']): ?>
-          <span class="tag tag-active"><?= micon('check_circle', ['size' => 14, 'fill' => true]) ?> Live</span>
-        <?php elseif (!$sms['has_key']): ?>
-          <span class="tag tag-flagged"><?= micon('warning', ['size' => 14]) ?> No VAS key</span>
-        <?php else: ?>
-          <span class="tag tag-pending"><?= micon('schedule', ['size' => 14]) ?> Mock (logging only)</span>
-        <?php endif; ?>
-      </div>
-    </div>
-
-    <div class="stack-gap mt-2" style="gap:.4rem">
-      <div class="pay-item"><span class="muted small">Sender ID</span><span class="mono"><?= e($sms['sender']) ?></span></div>
-      <div class="pay-item"><span class="muted small">VAS key</span><span class="mono"><?= $sms['has_key'] ? 'configured' : 'missing' ?></span></div>
-    </div>
-
-    <div class="perf"></div>
-
-    <h3 style="font-size:1rem" class="mb-1">Send a test SMS</h3>
-    <p class="field-hint mb-2">Hits the real Moolre SMS API right now (even in mock mode) so you can confirm delivery. Use your own number.</p>
-    <form method="post" action="<?= url('/admin/test-sms') ?>">
-      <?= Csrf::field() ?>
-      <div class="field">
-        <label for="sms_phone">Phone</label>
-        <input id="sms_phone" name="phone" type="tel" required placeholder="024 XXX XXXX">
-      </div>
-      <div class="field">
-        <label for="sms_message">Message (max 160 chars)</label>
-        <input id="sms_message" name="message" type="text" maxlength="160"
-               value="PaySmallSmall test: your SMS setup is working." >
-      </div>
-      <button class="btn btn-primary" type="submit"><?= micon('send', ['size' => 18]) ?> Send test SMS</button>
-    </form>
-  </div>
-
-  <h2 style="font-size:1.35rem" class="mb-2">Merchants</h2>
-  <div class="table-scroll">
-    <table class="data">
-      <thead><tr><th>Shop</th><th>Owner</th><th>Phone</th><th>KYC / Ghana Card</th><th>Payout</th><th>Status</th><th>Verified</th><th></th></tr></thead>
-      <tbody>
-        <?php foreach ($merchants as $m): ?>
-          <tr>
-            <td><a href="<?= url('/admin/merchant/' . $m['id']) ?>"><?= e($m['shop_name']) ?></a><div class="small muted"><?= e($m['location']) ?></div></td>
-            <td><?= e($m['owner_name']) ?></td>
-            <td><?= e(pretty_phone($m['phone'])) ?></td>
-            <td>
-              <span class="mono small"><?= e($m['id_number'] ?: '—') ?></span>
-              <?php if (!empty($m['business_reg'])): ?><div class="small muted">Reg: <?= e($m['business_reg']) ?></div><?php endif; ?>
-              <?php if (!empty($m['id_card_path'])): ?>
-                <div><a class="small" href="<?= url('/admin/merchant/' . $m['id'] . '/id-card') ?>" target="_blank" rel="noopener"><?= micon('image', ['size' => 14]) ?> View card</a></div>
-              <?php else: ?>
-                <div class="small muted">no card uploaded</div>
-              <?php endif; ?>
-            </td>
-            <td><?= e($m['payout_channel']) ?><?= ($m['payout_bank_code'] ?? '') !== '' ? ' (' . e($m['payout_bank_code']) . ')' : '' ?> &middot; <?= e(pretty_phone($m['payout_number'])) ?></td>
-            <td><span class="tag tag-<?= $m['status'] === 'approved' ? 'completed' : ($m['status'] === 'pending' ? 'pending' : 'cancelled') ?>"><?= e($m['status']) ?></span></td>
-            <td>
-              <?php if ($m['verified']): ?>
-                <span class="tag tag-verified"><?= micon('verified', ['size' => 14, 'fill' => true]) ?> verified</span>
-              <?php else: ?>
-                <span class="small muted">not yet</span>
-              <?php endif; ?>
-            </td>
-            <td class="nowrap">
-              <?php if ($m['status'] === 'pending'): ?>
-                <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/approve') ?>">
-                  <?= Csrf::field() ?>
-                  <button class="btn btn-sm btn-green" type="submit">Approve</button>
-                </form>
-              <?php elseif ($m['status'] === 'approved'): ?>
-                <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/suspend') ?>"
-                      data-confirm="Suspend <?= e($m['shop_name']) ?>? Their products stop showing to customers.">
-                  <?= Csrf::field() ?>
-                  <button class="btn btn-sm btn-quiet" type="submit">Suspend</button>
-                </form>
-              <?php elseif ($m['status'] === 'suspended'): ?>
-                <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/reactivate') ?>">
-                  <?= Csrf::field() ?>
-                  <button class="btn btn-sm btn-green" type="submit">Reactivate</button>
-                </form>
-              <?php endif; ?>
-              <?php if ($m['verified']): ?>
-                <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/unverify') ?>"
-                      data-confirm="Remove <?= e($m['shop_name']) ?>'s verified badge?">
-                  <?= Csrf::field() ?>
-                  <button class="btn btn-sm btn-quiet" type="submit">Unverify</button>
-                </form>
-              <?php else: ?>
-                <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/verify') ?>">
-                  <?= Csrf::field() ?>
-                  <button class="btn btn-sm btn-green" type="submit"><?= micon('verified', ['size' => 14]) ?> Verify</button>
-                </form>
-              <?php endif; ?>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
-</section>
+</div>

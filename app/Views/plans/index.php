@@ -1,7 +1,7 @@
 <?php use App\Core\Csrf; ?>
 <section class="page-head wrap">
-  <h1>My active plans</h1>
-  <p>Manage your layaway progress and upcoming payments.</p>
+  <h1>My plans</h1>
+  <p>Track what you're paying for, what's due next, and every receipt.</p>
 </section>
 
 <section class="wrap" style="padding-bottom:3rem">

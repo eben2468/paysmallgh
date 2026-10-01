@@ -1,103 +1,113 @@
-<?php use App\Core\Csrf; ?>
-<section class="page-head wrap">
-  <h1><?= e($merchant['shop_name']) ?></h1>
-  <p>
-    <?php if ($merchant['status'] === 'pending'): ?>
-      Your shop is under review — customers can't see your products yet. You can still add them now so you're ready.
-    <?php elseif ($merchant['status'] === 'suspended'): ?>
-      Your shop is suspended. Call us to sort it out.
-    <?php else: ?>
-      Live and selling. Here's where things stand.
-    <?php endif; ?>
-  </p>
-</section>
+<?php
+use App\Core\Csrf;
 
-<section class="wrap" style="padding-bottom:3rem">
-  <div class="admin-nav">
-    <a class="btn btn-sm" href="<?= url('/merchant/products') ?>"><?= micon('inventory_2', ['size' => 18]) ?> My products</a>
-    <a class="btn btn-sm" href="<?= url('/merchant/payouts') ?>"><?= micon('account_balance', ['size' => 18]) ?> Payouts</a>
-    <a class="btn btn-sm" href="<?= url('/merchant/settings') ?>"><?= micon('settings', ['size' => 18]) ?> Settings</a>
+$toRelease = array_values(array_filter($plans, fn($p) => $p['status'] === 'completed' && ($p['released_at'] ?? null) === null));
+$unit = ['daily' => 'day', 'weekly' => 'wk', 'monthly' => 'mo'];
+$first = explode(' ', (string) $merchant['owner_name'])[0];
+?>
+<div class="pg-head">
+  <div>
+    <h1>Hello, <?= e($first) ?></h1>
+    <p>Here's where your sales stand. Money from customers sits in escrow and comes to you when each plan is paid in full.</p>
+  </div>
+  <div class="pg-actions">
+    <a class="btn btn-sm btn-ghost" href="<?= url('/merchant/payouts') ?>"><?= micon('account_balance_wallet', ['size' => 18]) ?> Payouts</a>
     <a class="btn btn-sm btn-primary" href="<?= url('/merchant/products/new') ?>"><?= micon('add', ['size' => 18]) ?> Add product</a>
   </div>
+</div>
 
-  <div class="stat-row reveal stagger">
-    <div class="stat stat-money">
-      <div class="stat-ic"><?= micon('account_balance_wallet') ?></div>
-      <b><span class="cur">GHS </span><?= number_format((int) $stats['in_escrow'] / 100) ?></b>
-      <span>In escrow, coming to you</span>
-    </div>
-    <div class="stat stat-accent">
-      <div class="stat-ic"><?= micon('payments') ?></div>
-      <b><?= (int) $stats['active'] ?></b>
-      <span>Active plans</span>
-    </div>
-    <div class="stat">
-      <div class="stat-ic"><?= micon('receipt_long') ?></div>
-      <b><?= (int) $stats['completed'] ?></b>
-      <span>Completed plans</span>
-    </div>
-    <div class="stat">
-      <div class="stat-ic"><?= micon('storefront') ?></div>
-      <b><?= (int) $stats['products'] ?></b>
-      <span>Products listed</span>
-    </div>
+<?php if ($merchant['status'] === 'pending'): ?>
+  <div class="banner"><?= micon('hourglass_top', ['size' => 22]) ?><div><b>Your shop is under review.</b>Customers can't see your products yet. Add them now so you're ready the moment we approve you &mdash; we'll text you.</div></div>
+<?php elseif ($merchant['status'] === 'suspended'): ?>
+  <div class="banner is-bad"><?= micon('block', ['size' => 22]) ?><div><b>Your shop is suspended.</b>Your products are hidden from customers. Running plans continue. Call us to sort it out.</div></div>
+<?php endif; ?>
+
+<div class="kpi-grid">
+  <div class="kpi is-money">
+    <div class="kpi-top"><span class="kpi-label">In escrow for you</span><span class="kpi-ic"><?= micon('lock', ['size' => 20, 'fill' => true]) ?></span></div>
+    <div class="kpi-value"><?= e(ghs((int) $stats['in_escrow'])) ?></div>
+    <span class="kpi-sub">Paid out as each plan completes</span>
   </div>
+  <div class="kpi">
+    <div class="kpi-top"><span class="kpi-label">Active plans</span><span class="kpi-ic"><?= micon('receipt_long') ?></span></div>
+    <div class="kpi-value"><?= (int) $stats['active'] ?></div>
+    <span class="kpi-sub">Customers paying small small</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-top"><span class="kpi-label">Completed</span><span class="kpi-ic"><?= micon('task_alt') ?></span></div>
+    <div class="kpi-value"><?= (int) $stats['completed'] ?></div>
+    <span class="kpi-sub">Plans paid in full</span>
+  </div>
+  <a class="kpi" href="<?= url('/merchant/products') ?>">
+    <div class="kpi-top"><span class="kpi-label">Products</span><span class="kpi-ic"><?= micon('inventory_2') ?></span></div>
+    <div class="kpi-value"><?= (int) $stats['products'] ?></div>
+    <span class="kpi-sub">Listed in your shop</span>
+  </a>
+</div>
 
-  <div class="table-scroll">
-    <div style="padding:1.1rem 1.2rem;border-bottom:1px solid var(--surface-variant);display:flex;justify-content:space-between;align-items:center">
-      <h2 style="font-size:1.2rem">Customer plans</h2>
+<?php if ($toRelease): ?>
+  <section class="panel mb-3">
+    <div class="panel-head">
+      <h2><?= micon('local_shipping', ['size' => 20]) ?> Ready to hand over</h2>
+      <span class="panel-sub">Paid in full and paid out to you &mdash; give the customer their item, then mark it.</span>
     </div>
-    <?php if (empty($plans)): ?>
-      <p class="muted" style="padding:1.5rem 1.2rem">No plans yet. Once a customer starts paying for one of your products, it shows up here.</p>
-    <?php else: ?>
+    <ul class="attn-list">
+      <?php foreach ($toRelease as $p): ?>
+        <li><div class="attn-item">
+          <span class="attn-ic is-ok"><?= micon('inventory_2', ['size' => 20]) ?></span>
+          <span class="attn-text"><b><?= e($p['product_name']) ?></b><span><?= e($p['customer_name']) ?> &middot; <?= e(pretty_phone($p['customer_phone'])) ?></span></span>
+          <form class="inline-form" method="post" action="<?= url('/merchant/plan/' . $p['id'] . '/release') ?>"
+                data-confirm="Confirm you've handed <?= e($p['product_name']) ?> to <?= e($p['customer_name']) ?>?">
+            <?= Csrf::field() ?>
+            <button class="btn btn-sm btn-green" type="submit"><?= micon('check', ['size' => 16]) ?> Mark handed over</button>
+          </form>
+        </div></li>
+      <?php endforeach; ?>
+    </ul>
+  </section>
+<?php endif; ?>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2><?= micon('groups', ['size' => 20]) ?> Customer plans</h2>
+    <span class="panel-sub"><?= count($plans) ?> in total</span>
+  </div>
+  <?php if (empty($plans)): ?>
+    <div class="panel-empty"><?= micon('receipt_long') ?>No plans yet. Once a customer starts paying for one of your products, it shows up here.</div>
+  <?php else: ?>
+    <div class="table-wrap">
       <table class="data">
-        <thead>
-          <tr><th>Customer &amp; item</th><th>Progress</th><th>Paid so far</th><th>Status</th><th>Item</th></tr>
-        </thead>
+        <thead><tr><th>Customer &amp; item</th><th>Progress</th><th class="right">Paid so far</th><th>Status</th></tr></thead>
         <tbody>
           <?php foreach ($plans as $p): ?>
             <?php
               $paid = (int) $p['installments_paid'];
               $tot = (int) $p['installments_total'];
               $pc = $tot > 0 ? (int) round($paid / $tot * 100) : 0;
-              $paidAmt = $paid * (int) $p['installment_pesewas'];
-              $grace = ($p['grace_state'] ?? 'ok') !== 'ok';
+              $grace = ($p['grace_state'] ?? 'ok') !== 'ok' && $p['status'] === 'active';
             ?>
             <tr>
               <td>
-                <div style="font-weight:700"><?= e($p['customer_name']) ?></div>
-                <div class="small muted mono"><?= e($p['product_name']) ?> · <?= e(pretty_phone($p['customer_phone'])) ?></div>
+                <span class="cell-main"><?= e($p['customer_name']) ?></span>
+                <span class="cell-sub"><?= e($p['product_name']) ?> &middot; <span class="mono"><?= e(pretty_phone($p['customer_phone'])) ?></span></span>
               </td>
-              <td style="min-width:180px">
-                <div class="progress-legend"><span>Payment <?= $paid ?> of <?= $tot ?></span><span><b><?= $pc ?>%</b></span></div>
-                <?= progress_bar($pc, $grace ? 'warn' : 'primary') ?>
+              <td class="cell-mini-bar">
+                <span class="small"><?= $paid ?> of <?= $tot ?> &middot; <?= e(ghs((int) $p['installment_pesewas'])) ?>/<?= e($unit[$p['frequency']] ?? 'wk') ?></span>
+                <?= progress_bar($pc, $p['status'] === 'completed' ? 'success' : ($grace ? 'warn' : 'primary')) ?>
               </td>
-              <td class="nowrap"><strong><?= ghs($paidAmt) ?></strong><br><span class="small muted mono"><?= ghs((int) $p['installment_pesewas']) ?>/wk</span></td>
+              <td class="right nowrap"><strong><?= e(ghs($paid * (int) $p['installment_pesewas'])) ?></strong></td>
               <td>
                 <?php if ($p['status'] === 'completed'): ?>
-                  <span class="tag tag-completed"><?= micon('check_circle', ['size' => 14, 'fill' => true]) ?> paid out</span>
+                  <?= ($p['released_at'] ?? null) !== null ? '<span class="tag tag-completed">Handed over</span>' : '<span class="tag tag-completed">Paid out</span>' ?>
                 <?php else: ?>
-                  <span class="tag tag-<?= e($p['status']) ?>"><?= e($p['status']) ?></span>
+                  <?= status_tag($p['status']) ?>
                 <?php endif; ?>
-                <?php if (($p['grace_state'] ?? '') === 'flagged'): ?><span class="tag tag-flagged">stalled</span><?php endif; ?>
-              </td>
-              <td class="nowrap">
-                <?php if ($p['status'] !== 'completed'): ?>
-                  <span class="small muted">&mdash;</span>
-                <?php elseif (($p['released_at'] ?? null) !== null): ?>
-                  <span class="tag tag-completed"><?= micon('inventory_2', ['size' => 14, 'fill' => true]) ?> released</span>
-                <?php else: ?>
-                  <form class="inline-form" method="post" action="<?= url('/merchant/plan/' . $p['id'] . '/release') ?>"
-                        data-confirm="Confirm you've handed <?= e($p['product_name']) ?> to <?= e($p['customer_name']) ?>?">
-                    <?= Csrf::field() ?>
-                    <button class="btn btn-sm btn-green" type="submit"><?= micon('check', ['size' => 16]) ?> Mark released</button>
-                  </form>
-                <?php endif; ?>
+                <?php if ($grace): ?><?= status_tag($p['grace_state'], $p['grace_state'] === 'flagged' ? 'Stopped paying' : 'Missed a payment') ?><?php endif; ?>
               </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
-    <?php endif; ?>
-  </div>
+    </div>
+  <?php endif; ?>
 </section>

@@ -15,12 +15,22 @@
 
   // ---- Mobile nav toggle
   (function () {
-    var toggle = document.querySelector('[data-nav-toggle]');
+    // Header menu button and the bottom-bar "Account" button both open it.
+    var toggles = document.querySelectorAll('[data-nav-toggle]');
     var nav = document.getElementById('site-nav');
-    if (!toggle || !nav) return;
-    toggle.addEventListener('click', function () {
-      var open = nav.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (!toggles.length || !nav) return;
+    toggles.forEach(function (toggle) {
+      toggle.addEventListener('click', function () {
+        var open = nav.classList.toggle('open');
+        toggles.forEach(function (t) { t.setAttribute('aria-expanded', open ? 'true' : 'false'); });
+        if (open && toggle.closest('.bottom-nav')) window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+    // Close the desktop account menu when clicking elsewhere.
+    document.addEventListener('click', function (e) {
+      document.querySelectorAll('details.acct[open]').forEach(function (d) {
+        if (!d.contains(e.target)) d.removeAttribute('open');
+      });
     });
   })();
 

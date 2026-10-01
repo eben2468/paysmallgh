@@ -1,50 +1,56 @@
 <?php
   $totalPaid = 0;
+  $active = 0;
   foreach ($plans as $pl) {
       $totalPaid += (int) $pl['installments_paid'] * (int) $pl['installment_pesewas'];
+      $active += $pl['status'] === 'active' ? 1 : 0;
   }
 ?>
-<section class="page-head wrap">
-  <h1><?= e($user['name']) ?></h1>
-  <p class="mono"><?= e(pretty_phone($user['phone'])) ?> &middot; joined <?= e(date('j M Y', strtotime((string) $user['created_at']))) ?></p>
-</section>
-
-<section class="wrap" style="padding-bottom:3rem">
-  <div class="admin-nav">
-    <a class="btn btn-sm" href="<?= url('/admin/users') ?>">&larr; All customers</a>
+<a class="pg-back" href="<?= url('/admin/users') ?>"><?= micon('arrow_back', ['size' => 16]) ?> Customers</a>
+<div class="pg-head">
+  <div>
+    <h1><?= e($user['name']) ?></h1>
+    <p class="mono"><?= e(pretty_phone($user['phone'])) ?> &middot; joined <?= e(when($user['created_at'], false)) ?></p>
   </div>
+</div>
 
-  <div class="table-scroll" style="padding:1.3rem;max-width:520px">
-    <dl class="kv">
-      <div><dt>Name</dt><dd><?= e($user['name']) ?></dd></div>
-      <div><dt>Phone</dt><dd class="mono"><?= e(pretty_phone($user['phone'])) ?></dd></div>
-      <div><dt>Joined</dt><dd><?= e(date('j M Y', strtotime((string) $user['created_at']))) ?></dd></div>
-      <div><dt>Plans</dt><dd><?= count($plans) ?></dd></div>
-      <div><dt>Paid into escrow</dt><dd><strong><?= ghs($totalPaid) ?></strong></dd></div>
-    </dl>
+<div class="kpi-grid">
+  <div class="kpi is-money">
+    <div class="kpi-top"><span class="kpi-label">Paid into escrow</span></div>
+    <div class="kpi-value"><?= e(ghs($totalPaid)) ?></div>
+    <span class="kpi-sub">Across all their plans</span>
   </div>
+  <div class="kpi">
+    <div class="kpi-top"><span class="kpi-label">Plans</span></div>
+    <div class="kpi-value"><?= count($plans) ?></div>
+    <span class="kpi-sub"><?= $active ?> active</span>
+  </div>
+</div>
 
-  <h2 style="font-size:1.15rem" class="mt-3 mb-2">Plans</h2>
-  <div class="table-scroll">
-    <?php if (empty($plans)): ?>
-      <p class="muted" style="padding:1.1rem">This customer hasn't started any plans yet.</p>
-    <?php else: ?>
+<section class="panel">
+  <div class="panel-head"><h2><?= micon('receipt_long', ['size' => 20]) ?> Plans</h2></div>
+  <?php if (empty($plans)): ?>
+    <div class="panel-empty"><?= micon('receipt_long') ?>This customer hasn't started any plans yet.</div>
+  <?php else: ?>
+    <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>#</th><th>Product</th><th>Shop</th><th>Progress</th><th>Paid</th><th>Status</th></tr></thead>
+        <thead><tr><th>Plan</th><th>Shop</th><th>Progress</th><th class="right">Paid</th><th>Status</th></tr></thead>
         <tbody>
           <?php foreach ($plans as $pl): ?>
-            <?php $paidAmt = (int) $pl['installments_paid'] * (int) $pl['installment_pesewas']; ?>
+            <?php
+              $paidAmt = (int) $pl['installments_paid'] * (int) $pl['installment_pesewas'];
+              $pc = (int) $pl['installments_total'] > 0 ? (int) round($pl['installments_paid'] / $pl['installments_total'] * 100) : 0;
+            ?>
             <tr>
-              <td><a href="<?= url('/admin/plan/' . $pl['id']) ?>">#<?= (int) $pl['id'] ?></a></td>
-              <td><?= e($pl['product_name']) ?></td>
+              <td><a class="cell-main" href="<?= url('/admin/plan/' . $pl['id']) ?>">#<?= (int) $pl['id'] ?></a><span class="cell-sub"><?= e($pl['product_name']) ?></span></td>
               <td><?= e($pl['shop_name']) ?></td>
-              <td class="nowrap"><?= (int) $pl['installments_paid'] ?>/<?= (int) $pl['installments_total'] ?></td>
-              <td class="nowrap"><?= ghs($paidAmt) ?></td>
-              <td><span class="tag tag-<?= e($pl['status']) ?>"><?= e($pl['status']) ?></span></td>
+              <td class="cell-mini-bar"><span class="small"><?= (int) $pl['installments_paid'] ?> of <?= (int) $pl['installments_total'] ?></span><?= progress_bar($pc, $pl['status'] === 'completed' ? 'success' : 'primary') ?></td>
+              <td class="right nowrap"><?= e(ghs($paidAmt)) ?></td>
+              <td><?= status_tag($pl['status']) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>
       </table>
-    <?php endif; ?>
-  </div>
+    </div>
+  <?php endif; ?>
 </section>

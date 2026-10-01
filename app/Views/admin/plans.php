@@ -1,49 +1,82 @@
-<?php use App\Core\Csrf; ?>
-<section class="page-head wrap">
-  <h1>All plans</h1>
-  <p>Payments mode: <span class="mode-banner"><?= e($mode) ?></span>
-    <?php if (($pending ?? 0) > 0): ?> &middot; <strong><?= (int) $pending ?></strong> payment<?= $pending === 1 ? '' : 's' ?> awaiting confirmation<?php endif; ?>
-  </p>
-</section>
+<?php
+use App\Core\Csrf;
 
-<section class="wrap" style="padding-bottom:3rem">
-  <div class="admin-nav">
-    <a class="btn btn-sm" href="<?= url('/admin') ?>">&larr; Admin home</a>
+$tabs = [
+    'all' => 'All',
+    'active' => 'Active',
+    'attention' => 'Behind on payment',
+    'pending' => 'Awaiting first payment',
+    'completed' => 'Completed',
+    'cancelled' => 'Cancelled',
+];
+$unit = ['daily' => 'day', 'weekly' => 'wk', 'monthly' => 'mo'];
+?>
+<div class="pg-head">
+  <div>
+    <h1>Plans</h1>
+    <p>Every layaway plan, newest first.<?php if ($pending > 0): ?> <strong><?= (int) $pending ?></strong> payment<?= $pending === 1 ? '' : 's' ?> waiting for confirmation.<?php endif; ?></p>
+  </div>
+  <div class="pg-actions">
     <form class="inline-form" method="post" action="<?= url('/admin/run-reminders') ?>">
       <?= Csrf::field() ?>
-      <button class="btn btn-sm" type="submit">Run reminder sweep</button>
+      <button class="btn btn-sm btn-ghost" type="submit"><?= micon('notifications', ['size' => 18]) ?> Send reminders</button>
     </form>
     <form class="inline-form" method="post" action="<?= url('/admin/reconcile') ?>">
       <?= Csrf::field() ?>
-      <button class="btn btn-sm" type="submit">Reconcile pending payments<?= ($pending ?? 0) > 0 ? ' (' . (int) $pending . ')' : '' ?></button>
+      <button class="btn btn-sm btn-ghost" type="submit"><?= micon('sync', ['size' => 18]) ?> Reconcile payments<?= $pending > 0 ? ' (' . (int) $pending . ')' : '' ?></button>
     </form>
   </div>
+</div>
 
-  <div class="table-scroll">
-    <table class="data">
-      <thead><tr><th>#</th><th>Customer</th><th>Product</th><th>Shop</th><th>Progress</th><th>Status</th><th>Grace</th><th></th></tr></thead>
-      <tbody>
-        <?php foreach ($plans as $p): ?>
-          <tr>
-            <td><a href="<?= url('/admin/plan/' . $p['id']) ?>">#<?= (int) $p['id'] ?></a></td>
-            <td><?= e($p['customer_name']) ?></td>
-            <td><?= e($p['product_name']) ?></td>
-            <td><?= e($p['shop_name']) ?></td>
-            <td class="nowrap"><?= (int) $p['installments_paid'] ?>/<?= (int) $p['installments_total'] ?> &middot; <?= ghs((int) $p['installment_pesewas']) ?></td>
-            <td><span class="tag tag-<?= e($p['status']) ?>"><?= e($p['status']) ?></span></td>
-            <td><?= $p['grace_state'] === 'ok' ? '—' : '<span class="tag tag-' . e($p['grace_state']) . '">' . e($p['grace_state']) . '</span>' ?></td>
-            <td>
-              <?php if ($p['status'] === 'active' && $mode === 'mock'): ?>
-                <form class="inline-form" method="post" action="<?= url('/admin/simulate-payment/' . $p['id']) ?>">
-                  <?= Csrf::field() ?>
-                  <button class="btn btn-sm btn-green" type="submit">Simulate payment</button>
-                </form>
-              <?php endif; ?>
-              <a class="btn btn-sm" href="<?= url('/admin/plan/' . $p['id']) ?>">View</a>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
+<nav class="tabs" aria-label="Filter plans">
+  <?php foreach ($tabs as $key => $label): ?>
+    <a class="<?= $filter === $key ? 'active' : '' ?>" href="<?= url('/admin/plans' . ($key === 'all' ? '' : '?status=' . $key)) ?>">
+      <?= e($label) ?> <span class="tab-count"><?= (int) ($counts[$key] ?? 0) ?></span>
+    </a>
+  <?php endforeach; ?>
+</nav>
+
+<section class="panel">
+  <?php if (empty($plans)): ?>
+    <div class="panel-empty"><?= micon('receipt_long') ?>No plans here.</div>
+  <?php else: ?>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Plan</th><th>Customer</th><th>Shop</th><th>Progress</th><th>Status</th><th class="right">Actions</th></tr></thead>
+        <tbody>
+          <?php foreach ($plans as $p): ?>
+            <?php
+              $tot = (int) $p['installments_total'];
+              $pc = $tot > 0 ? (int) round($p['installments_paid'] / $tot * 100) : 0;
+              $grace = $p['grace_state'] !== 'ok' && $p['status'] === 'active';
+            ?>
+            <tr>
+              <td><a class="cell-main" href="<?= url('/admin/plan/' . $p['id']) ?>">#<?= (int) $p['id'] ?></a><span class="cell-sub"><?= e($p['product_name']) ?></span></td>
+              <td><?= e($p['customer_name']) ?></td>
+              <td><?= e($p['shop_name']) ?></td>
+              <td class="cell-mini-bar">
+                <span class="small"><?= (int) $p['installments_paid'] ?> of <?= $tot ?> &middot; <?= e(ghs((int) $p['installment_pesewas'])) ?>/<?= e($unit[$p['frequency']] ?? 'wk') ?></span>
+                <?= progress_bar($pc, $p['status'] === 'completed' ? 'success' : ($grace ? 'warn' : 'primary')) ?>
+              </td>
+              <td>
+                <?= status_tag($p['status']) ?>
+                <?php if ($grace): ?><?= status_tag($p['grace_state']) ?><?php endif; ?>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <?php if ($p['status'] === 'active' && $mode === 'mock'): ?>
+                    <form class="inline-form" method="post" action="<?= url('/admin/simulate-payment/' . $p['id']) ?>">
+                      <?= Csrf::field() ?>
+                      <button class="btn btn-sm btn-green" type="submit">Simulate payment</button>
+                    </form>
+                  <?php endif; ?>
+                  <a class="btn btn-sm btn-quiet" href="<?= url('/admin/plan/' . $p['id']) ?>">Open</a>
+                </div>
+              </td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  <?php endif; ?>
 </section>

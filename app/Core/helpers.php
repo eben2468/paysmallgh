@@ -56,6 +56,26 @@ function redirect(string $path): never
 }
 
 /**
+ * Redirect back to the page the request came from (same host only), so an
+ * action taken from a list or detail page returns you there. Falls back to
+ * $fallback when there's no usable referrer.
+ */
+function redirect_back(string $fallback): never
+{
+    $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+    $parts = $ref !== '' ? parse_url($ref) : false;
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if (is_array($parts) && isset($parts['host'], $parts['path'])) {
+        $refHost = strtolower($parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : ''));
+        if ($refHost === $host) {
+            header('Location: ' . $parts['path'] . (isset($parts['query']) ? '?' . $parts['query'] : ''));
+            exit;
+        }
+    }
+    redirect($fallback);
+}
+
+/**
  * Redirect to an absolute external URL (e.g. Paystack's hosted checkout) and
  * stop. Unlike redirect(), the URL is used as-is — no app base is prepended.
  */
@@ -114,6 +134,33 @@ function momo_network(string $phone): ?string
         '26', '27', '56', '57' => 'ATL',
         default => null,
     };
+}
+
+/** A status pill (plans, merchants, transactions) with consistent colours and wording. */
+function status_tag(string $status, ?string $label = null): string
+{
+    $class = [
+        'suspended' => 'cancelled',
+        'approved' => 'approved',
+        'ok' => 'on-track',
+    ][$status] ?? $status;
+    $text = $label ?? [
+        'approved' => 'Live',
+        'pending' => 'Pending',
+        'grace' => 'In grace',
+        'flagged' => 'Stalled',
+    ][$status] ?? ucfirst($status);
+    return '<span class="tag tag-' . e($class) . '">' . e($text) . '</span>';
+}
+
+/** Consistent short date/time for back-office tables: "3 Oct 2026, 2:15pm". */
+function when(?string $datetime, bool $withTime = true): string
+{
+    if ($datetime === null || $datetime === '') {
+        return '—';
+    }
+    $ts = strtotime($datetime);
+    return $ts === false ? '—' : date($withTime ? 'j M Y, g:ia' : 'j M Y', $ts);
 }
 
 /** Show 233244000000 as 024 400 0000 for display. */

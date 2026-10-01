@@ -1,112 +1,145 @@
 <?php
-  $paid = (int) $plan['installments_paid'];
-  $total = (int) $plan['installments_total'];
-  $pct = $total > 0 ? (int) round($paid / $total * 100) : 0;
-  $left = max(0, ($total - $paid) * (int) $plan['installment_pesewas']);
-  $unitNoun = ['daily' => 'days', 'weekly' => 'weeks', 'monthly' => 'months'][$plan['frequency'] ?? 'weekly'] ?? 'payments';
+use App\Core\Csrf;
+
+$paid = (int) $plan['installments_paid'];
+$total = (int) $plan['installments_total'];
+$pct = $total > 0 ? (int) round($paid / $total * 100) : 0;
+$left = max(0, ($total - $paid) * (int) $plan['installment_pesewas']);
+$unitNoun = ['daily' => 'days', 'weekly' => 'weeks', 'monthly' => 'months'][$plan['frequency'] ?? 'weekly'] ?? 'payments';
+$grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
 ?>
-<section class="page-head wrap">
-  <h1>Plan #<?= (int) $plan['id'] ?></h1>
-  <p>
-    <span class="tag tag-<?= e($plan['status']) ?>"><?= e($plan['status']) ?></span>
-    <?php if (($plan['grace_state'] ?? 'ok') !== 'ok'): ?><span class="tag tag-<?= e($plan['grace_state']) ?>"><?= e($plan['grace_state']) ?></span><?php endif; ?>
-    <?php if (($plan['released_at'] ?? null) !== null): ?><span class="tag tag-completed">item released</span><?php endif; ?>
-  </p>
-</section>
-
-<section class="wrap detail-grid" style="padding-bottom:3rem">
+<a class="pg-back" href="<?= url('/admin/plans') ?>"><?= micon('arrow_back', ['size' => 16]) ?> Plans</a>
+<div class="pg-head">
   <div>
-    <div class="admin-nav">
-      <a class="btn btn-sm" href="<?= url('/admin/plans') ?>">&larr; All plans</a>
-    </div>
+    <h1>Plan #<?= (int) $plan['id'] ?> &middot; <?= e($plan['product_name']) ?></h1>
+    <p>
+      <?= status_tag($plan['status']) ?>
+      <?php if ($grace): ?><?= status_tag($plan['grace_state']) ?><?php endif; ?>
+      <?php if (($plan['released_at'] ?? null) !== null): ?><span class="tag tag-completed">Item handed over</span><?php endif; ?>
+      &nbsp;Started <?= e(when($plan['created_at'], false)) ?>
+    </p>
+  </div>
+  <div class="pg-actions">
+    <?php if ($plan['status'] === 'active' && ($mode ?? '') === 'mock'): ?>
+      <form class="inline-form" method="post" action="<?= url('/admin/simulate-payment/' . $plan['id']) ?>">
+        <?= Csrf::field() ?>
+        <button class="btn btn-sm btn-green" type="submit"><?= micon('bolt', ['size' => 18]) ?> Simulate payment</button>
+      </form>
+    <?php endif; ?>
+    <?php if (!empty($canRetryPayout)): ?>
+      <form class="inline-form" method="post" action="<?= url('/admin/plan/' . (int) $plan['id'] . '/retry-payout') ?>"
+            data-confirm="Send the payout for plan #<?= (int) $plan['id'] ?> again?">
+        <?= Csrf::field() ?>
+        <button class="btn btn-sm btn-primary" type="submit"><?= micon('send', ['size' => 18]) ?> Retry payout</button>
+      </form>
+    <?php endif; ?>
+    <?php if (!empty($outstandingRefunds)): ?>
+      <form class="inline-form" method="post" action="<?= url('/admin/plan/' . (int) $plan['id'] . '/retry-refunds') ?>"
+            data-confirm="Retry <?= (int) $outstandingRefunds ?> refund(s) on plan #<?= (int) $plan['id'] ?>?">
+        <?= Csrf::field() ?>
+        <button class="btn btn-sm btn-primary" type="submit"><?= micon('undo', ['size' => 18]) ?> Retry refunds</button>
+      </form>
+    <?php endif; ?>
+  </div>
+</div>
 
-    <div class="table-scroll" style="padding:1.3rem 1.3rem">
-      <h2 style="font-size:1.2rem;margin-bottom:.8rem"><?= e($plan['product_name']) ?></h2>
-      <dl class="kv">
-        <div><dt>Customer</dt><dd><?= e($plan['customer_name']) ?> &middot; <span class="mono"><?= e(pretty_phone($plan['customer_phone'])) ?></span></dd></div>
-        <div><dt>Shop</dt><dd><?= e($plan['shop_name']) ?> &middot; <span class="mono"><?= e(pretty_phone($plan['merchant_phone'])) ?></span></dd></div>
-        <div><dt>Plan</dt><dd><?= ghs((int) $plan['installment_pesewas']) ?> &times; <?= $total ?> <?= $unitNoun ?> = <?= ghs((int) $plan['installment_pesewas'] * $total) ?></dd></div>
-        <div><dt>Cash price</dt><dd><?= ghs((int) $plan['total_pesewas']) ?></dd></div>
-        <div><dt>Payout to</dt><dd><?= e($plan['payout_channel']) ?> &middot; <span class="mono"><?= e($plan['payout_number'] ?: $plan['merchant_phone']) ?></span></dd></div>
-        <div><dt>Started</dt><dd><?= e(date('j M Y, g:ia', strtotime((string) $plan['created_at']))) ?></dd></div>
-        <?php if (($plan['completed_at'] ?? null) !== null): ?>
-          <div><dt>Completed</dt><dd><?= e(date('j M Y, g:ia', strtotime((string) $plan['completed_at']))) ?></dd></div>
-        <?php endif; ?>
-        <?php if (($plan['released_at'] ?? null) !== null): ?>
-          <div><dt>Item released</dt><dd><?= e(date('j M Y, g:ia', strtotime((string) $plan['released_at']))) ?></dd></div>
-        <?php endif; ?>
-      </dl>
+<?php if (!empty($canRetryPayout)): ?>
+  <div class="banner is-bad"><?= micon('error', ['size' => 22]) ?><div><b>The merchant payout didn't go through.</b>The customer has paid in full. Check the failed row below for Paystack's reason, fix it, then retry the payout.</div></div>
+<?php endif; ?>
+<?php if (!empty($outstandingRefunds)): ?>
+  <div class="banner is-bad"><?= micon('error', ['size' => 22]) ?><div><b><?= (int) $outstandingRefunds ?> refund(s) still owed.</b>This plan was cancelled but some money hasn't gone back to the customer yet.</div></div>
+<?php endif; ?>
 
-      <div class="progress-legend mt-3">
-        <span><b><?= $paid ?> of <?= $total ?></b> paid</span>
-        <span><?= $left === 0 ? 'Fully paid' : ghs($left) . ' left' ?></span>
+<div class="kpi-grid">
+  <div class="kpi is-money">
+    <div class="kpi-top"><span class="kpi-label">Paid so far</span></div>
+    <div class="kpi-value"><?= e(ghs($paid * (int) $plan['installment_pesewas'])) ?></div>
+    <span class="kpi-sub"><?= $paid ?> of <?= $total ?> payments</span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-top"><span class="kpi-label">Still to pay</span></div>
+    <div class="kpi-value"><?= e(ghs($left)) ?></div>
+    <span class="kpi-sub"><?= e(ghs((int) $plan['installment_pesewas'])) ?> &times; <?= $total ?> <?= e($unitNoun) ?></span>
+  </div>
+  <div class="kpi">
+    <div class="kpi-top"><span class="kpi-label">Progress</span></div>
+    <div class="kpi-value"><?= $pct ?>%</div>
+    <?= progress_bar($pct, $plan['status'] === 'completed' ? 'success' : ($grace ? 'warn' : 'primary')) ?>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="stack">
+    <section class="panel">
+      <div class="panel-head"><h2><?= micon('info', ['size' => 20]) ?> Plan details</h2></div>
+      <div class="panel-body">
+        <dl class="kv">
+          <div><dt>Customer</dt><dd><a href="<?= url('/admin/user/' . (int) $plan['customer_id']) ?>"><?= e($plan['customer_name']) ?></a> &middot; <span class="mono"><?= e(pretty_phone($plan['customer_phone'])) ?></span></dd></div>
+          <div><dt>Shop</dt><dd><a href="<?= url('/admin/merchant/' . (int) $plan['merchant_id']) ?>"><?= e($plan['shop_name']) ?></a> &middot; <span class="mono"><?= e(pretty_phone($plan['merchant_phone'])) ?></span></dd></div>
+          <div><dt>Plan</dt><dd><?= e(ghs((int) $plan['installment_pesewas'])) ?> &times; <?= $total ?> <?= e($unitNoun) ?> = <?= e(ghs((int) $plan['installment_pesewas'] * $total)) ?></dd></div>
+          <div><dt>Cash price</dt><dd><?= e(ghs((int) $plan['total_pesewas'])) ?></dd></div>
+          <div><dt>Payout to</dt><dd><?= $plan['payout_channel'] === 'bank' ? 'Bank' : 'MoMo' ?> &middot; <span class="mono"><?= e(pretty_phone($plan['payout_number'] ?: $plan['merchant_phone'])) ?></span></dd></div>
+          <div><dt>Started</dt><dd><?= e(when($plan['created_at'])) ?></dd></div>
+          <?php if (($plan['completed_at'] ?? null) !== null): ?>
+            <div><dt>Completed</dt><dd><?= e(when($plan['completed_at'])) ?></dd></div>
+          <?php endif; ?>
+          <?php if (($plan['released_at'] ?? null) !== null): ?>
+            <div><dt>Handed over</dt><dd><?= e(when($plan['released_at'])) ?></dd></div>
+          <?php endif; ?>
+        </dl>
       </div>
-      <?= progress_bar($pct, $plan['status'] === 'completed' ? 'success' : (($plan['grace_state'] ?? 'ok') !== 'ok' ? 'warn' : 'primary')) ?>
+    </section>
 
-      <?php if (!empty($canRetryPayout)): ?>
-        <form method="post" action="<?= url('/admin/plan/' . (int) $plan['id'] . '/retry-payout') ?>" class="mt-3"
-              data-confirm="Send the payout for plan #<?= (int) $plan['id'] ?> again?">
-          <?= App\Core\Csrf::field() ?>
-          <p class="small muted mb-1">Fully paid, but the merchant payout hasn't gone through.</p>
-          <button class="btn btn-green btn-sm" type="submit"><?= micon('send', ['size' => 16]) ?> Retry payout</button>
-        </form>
-      <?php endif; ?>
-      <?php if (!empty($outstandingRefunds)): ?>
-        <form method="post" action="<?= url('/admin/plan/' . (int) $plan['id'] . '/retry-refunds') ?>" class="mt-3"
-              data-confirm="Retry <?= (int) $outstandingRefunds ?> refund(s) on plan #<?= (int) $plan['id'] ?>?">
-          <?= App\Core\Csrf::field() ?>
-          <p class="small muted mb-1"><?= (int) $outstandingRefunds ?> payment(s) on this cancelled plan still need refunding.</p>
-          <button class="btn btn-green btn-sm" type="submit"><?= micon('undo', ['size' => 16]) ?> Retry refunds</button>
-        </form>
-      <?php endif; ?>
-    </div>
-
-    <h2 class="mt-3 mb-2" style="font-size:1.15rem">Ledger</h2>
-    <div class="table-scroll">
+    <section class="panel">
+      <div class="panel-head"><h2><?= micon('account_balance', ['size' => 20]) ?> Money movements</h2></div>
       <?php if (empty($transactions)): ?>
-        <p class="muted" style="padding:1.2rem">No transactions on this plan yet.</p>
+        <div class="panel-empty"><?= micon('receipt') ?>No transactions on this plan yet.</div>
       <?php else: ?>
-        <table class="data">
-          <thead><tr><th>#</th><th>Type</th><th>Amount</th><th>Status</th><th>Reference</th><th>When</th></tr></thead>
-          <tbody>
-            <?php foreach ($transactions as $t): ?>
-              <tr>
-                <td><?= (int) $t['id'] ?></td>
-                <td><?= e($t['type']) ?></td>
-                <td class="nowrap"><?= ghs((int) $t['amount_pesewas']) ?></td>
-                <td>
-                  <span class="tag tag-<?= $t['status'] === 'success' ? 'completed' : ($t['status'] === 'failed' ? 'flagged' : 'grace') ?>"><?= e($t['status']) ?></span>
-                  <?php if ($t['status'] === 'failed'):
-                    $why = json_decode((string) ($t['raw_payload'] ?? ''), true);
-                    $why = is_array($why) ? (string) ($why['data']['gateway_response'] ?? $why['message'] ?? $why['error'] ?? '') : '';
-                  ?>
-                    <?php if ($why !== ''): ?><div class="small muted"><?= e(mb_substr($why, 0, 120)) ?></div><?php endif; ?>
-                  <?php endif; ?>
-                </td>
-                <td class="mono small"><?= e($t['provider_ref']) ?><?= $t['external_ref'] !== '' ? '<br>' . e($t['external_ref']) : '' ?></td>
-                <td class="small muted nowrap"><?= e(date('j M, g:ia', strtotime((string) $t['created_at']))) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr><th>#</th><th>Type</th><th class="right">Amount</th><th>Status</th><th>Reference</th><th>When</th></tr></thead>
+            <tbody>
+              <?php foreach ($transactions as $t): ?>
+                <tr>
+                  <td><?= (int) $t['id'] ?></td>
+                  <td><?= e(ucfirst($t['type'])) ?></td>
+                  <td class="right nowrap"><strong><?= e(ghs((int) $t['amount_pesewas'])) ?></strong></td>
+                  <td>
+                    <?= status_tag($t['status']) ?>
+                    <?php if ($t['status'] === 'failed'):
+                      $why = json_decode((string) ($t['raw_payload'] ?? ''), true);
+                      $why = is_array($why) ? (string) ($why['data']['gateway_response'] ?? $why['message'] ?? $why['error'] ?? '') : '';
+                    ?>
+                      <?php if ($why !== ''): ?><span class="cell-sub"><?= e(mb_substr($why, 0, 120)) ?></span><?php endif; ?>
+                    <?php endif; ?>
+                  </td>
+                  <td class="mono small"><?= e($t['provider_ref']) ?><?= $t['external_ref'] !== '' ? '<span class="cell-sub">' . e($t['external_ref']) . '</span>' : '' ?></td>
+                  <td class="small muted nowrap"><?= e(when($t['created_at'])) ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
       <?php endif; ?>
-    </div>
+    </section>
   </div>
 
-  <div>
-    <h2 class="mb-2" style="font-size:1.35rem">Installment timeline</h2>
-    <ul class="schedule">
-      <?php foreach ($installments as $inst): ?>
-        <?php
-          $isPaid = $inst['paid_at'] !== null;
-          $isDue = !$isPaid && days_until($inst['due_date']) <= 0;
-        ?>
-        <li class="<?= $isPaid ? 'paid' : ($isDue ? 'due' : '') ?>">
-          <span>#<?= (int) $inst['number'] ?> &middot; due <?= date('j M', strtotime($inst['due_date'])) ?></span>
-          <span class="sch-amount"><?= ghs((int) $inst['amount_pesewas']) ?></span>
-          <span class="sch-status"><?= $isPaid ? 'paid ' . date('j M', strtotime($inst['paid_at'])) : ($isDue ? 'due now' : 'coming up') ?></span>
-        </li>
-      <?php endforeach; ?>
-    </ul>
-  </div>
-</section>
+  <section class="panel">
+    <div class="panel-head"><h2><?= micon('event', ['size' => 20]) ?> Payment schedule</h2></div>
+    <div class="panel-body">
+      <ul class="schedule">
+        <?php foreach ($installments as $inst): ?>
+          <?php
+            $isPaid = $inst['paid_at'] !== null;
+            $isDue = !$isPaid && days_until($inst['due_date']) <= 0;
+          ?>
+          <li class="<?= $isPaid ? 'paid' : ($isDue ? 'due' : '') ?>">
+            <span>#<?= (int) $inst['number'] ?> &middot; due <?= date('j M', strtotime($inst['due_date'])) ?></span>
+            <span class="sch-amount"><?= e(ghs((int) $inst['amount_pesewas'])) ?></span>
+            <span class="sch-status"><?= $isPaid ? 'paid ' . date('j M', strtotime($inst['paid_at'])) : ($isDue ? 'due now' : 'coming up') ?></span>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+  </section>
+</div>

@@ -46,3 +46,10 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **Sessions are stored in `storage/sessions`** instead of the system temp folder, so the server's own session cleanup (24-minute default on Debian/CloudPanel) can't delete them early.
 - **Paystack sends customers back to the host they were on** (`absolute_url()`): `www.` or bare domain, whichever they used, so the login cookie comes with them. Any other host falls back to `APP_URL`.
 - **Logout is per role.** Logging out as a customer doesn't end an admin or merchant login in the same browser. The session is destroyed only when no role is left. Admin got a Log out button (there was none).
+
+## 2026-10-01 — Admin + merchant portals, consistent header
+
+- **Admin and merchant pages use their own portal layout** (`layouts/portal.php`): a sidebar with grouped navigation and to-do counts, a top bar, and a user card with Log out. On phones the sidebar becomes a slide-out drawer. Public, customer and login pages keep the main site layout.
+- **Admin is split into clear sections:** Dashboard (key numbers + "Needs your attention"), Merchants, Customers, Plans, Transactions, SMS log, and System (Paystack/SMS status, test SMS, run-now jobs). Lists have filter tabs, and actions return you to the page you were on.
+- **One wording everywhere:** "Log in" / "Log out" (never "Sign in"), "Create account" for customers, "Register your shop" for merchants.
+- **The header knows everyone who's logged in** on that browser (customer, merchant, admin), with a dashboard link and a separate Log out for each. Login pages skip straight to your dashboard if you're already logged in.

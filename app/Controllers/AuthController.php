@@ -12,6 +12,9 @@ final class AuthController extends Controller
 {
     public function registerForm(): void
     {
+        if (Auth::userId()) {
+            redirect('/plans');
+        }
         $this->render('auth/register', ['title' => 'Create your account — PaySmallSmall']);
     }
 
@@ -47,6 +50,9 @@ final class AuthController extends Controller
 
     public function loginForm(): void
     {
+        if (Auth::userId()) {
+            redirect('/plans');
+        }
         $this->render('auth/login', ['title' => 'Log in — PaySmallSmall']);
     }
 

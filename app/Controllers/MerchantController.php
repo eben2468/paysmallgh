@@ -83,6 +83,9 @@ final class MerchantController extends Controller
 
     public function loginForm(): void
     {
+        if (Auth::merchantId()) {
+            redirect('/merchant/dashboard');
+        }
         $this->render('merchant/login', ['title' => 'Merchant log in — PaySmallSmall']);
     }
 
@@ -120,7 +123,7 @@ final class MerchantController extends Controller
             $inEscrow += (int) $p['installments_paid'] * (int) $p['installment_pesewas'];
         }
 
-        $this->render('merchant/dashboard', [
+        $this->renderPortal('merchant', 'merchant/dashboard', [
             'title' => 'Dashboard — ' . $merchant['shop_name'],
             'merchant' => $merchant,
             'plans' => $plans,
@@ -136,7 +139,7 @@ final class MerchantController extends Controller
     public function settingsForm(): void
     {
         $merchant = $this->requireMerchant();
-        $this->render('merchant/settings', [
+        $this->renderPortal('merchant', 'merchant/settings', [
             'title' => 'Shop settings — PaySmallSmall',
             'merchant' => $merchant,
             'banks' => (new PaystackService())->ghanaBanks(),
@@ -229,7 +232,7 @@ final class MerchantController extends Controller
     public function products(): void
     {
         $merchant = $this->requireMerchant();
-        $this->render('merchant/products', [
+        $this->renderPortal('merchant', 'merchant/products', [
             'title' => 'My products — PaySmallSmall',
             'merchant' => $merchant,
             'products' => Product::forMerchant((int) $merchant['id']),
@@ -246,7 +249,7 @@ final class MerchantController extends Controller
                 redirect('/merchant/products');
             }
         }
-        $this->render('merchant/product-form', [
+        $this->renderPortal('merchant', 'merchant/product-form', [
             'title' => ($product ? 'Edit' : 'Add') . ' product — PaySmallSmall',
             'merchant' => $merchant,
             'product' => $product,
@@ -424,7 +427,7 @@ final class MerchantController extends Controller
     public function payouts(): void
     {
         $merchant = $this->requireMerchant();
-        $this->render('merchant/payouts', [
+        $this->renderPortal('merchant', 'merchant/payouts', [
             'title' => 'Payouts — PaySmallSmall',
             'merchant' => $merchant,
             'payouts' => Transaction::payoutsForMerchant((int) $merchant['id']),

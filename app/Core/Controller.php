@@ -17,6 +17,21 @@ abstract class Controller
         echo $this->view->render($view, $data);
     }
 
+    /**
+     * Render inside the admin/merchant portal layout (sidebar + top bar).
+     * $portal: 'admin' | 'merchant'.
+     */
+    protected function renderPortal(string $portal, string $view, array $data = []): void
+    {
+        $data['portal'] = $portal;
+        if ($portal === 'admin') {
+            $data['navCounts'] = \App\Models\Stats::adminNavCounts();
+        } elseif (!isset($data['merchant'])) {
+            $data['merchant'] = Auth::merchant();
+        }
+        echo $this->view->render($view, $data, 'layouts/portal');
+    }
+
     protected function json(array $data, int $status = 200): void
     {
         http_response_code($status);

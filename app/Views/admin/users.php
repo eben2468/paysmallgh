@@ -1,29 +1,29 @@
-<section class="page-head wrap">
-  <h1>Customers</h1>
-  <p>Everyone who's signed up to buy small small. <strong><?= count($users) ?></strong> total.</p>
-</section>
-
-<section class="wrap" style="padding-bottom:3rem">
-  <div class="admin-nav">
-    <a class="btn btn-sm" href="<?= url('/admin') ?>">&larr; Admin home</a>
-    <a class="btn btn-sm" href="<?= url('/admin/plans') ?>">All plans</a>
+<div class="pg-head">
+  <div>
+    <h1>Customers</h1>
+    <p>Everyone who's signed up to buy small small &mdash; <strong><?= count($users) ?></strong> in total.</p>
   </div>
+</div>
 
+<section class="panel">
   <?php if (empty($users)): ?>
-    <p class="muted">No customers yet.</p>
+    <div class="panel-empty"><?= micon('group') ?>No customers yet.</div>
   <?php else: ?>
-    <div class="table-scroll">
+    <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Name</th><th>Phone</th><th>Joined</th><th>Plans</th><th>Active</th><th>Paid into escrow</th></tr></thead>
+        <thead><tr><th>Customer</th><th>Joined</th><th class="right">Plans</th><th class="right">Active</th><th class="right">Paid into escrow</th><th></th></tr></thead>
         <tbody>
           <?php foreach ($users as $u): ?>
             <tr>
-              <td><a href="<?= url('/admin/user/' . $u['id']) ?>"><?= e($u['name']) ?></a></td>
-              <td class="mono"><?= e(pretty_phone($u['phone'])) ?></td>
-              <td class="small muted nowrap"><?= e(date('j M Y', strtotime((string) $u['created_at']))) ?></td>
-              <td><?= (int) $u['plans_total'] ?></td>
-              <td><?= (int) $u['plans_active'] ?></td>
-              <td class="nowrap"><strong><?= ghs((int) $u['paid_pesewas']) ?></strong></td>
+              <td>
+                <a class="cell-main" href="<?= url('/admin/user/' . $u['id']) ?>"><?= e($u['name']) ?></a>
+                <span class="cell-sub mono"><?= e(pretty_phone($u['phone'])) ?></span>
+              </td>
+              <td class="small muted nowrap"><?= e(when($u['created_at'], false)) ?></td>
+              <td class="right"><?= (int) $u['plans_total'] ?></td>
+              <td class="right"><?= (int) $u['plans_active'] ?></td>
+              <td class="right nowrap"><strong><?= e(ghs((int) $u['paid_pesewas'])) ?></strong></td>
+              <td class="right"><a class="btn btn-sm btn-quiet" href="<?= url('/admin/user/' . $u['id']) ?>">Open</a></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

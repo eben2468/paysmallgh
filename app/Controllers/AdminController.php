@@ -7,10 +7,14 @@ use App\Core\Auth;
 use App\Core\Config;
 use App\Core\Controller;
 use App\Core\Csrf;
+use App\Models\Installment;
 use App\Models\Merchant;
 use App\Models\Plan;
+use App\Models\Product;
 use App\Models\SmsLog;
+use App\Models\Stats;
 use App\Models\Transaction;
+use App\Models\User;
 use App\Services\PaystackService;
 use App\Services\PlanService;
 use App\Services\SmsService;
@@ -20,7 +24,10 @@ final class AdminController extends Controller
 {
     public function loginForm(): void
     {
-        $this->render('admin/login', ['title' => 'Admin — PaySmallSmall']);
+        if (Auth::isAdmin()) {
+            redirect('/admin');
+        }
+        $this->render('admin/login', ['title' => 'Admin log in — PaySmallSmall']);
     }
 
     public function login(): void
@@ -33,7 +40,7 @@ final class AdminController extends Controller
             Auth::loginAdmin();
             redirect('/admin');
         }
-        flash('error', 'No.');
+        flash('error', 'That phone number and password don\'t match.');
         redirect('/admin/login');
     }
 
@@ -42,63 +49,48 @@ final class AdminController extends Controller
     {
         Csrf::check();
         Auth::logout('admin');
+        flash('success', 'You\'re logged out of admin.');
         redirect('/admin/login');
     }
+
+    // ---- Overview ----
 
     public function dashboard(): void
     {
         $this->requireAdmin();
-        $paystack = new PaystackService();
-        $sms = new SmsService();
-        $secret = (string) Config::get('PAYSTACK_SECRET_KEY', '');
-        $this->render('admin/dashboard', [
-            'title' => 'Admin — PaySmallSmall',
-            'merchants' => Merchant::all(),
-            'mode' => $paystack->mode(),
-            'paystack' => [
-                'has_key' => $paystack->hasKeys(),
-                'key_kind' => str_starts_with($secret, 'sk_live_') ? 'live' : (str_starts_with($secret, 'sk_test_') ? 'test' : 'unknown'),
-                'webhook' => rtrim((string) Config::get('APP_URL', ''), '/') . '/webhook/paystack',
-            ],
-            'sms' => [
-                'live' => $sms->isLive(),
-                'sender' => $sms->sender(),
-                'has_key' => $sms->hasKey(),
-                'endpoint' => $sms->endpoint(),
-            ],
+        $pendingMerchants = array_values(array_filter(Merchant::all(), fn($m) => $m['status'] === 'pending'));
+        $flagged = array_values(array_filter(Plan::all(), fn($p) => $p['status'] === 'active' && $p['grace_state'] !== 'ok'));
+
+        $this->renderPortal('admin', 'admin/dashboard', [
+            'title' => 'Dashboard — Admin',
+            'stats' => Stats::adminOverview(),
+            'pendingMerchants' => array_slice($pendingMerchants, 0, 5),
+            'attentionPlans' => array_slice($flagged, 0, 5),
+            'recent' => Transaction::ledger(8),
+            'integrations' => $this->integrations(),
         ]);
     }
 
-    /**
-     * Send a real test SMS through Moolre to confirm the integration works.
-     * Always hits the live API (forceLive) so it verifies even when SMS_MODE=mock.
-     */
-    public function testSms(): void
+    // ---- Merchants ----
+
+    public function merchants(): void
     {
         $this->requireAdmin();
-        Csrf::check();
-
-        $phone = normalize_phone((string) ($_POST['phone'] ?? ''));
-        $message = trim((string) ($_POST['message'] ?? ''));
-        if ($message === '') {
-            $message = 'PaySmallSmall test: your SMS setup is working. Reply STOP to opt out.';
+        $all = Merchant::all();
+        $filter = (string) ($_GET['status'] ?? 'all');
+        $counts = ['all' => count($all), 'pending' => 0, 'approved' => 0, 'suspended' => 0];
+        foreach ($all as $m) {
+            $counts[$m['status']] = ($counts[$m['status']] ?? 0) + 1;
         }
-        if ($phone === null) {
-            flash('error', 'That phone number doesn\'t look right. Use 024XXXXXXX or 233XXXXXXXXX.');
-            redirect('/admin');
+        if (!isset($counts[$filter])) {
+            $filter = 'all';
         }
-        if (mb_strlen($message) > 160) {
-            $message = mb_substr($message, 0, 160);
-        }
-
-        $ok = (new SmsService())->send($phone, $message, forceLive: true);
-        flash(
-            $ok ? 'success' : 'error',
-            $ok
-                ? 'Test SMS accepted by Moolre for ' . pretty_phone($phone) . '. Check the phone and the SMS log.'
-                : 'Moolre rejected the SMS. Check the VAS key and that your Sender ID is approved (see the SMS log for the recorded attempt).'
-        );
-        redirect('/admin');
+        $this->renderPortal('admin', 'admin/merchants', [
+            'title' => 'Merchants — Admin',
+            'merchants' => $filter === 'all' ? $all : array_values(array_filter($all, fn($m) => $m['status'] === $filter)),
+            'filter' => $filter,
+            'counts' => $counts,
+        ]);
     }
 
     public function approveMerchant(string $id): void
@@ -109,9 +101,9 @@ final class AdminController extends Controller
         if ($merchant && $merchant['status'] === 'pending') {
             Merchant::approve((int) $id);
             (new SmsService())->send($merchant['phone'], SmsTemplates::merchantApproved($merchant['shop_name']));
-            flash('success', $merchant['shop_name'] . ' approved.');
+            flash('success', $merchant['shop_name'] . ' approved — their products are now live.');
         }
-        redirect('/admin');
+        redirect_back('/admin/merchants');
     }
 
     /** Suspend an approved shop (its products stop showing to customers). */
@@ -124,7 +116,7 @@ final class AdminController extends Controller
             Merchant::setStatus((int) $id, 'suspended');
             flash('success', $merchant['shop_name'] . ' suspended.');
         }
-        redirect('/admin');
+        redirect_back('/admin/merchants');
     }
 
     /** Re-approve a suspended shop. */
@@ -137,7 +129,7 @@ final class AdminController extends Controller
             Merchant::setStatus((int) $id, 'approved');
             flash('success', $merchant['shop_name'] . ' reactivated.');
         }
-        redirect('/admin');
+        redirect_back('/admin/merchants');
     }
 
     /** Mark a merchant's identity as verified (KYC checked) — shows the trust badge. */
@@ -150,7 +142,7 @@ final class AdminController extends Controller
             Merchant::setVerified((int) $id, true);
             flash('success', $merchant['shop_name'] . ' is now verified.');
         }
-        redirect('/admin');
+        redirect_back('/admin/merchants');
     }
 
     /** Remove a merchant's verified status. */
@@ -163,7 +155,7 @@ final class AdminController extends Controller
             Merchant::setVerified((int) $id, false);
             flash('success', $merchant['shop_name'] . '\'s verified badge removed.');
         }
-        redirect('/admin');
+        redirect_back('/admin/merchants');
     }
 
     /**
@@ -203,13 +195,25 @@ final class AdminController extends Controller
         $merchant = Merchant::find((int) $id);
         if (!$merchant) {
             flash('error', 'No such merchant.');
-            redirect('/admin');
+            redirect('/admin/merchants');
         }
-        $this->render('admin/merchant', [
+        $this->renderPortal('admin', 'admin/merchant', [
             'title' => $merchant['shop_name'] . ' — Admin',
             'merchant' => $merchant,
-            'products' => \App\Models\Product::forMerchant((int) $id),
+            'products' => Product::forMerchant((int) $id),
             'plans' => Plan::forMerchant((int) $id),
+        ]);
+    }
+
+    // ---- Customers ----
+
+    /** Everyone who has signed up to buy — with a bit of activity per person. */
+    public function users(): void
+    {
+        $this->requireAdmin();
+        $this->renderPortal('admin', 'admin/users', [
+            'title' => 'Customers — Admin',
+            'users' => User::allWithStats(),
         ]);
     }
 
@@ -217,48 +221,45 @@ final class AdminController extends Controller
     public function userDetail(string $id): void
     {
         $this->requireAdmin();
-        $user = \App\Models\User::find((int) $id);
+        $user = User::find((int) $id);
         if (!$user) {
             flash('error', 'No such customer.');
             redirect('/admin/users');
         }
-        $this->render('admin/user', [
+        $this->renderPortal('admin', 'admin/user', [
             'title' => $user['name'] . ' — Admin',
             'user' => $user,
             'plans' => Plan::forCustomer((int) $id),
         ]);
     }
 
-    /** Everyone who has signed up to buy — with a bit of activity per person. */
-    public function users(): void
-    {
-        $this->requireAdmin();
-        $this->render('admin/users', [
-            'title' => 'Customers — Admin',
-            'users' => \App\Models\User::allWithStats(),
-        ]);
-    }
-
-    /** Poll the SMS provider (Moolre) for delivery status of pending SMS and update the log. */
-    public function pollSms(): void
-    {
-        $this->requireAdmin();
-        Csrf::check();
-        $s = (new SmsService())->refreshDelivery(100);
-        if ($s['checked'] === 0 && $s['pending'] === 0) {
-            flash('success', 'No SMS awaiting a delivery update.');
-        } else {
-            flash('success', "Delivery check: {$s['delivered']} delivered, {$s['failed']} failed, {$s['pending']} still pending.");
-        }
-        redirect('/admin/ledger');
-    }
+    // ---- Plans ----
 
     public function plans(): void
     {
         $this->requireAdmin();
-        $this->render('admin/plans', [
-            'title' => 'All plans — Admin',
-            'plans' => Plan::all(),
+        $all = Plan::all();
+        $buckets = [
+            'all' => fn($p) => true,
+            'active' => fn($p) => $p['status'] === 'active',
+            'attention' => fn($p) => $p['status'] === 'active' && $p['grace_state'] !== 'ok',
+            'pending' => fn($p) => $p['status'] === 'pending',
+            'completed' => fn($p) => $p['status'] === 'completed',
+            'cancelled' => fn($p) => $p['status'] === 'cancelled',
+        ];
+        $filter = (string) ($_GET['status'] ?? 'all');
+        if (!isset($buckets[$filter])) {
+            $filter = 'all';
+        }
+        $counts = [];
+        foreach ($buckets as $k => $fn) {
+            $counts[$k] = count(array_filter($all, $fn));
+        }
+        $this->renderPortal('admin', 'admin/plans', [
+            'title' => 'Plans — Admin',
+            'plans' => array_values(array_filter($all, $buckets[$filter])),
+            'filter' => $filter,
+            'counts' => $counts,
             'mode' => (new PaystackService())->mode(),
             'pending' => Transaction::pendingCount(),
         ]);
@@ -273,25 +274,16 @@ final class AdminController extends Controller
             flash('error', 'No such plan.');
             redirect('/admin/plans');
         }
-        $this->render('admin/plan', [
+        $this->renderPortal('admin', 'admin/plan', [
             'title' => 'Plan #' . (int) $id . ' — Admin',
             'plan' => $plan,
-            'installments' => \App\Models\Installment::forPlan((int) $id),
+            'installments' => Installment::forPlan((int) $id),
             'transactions' => Transaction::forPlan((int) $id),
             'outstandingRefunds' => $plan['status'] === 'cancelled' ? Transaction::outstandingRefundCount((int) $id) : 0,
             'canRetryPayout' => $plan['status'] === 'active'
                 && (int) $plan['installments_paid'] >= (int) $plan['installments_total']
                 && !Transaction::openPayoutForPlan((int) $id),
-        ]);
-    }
-
-    public function ledger(): void
-    {
-        $this->requireAdmin();
-        $this->render('admin/ledger', [
-            'title' => 'Ledger — Admin',
-            'transactions' => Transaction::ledger(),
-            'sms' => SmsLog::recent(50),
+            'mode' => (new PaystackService())->mode(),
         ]);
     }
 
@@ -305,34 +297,12 @@ final class AdminController extends Controller
         Csrf::check();
         if (!(new PaystackService())->isMock()) {
             flash('error', 'Simulate is only available in mock mode.');
-            redirect('/admin/plans');
+            redirect_back('/admin/plans');
         }
 
-        $svc = new PlanService();
-        $result = $svc->collectInstallment((int) $planId);
-        flash($result === 'failed' ? 'error' : 'success', "Plan #{$planId}: {$result}");
-        redirect('/admin/plans');
-    }
-
-    /** Run the grace-period reminder sweep by hand. */
-    public function runReminders(): void
-    {
-        $this->requireAdmin();
-        Csrf::check();
-        $svc = new PlanService();
-        $actions = array_merge($svc->runDueReminders(1), $svc->runReminders());
-        flash('success', $actions ? implode(' · ', $actions) : 'Nothing due or overdue — all plans on track.');
-        redirect('/admin/plans');
-    }
-
-    /** Status-check every pending payment now (fallback for missed webhooks). */
-    public function reconcile(): void
-    {
-        $this->requireAdmin();
-        Csrf::check();
-        $actions = (new PlanService())->reconcilePending(0);
-        flash('success', $actions ? implode(' · ', $actions) : 'No pending payments needed settling.');
-        redirect('/admin/plans');
+        $result = (new PlanService())->collectInstallment((int) $planId);
+        flash($result === 'failed' ? 'error' : 'success', "Plan #{$planId}: payment simulated — plan is now {$result}.");
+        redirect_back('/admin/plans');
     }
 
     /**
@@ -368,5 +338,147 @@ final class AdminController extends Controller
             "Plan #{$id}: {$r['accepted']} refund(s) accepted (" . ghs($r['amount']) . "), {$r['failed']} failed."
         );
         redirect('/admin/plan/' . (int) $id);
+    }
+
+    // ---- Money & messages ----
+
+    public function ledger(): void
+    {
+        $this->requireAdmin();
+        $all = Transaction::ledger(500);
+        $filter = (string) ($_GET['type'] ?? 'all');
+        $counts = ['all' => count($all), 'collection' => 0, 'disbursement' => 0, 'refund' => 0, 'pending' => 0, 'failed' => 0];
+        foreach ($all as $t) {
+            $counts[$t['type']]++;
+            if (isset($counts[$t['status']])) {
+                $counts[$t['status']]++;
+            }
+        }
+        if (!isset($counts[$filter])) {
+            $filter = 'all';
+        }
+        $rows = match ($filter) {
+            'all' => $all,
+            'pending', 'failed' => array_filter($all, fn($t) => $t['status'] === $filter),
+            default => array_filter($all, fn($t) => $t['type'] === $filter),
+        };
+        $this->renderPortal('admin', 'admin/ledger', [
+            'title' => 'Transactions — Admin',
+            'transactions' => array_values($rows),
+            'filter' => $filter,
+            'counts' => $counts,
+            'pending' => Transaction::pendingCount(),
+        ]);
+    }
+
+    public function sms(): void
+    {
+        $this->requireAdmin();
+        $this->renderPortal('admin', 'admin/sms', [
+            'title' => 'SMS log — Admin',
+            'sms' => SmsLog::recent(200),
+            'smsLive' => (new SmsService())->isLive(),
+        ]);
+    }
+
+    /** Poll the SMS provider (Moolre) for delivery status of pending SMS and update the log. */
+    public function pollSms(): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $s = (new SmsService())->refreshDelivery(100);
+        if ($s['checked'] === 0 && $s['pending'] === 0) {
+            flash('success', 'No SMS awaiting a delivery update.');
+        } else {
+            flash('success', "Delivery check: {$s['delivered']} delivered, {$s['failed']} failed, {$s['pending']} still pending.");
+        }
+        redirect('/admin/sms');
+    }
+
+    // ---- System ----
+
+    public function system(): void
+    {
+        $this->requireAdmin();
+        $this->renderPortal('admin', 'admin/system', [
+            'title' => 'System — Admin',
+            'integrations' => $this->integrations(),
+            'pending' => Transaction::pendingCount(),
+        ]);
+    }
+
+    /**
+     * Send a real test SMS to confirm the SMS integration works.
+     * Always hits the live API (forceLive) so it verifies even when SMS_MODE=mock.
+     */
+    public function testSms(): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+
+        $phone = normalize_phone((string) ($_POST['phone'] ?? ''));
+        $message = trim((string) ($_POST['message'] ?? ''));
+        if ($message === '') {
+            $message = 'PaySmallSmall test: your SMS setup is working. Reply STOP to opt out.';
+        }
+        if ($phone === null) {
+            flash('error', 'That phone number doesn\'t look right. Use 024XXXXXXX or 233XXXXXXXXX.');
+            redirect('/admin/system');
+        }
+        if (mb_strlen($message) > 160) {
+            $message = mb_substr($message, 0, 160);
+        }
+
+        $ok = (new SmsService())->send($phone, $message, forceLive: true);
+        flash(
+            $ok ? 'success' : 'error',
+            $ok
+                ? 'Test SMS accepted by Moolre for ' . pretty_phone($phone) . '. Check the phone and the SMS log.'
+                : 'Moolre rejected the SMS. Check the VAS key and that your Sender ID is approved (see the SMS log for the recorded attempt).'
+        );
+        redirect('/admin/system');
+    }
+
+    /** Run the grace-period reminder sweep by hand. */
+    public function runReminders(): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $svc = new PlanService();
+        $actions = array_merge($svc->runDueReminders(1), $svc->runReminders());
+        flash('success', $actions ? implode(' · ', $actions) : 'Nothing due or overdue — all plans on track.');
+        redirect_back('/admin/system');
+    }
+
+    /** Status-check every pending payment now (fallback for missed webhooks). */
+    public function reconcile(): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $actions = (new PlanService())->reconcilePending(0);
+        flash('success', $actions ? implode(' · ', $actions) : 'No pending payments needed settling.');
+        redirect_back('/admin/system');
+    }
+
+    /** Paystack + SMS status, shared by the dashboard and System page. */
+    private function integrations(): array
+    {
+        $paystack = new PaystackService();
+        $sms = new SmsService();
+        $secret = (string) Config::get('PAYSTACK_SECRET_KEY', '');
+        return [
+            'mode' => $paystack->mode(),
+            'paystack' => [
+                'has_key' => $paystack->hasKeys(),
+                'key_kind' => str_starts_with($secret, 'sk_live_') ? 'live' : (str_starts_with($secret, 'sk_test_') ? 'test' : 'unknown'),
+                'webhook' => rtrim((string) Config::get('APP_URL', ''), '/') . '/webhook/paystack',
+            ],
+            'sms' => [
+                'live' => $sms->isLive(),
+                'sender' => $sms->sender(),
+                'has_key' => $sms->hasKey(),
+                'endpoint' => $sms->endpoint(),
+            ],
+        ];
     }
 }

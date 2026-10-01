@@ -1,69 +1,61 @@
-<section class="page-head wrap">
-  <h1>Ledger</h1>
-  <p>Append-only record of every money movement, plus the SMS log.</p>
-</section>
+<?php
+use App\Core\Csrf;
 
-<section class="wrap" style="padding-bottom:3rem">
-  <div class="admin-nav">
-    <a class="btn btn-sm" href="<?= url('/admin') ?>">&larr; Admin home</a>
+$tabs = [
+    'all' => 'All',
+    'collection' => 'Collections',
+    'disbursement' => 'Payouts',
+    'refund' => 'Refunds',
+    'pending' => 'Pending',
+    'failed' => 'Failed',
+];
+$typeLabel = ['collection' => 'Collection', 'disbursement' => 'Payout', 'refund' => 'Refund'];
+?>
+<div class="pg-head">
+  <div>
+    <h1>Transactions</h1>
+    <p>Every pesewa in and out, newest first. This ledger is append-only &mdash; rows are never edited away.</p>
   </div>
+  <?php if ($pending > 0): ?>
+    <div class="pg-actions">
+      <form class="inline-form" method="post" action="<?= url('/admin/reconcile') ?>">
+        <?= Csrf::field() ?>
+        <button class="btn btn-sm btn-primary" type="submit"><?= micon('sync', ['size' => 18]) ?> Check <?= (int) $pending ?> pending with Paystack</button>
+      </form>
+    </div>
+  <?php endif; ?>
+</div>
 
-  <h2 style="font-size:1.35rem" class="mb-2">Transactions</h2>
-  <div class="table-scroll mb-3">
-    <table class="data">
-      <thead><tr><th>#</th><th>When</th><th>Type</th><th>Amount</th><th>Phone</th><th>Plan</th><th>Our ref</th><th>Provider ref</th><th>Status</th></tr></thead>
-      <tbody>
-        <?php foreach ($transactions as $t): ?>
-          <tr>
-            <td><?= (int) $t['id'] ?></td>
-            <td class="small"><?= date('j M H:i', strtotime($t['created_at'])) ?></td>
-            <td><?= e($t['type']) ?></td>
-            <td><strong><?= ghs((int) $t['amount_pesewas']) ?></strong></td>
-            <td class="small"><?= e(pretty_phone($t['phone'])) ?></td>
-            <td><?= $t['plan_id'] ? '#' . (int) $t['plan_id'] : '—' ?></td>
-            <td class="small muted"><?= e($t['provider_ref']) ?></td>
-            <td class="small muted"><?= e($t['external_ref']) ?></td>
-            <td><span class="tag tag-<?= e($t['status']) ?>"><?= e($t['status']) ?></span></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
+<nav class="tabs" aria-label="Filter transactions">
+  <?php foreach ($tabs as $key => $label): ?>
+    <a class="<?= $filter === $key ? 'active' : '' ?>" href="<?= url('/admin/ledger' . ($key === 'all' ? '' : '?type=' . $key)) ?>">
+      <?= e($label) ?> <span class="tab-count"><?= (int) ($counts[$key] ?? 0) ?></span>
+    </a>
+  <?php endforeach; ?>
+</nav>
 
-  <?php
-    // Map an SMS status to a pill class + icon + label.
-    $smsTag = static function (string $status): array {
-        return match ($status) {
-            'delivered' => ['tag-completed', 'mark_email_read', 'delivered'],
-            'sent'      => ['tag-pending', 'send', 'sent · awaiting delivery'],
-            'failed'    => ['tag-flagged', 'error', 'failed'],
-            default     => ['tag-pending', 'schedule', $status], // queued
-        };
-    };
-  ?>
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap" class="mb-2">
-    <h2 style="font-size:1.35rem">SMS log</h2>
-    <form method="post" action="<?= url('/admin/poll-sms') ?>">
-      <?= \App\Core\Csrf::field() ?>
-      <button class="btn btn-sm" type="submit"><?= micon('sync', ['size' => 16]) ?> Check delivery status</button>
-    </form>
-  </div>
-  <div class="table-scroll">
-    <table class="data">
-      <thead><tr><th>#</th><th>When</th><th>To</th><th>Message</th><th>Ref</th><th>Status</th></tr></thead>
-      <tbody>
-        <?php foreach ($sms as $s): ?>
-          <?php [$cls, $ic, $label] = $smsTag($s['status']); ?>
-          <tr>
-            <td><?= (int) $s['id'] ?></td>
-            <td class="small"><?= date('j M H:i', strtotime($s['created_at'])) ?></td>
-            <td class="small"><?= e(pretty_phone($s['recipient'])) ?></td>
-            <td style="white-space:normal; min-width:20rem"><?= e($s['body']) ?></td>
-            <td class="small muted mono"><?= e($s['provider_ref'] ?: '—') ?></td>
-            <td><span class="tag <?= $cls ?>"><?= micon($ic, ['size' => 14]) ?> <?= e($label) ?></span></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
+<section class="panel">
+  <?php if (empty($transactions)): ?>
+    <div class="panel-empty"><?= micon('receipt') ?>No transactions here.</div>
+  <?php else: ?>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>#</th><th>When</th><th>Type</th><th class="right">Amount</th><th>Phone</th><th>Plan</th><th>References</th><th>Status</th></tr></thead>
+        <tbody>
+          <?php foreach ($transactions as $t): ?>
+            <tr>
+              <td class="muted"><?= (int) $t['id'] ?></td>
+              <td class="small nowrap"><?= e(when($t['created_at'])) ?></td>
+              <td><?= e($typeLabel[$t['type']] ?? $t['type']) ?></td>
+              <td class="right nowrap"><strong><?= e(ghs((int) $t['amount_pesewas'])) ?></strong></td>
+              <td class="small mono nowrap"><?= e(pretty_phone($t['phone'])) ?></td>
+              <td><?= $t['plan_id'] ? '<a href="' . url('/admin/plan/' . (int) $t['plan_id']) . '">#' . (int) $t['plan_id'] . '</a>' : '—' ?></td>
+              <td class="small mono"><?= e($t['provider_ref']) ?><?= $t['external_ref'] !== '' ? '<span class="cell-sub">' . e($t['external_ref']) . '</span>' : '' ?></td>
+              <td><?= status_tag($t['status']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  <?php endif; ?>
 </section>

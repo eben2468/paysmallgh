@@ -23,7 +23,7 @@
     </aside>
 
     <div class="auth-form">
-      <h1>Admin sign in</h1>
+      <h1>Admin log in</h1>
       <p class="sub">Staff only. Log in to manage the platform.</p>
       <form method="post" action="<?= url('/admin/login') ?>">
         <?= Csrf::field() ?>

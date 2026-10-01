@@ -1,8 +1,14 @@
 <?php
 use App\Core\Auth;
 use App\Core\Config;
+use App\Core\Csrf;
 
 $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+// Strip the app's base dir (e.g. /paysspaystack/public) so matching works anywhere.
+$basePath = rtrim(url('/'), '/');
+if ($basePath !== '' && str_starts_with($currentPath, $basePath)) {
+    $currentPath = substr($currentPath, strlen($basePath)) ?: '/';
+}
 
 /** Active-nav helper. */
 $is = static function (string $prefix) use ($currentPath): string {
@@ -10,6 +16,48 @@ $is = static function (string $prefix) use ($currentPath): string {
         return $currentPath === '/' ? 'active' : '';
     }
     return str_starts_with($currentPath, $prefix) ? 'active' : '';
+};
+
+// Everyone signed in on this browser (a person can be customer, merchant and
+// admin at once). Each gets its own dashboard links and its own Log out.
+$accounts = [];
+if (Auth::userId() && ($u = Auth::user())) {
+    $accounts[] = ['name' => $u['name'], 'role' => 'Customer', 'links' => [
+        ['My plans', 'receipt_long', '/plans'],
+        ['Browse products', 'storefront', '/shop'],
+    ], 'logout' => ['get', '/logout']];
+}
+if (Auth::merchantId() && ($mm = Auth::merchant())) {
+    $accounts[] = ['name' => $mm['shop_name'], 'role' => 'Merchant', 'links' => [
+        ['Shop dashboard', 'space_dashboard', '/merchant/dashboard'],
+        ['My products', 'inventory_2', '/merchant/products'],
+    ], 'logout' => ['get', '/merchant/logout']];
+}
+if (Auth::isAdmin()) {
+    $accounts[] = ['name' => 'Administrator', 'role' => 'Admin', 'links' => [
+        ['Admin dashboard', 'admin_panel_settings', '/admin'],
+    ], 'logout' => ['post', '/admin/logout']];
+}
+$primary = $accounts[0] ?? null;
+$merchantHref = Auth::merchantId() ? '/merchant/dashboard' : '/merchant';
+
+/** One account's block in the menu: name, links, Log out. */
+$accountBlock = static function (array $a, bool $showHead): string {
+    $h = '';
+    if ($showHead) {
+        $h .= '<div class="acct-head"><b>' . e($a['name']) . '</b><span>' . e($a['role']) . '</span></div>';
+    }
+    foreach ($a['links'] as [$label, $icon, $href]) {
+        $h .= '<a href="' . url($href) . '">' . micon($icon, ['size' => 20]) . ' ' . e($label) . '</a>';
+    }
+    $outLabel = 'Log out' . ($showHead ? ' of ' . strtolower($a['role']) : '');
+    if ($a['logout'][0] === 'post') {
+        $h .= '<form method="post" action="' . url($a['logout'][1]) . '">' . Csrf::field()
+            . '<button class="acct-out" type="submit">' . micon('logout', ['size' => 20]) . ' ' . e($outLabel) . '</button></form>';
+    } else {
+        $h .= '<a class="acct-out" href="' . url($a['logout'][1]) . '">' . micon('logout', ['size' => 20]) . ' ' . e($outLabel) . '</a>';
+    }
+    return $h;
 };
 ?>
 <!DOCTYPE html>
@@ -45,7 +93,7 @@ $is = static function (string $prefix) use ($currentPath): string {
       <a class="<?= $is('/shop') ?>" href="<?= url('/shop') ?>">Browse</a>
       <a class="<?= $is('/how-it-works') ?>" href="<?= url('/how-it-works') ?>">How it works</a>
       <a class="<?= $is('/plan') ?>" href="<?= url('/plans') ?>">My plans</a>
-      <a class="<?= $is('/merchant') ?>" href="<?= url('/merchant') ?>">Merchant portal</a>
+      <a class="<?= $is('/merchant') ?>" href="<?= url($merchantHref) ?>">Merchant portal</a>
     </nav>
 
     <form class="search" action="<?= url('/shop') ?>" method="get" role="search">
@@ -55,15 +103,35 @@ $is = static function (string $prefix) use ($currentPath): string {
     </form>
 
     <nav class="header-actions" id="site-nav" aria-label="Account">
-      <?php if (Auth::userId()): ?>
-        <a class="nav-cta" href="<?= url('/plans') ?>"><?= micon('receipt_long', ['size' => 20]) ?> My plans</a>
-        <a href="<?= url('/logout') ?>">Log out</a>
-      <?php elseif (Auth::merchantId()): ?>
-        <a class="nav-cta" href="<?= url('/merchant/dashboard') ?>"><?= micon('storefront', ['size' => 20]) ?> Dashboard</a>
-        <a href="<?= url('/merchant/logout') ?>">Log out</a>
+      <div class="acct-mobile">
+        <a class="<?= $is('/how-it-works') ?>" href="<?= url('/how-it-works') ?>"><?= micon('help', ['size' => 20]) ?> How it works</a>
+        <a class="<?= $is('/merchant') ?>" href="<?= url($merchantHref) ?>"><?= micon('storefront', ['size' => 20]) ?> Merchant portal</a>
+      </div>
+      <?php if ($primary): ?>
+        <?php if ($primary['links'][0][2] !== '/plans'): /* My plans is already in the main nav */ ?>
+        <a class="nav-cta hide-mobile" href="<?= url($primary['links'][0][2]) ?>"><?= micon($primary['links'][0][1], ['size' => 20]) ?> <?= e($primary['links'][0][0]) ?></a>
+        <?php endif; ?>
+        <details class="acct">
+          <summary aria-label="Account menu">
+            <span class="avatar avatar-sm"><?= e(strtoupper(mb_substr($primary['name'], 0, 1))) ?></span>
+            <span><?= e(explode(' ', $primary['name'])[0]) ?><?= count($accounts) > 1 ? ' +' . (count($accounts) - 1) : '' ?></span>
+            <?= micon('expand_more', ['size' => 18]) ?>
+          </summary>
+          <div class="acct-menu">
+            <?php foreach ($accounts as $i => $a): ?>
+              <?php if ($i > 0): ?><div class="acct-sep"></div><?php endif; ?>
+              <?= $accountBlock($a, true) ?>
+            <?php endforeach; ?>
+          </div>
+        </details>
+        <div class="acct-mobile">
+          <?php foreach ($accounts as $a): ?>
+            <?= $accountBlock($a, true) ?>
+          <?php endforeach; ?>
+        </div>
       <?php else: ?>
-        <a class="hide-mobile" href="<?= url('/login') ?>">Log in</a>
-        <a class="btn btn-primary btn-sm" href="<?= url('/register') ?>">Sign in</a>
+        <a href="<?= url('/login') ?>">Log in</a>
+        <a class="btn btn-primary btn-sm" href="<?= url('/register') ?>">Create account</a>
       <?php endif; ?>
     </nav>
   </div>
@@ -103,14 +171,17 @@ $is = static function (string $prefix) use ($currentPath): string {
 </footer>
 
 <nav class="bottom-nav" aria-label="Quick navigation">
-  <a href="<?= url('/') ?>" class="<?= $currentPath === '/' ? 'active' : '' ?>"><?= micon('home') ?><span>Home</span></a>
-  <a href="<?= url('/shop') ?>" class="<?= (str_starts_with($currentPath, '/shop') || str_starts_with($currentPath, '/product')) ? 'active' : '' ?>"><?= micon('storefront') ?><span>Browse</span></a>
-  <?php if (Auth::merchantId()): ?>
-    <a href="<?= url('/merchant/dashboard') ?>" class="<?= str_starts_with($currentPath, '/merchant') ? 'active' : '' ?>"><?= micon('payments') ?><span>Shop</span></a>
-    <a href="<?= url('/merchant/payouts') ?>"><?= micon('account_balance') ?><span>Payouts</span></a>
+  <a href="<?= url('/') ?>" class="<?= $is('/') ?>"><?= micon('home') ?><span>Home</span></a>
+  <a href="<?= url('/shop') ?>" class="<?= ($is('/shop') || $is('/product')) ? 'active' : '' ?>"><?= micon('storefront') ?><span>Browse</span></a>
+  <?php if (Auth::merchantId() && !Auth::userId()): ?>
+    <a href="<?= url('/merchant/dashboard') ?>" class="<?= $is('/merchant') ?>"><?= micon('space_dashboard') ?><span>My shop</span></a>
   <?php else: ?>
-    <a href="<?= url('/plans') ?>" class="<?= str_starts_with($currentPath, '/plan') ? 'active' : '' ?>"><?= micon('receipt_long') ?><span>My plans</span></a>
-    <a href="<?= Auth::userId() ? url('/logout') : url('/login') ?>"><?= micon('person') ?><span><?= Auth::userId() ? 'Log out' : 'Log in' ?></span></a>
+    <a href="<?= url('/plans') ?>" class="<?= $is('/plan') ?>"><?= micon('receipt_long') ?><span>My plans</span></a>
+  <?php endif; ?>
+  <?php if ($primary): ?>
+    <button type="button" data-nav-toggle aria-controls="site-nav" aria-expanded="false"><?= micon('account_circle') ?><span>Account</span></button>
+  <?php else: ?>
+    <a href="<?= url('/login') ?>" class="<?= $is('/login') ?>"><?= micon('login') ?><span>Log in</span></a>
   <?php endif; ?>
 </nav>
 
