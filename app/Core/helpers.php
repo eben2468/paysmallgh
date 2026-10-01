@@ -28,6 +28,26 @@ function url(string $path = '/'): string
     return $base . '/' . ltrim($path, '/');
 }
 
+/**
+ * Absolute URL for a path, for links that leave the site and come back (e.g.
+ * Paystack's return-after-payment URL). Uses the host the visitor is actually
+ * on when it's our own domain (with or without "www."), so they land back on
+ * the same host and their login cookie is sent. Otherwise falls back to APP_URL.
+ */
+function absolute_url(string $path = '/'): string
+{
+    $appUrl = rtrim((string) Config::get('APP_URL', ''), '/');
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $appHost = strtolower((string) parse_url($appUrl, PHP_URL_HOST));
+    $bare = static fn (string $h): string => preg_replace('/^www\./', '', preg_replace('/:\d+$/', '', $h));
+
+    if ($host !== '' && $appHost !== '' && $bare($host) === $bare($appHost)) {
+        $scheme = \App\Core\Auth::isHttps() ? 'https' : 'http';
+        return $scheme . '://' . $host . url($path);
+    }
+    return $appUrl . '/' . ltrim($path, '/');
+}
+
 /** Redirect and stop. */
 function redirect(string $path): never
 {

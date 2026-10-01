@@ -37,6 +37,14 @@ final class AdminController extends Controller
         redirect('/admin/login');
     }
 
+    /** Log the admin out (customer/merchant logins on this browser are kept). */
+    public function logout(): void
+    {
+        Csrf::check();
+        Auth::logout('admin');
+        redirect('/admin/login');
+    }
+
     public function dashboard(): void
     {
         $this->requireAdmin();

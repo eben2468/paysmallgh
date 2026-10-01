@@ -104,7 +104,7 @@ final class MerchantController extends Controller
 
     public function logout(): void
     {
-        Auth::logout();
+        Auth::logout('merchant');
         redirect('/merchant');
     }
 

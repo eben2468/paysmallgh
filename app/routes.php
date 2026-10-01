@@ -63,6 +63,7 @@ $router->get('/merchant/payouts', MerchantController::class, 'payouts');
 // Admin
 $router->get('/admin/login', AdminController::class, 'loginForm');
 $router->post('/admin/login', AdminController::class, 'login');
+$router->post('/admin/logout', AdminController::class, 'logout');
 $router->get('/admin', AdminController::class, 'dashboard');
 $router->post('/admin/merchant/{id}/approve', AdminController::class, 'approveMerchant');
 $router->post('/admin/merchant/{id}/suspend', AdminController::class, 'suspendMerchant');

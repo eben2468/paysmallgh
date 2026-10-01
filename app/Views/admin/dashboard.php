@@ -9,6 +9,10 @@
     <a class="btn btn-sm" href="<?= url('/admin/plans') ?>">All plans</a>
     <a class="btn btn-sm" href="<?= url('/admin/users') ?>">Customers</a>
     <a class="btn btn-sm" href="<?= url('/admin/ledger') ?>">Ledger &amp; SMS</a>
+    <form class="inline-form" method="post" action="<?= url('/admin/logout') ?>">
+      <?= Csrf::field() ?>
+      <button class="btn btn-sm btn-quiet" type="submit">Log out</button>
+    </form>
   </div>
 
   <!-- Payments integration -->

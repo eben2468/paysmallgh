@@ -98,6 +98,7 @@ MOOLRE_PATH_SMS_STATUS=/open/sms/status
 PLATFORM_FEE_PCT=5
 CANCEL_FEE_PCT=5
 GRACE_DAYS=3
+SESSION_LIFETIME_DAYS=30
 
 ADMIN_PHONE=233XXXXXXXXX
 ADMIN_PASSWORD=pick-a-strong-one
@@ -127,6 +128,7 @@ site user owns the tree — another reason deploys run as the site user):
 
 ```bash
 mkdir -p public/uploads && chmod 755 public/uploads
+mkdir -p storage/sessions && chmod 700 storage/sessions   # logins live here (SESSION_LIFETIME_DAYS)
 ```
 
 ## 6. Cloudflare / HTTPS

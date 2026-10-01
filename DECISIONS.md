@@ -39,3 +39,10 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **Cancellation refunds use Paystack Refunds**, one per paid installment (each minus `CANCEL_FEE_PCT`), so money goes back to whatever the customer paid with: MoMo wallet or card. This means we never have to guess the customer's network. Cancelling claims the plan atomically, so a double-tap can't refund twice. If no refund at all is accepted, the plan goes back to active. Partial failures can be retried from the admin plan page. Money paid into an already-cancelled plan (a late checkout) is refunded automatically.
 - **Paystack needs an email; customers only give a phone.** We send `<phone>@PAYSTACK_EMAIL_DOMAIN`.
 - **Seed fix:** each seeded plan's opening checkout is now settled as its first payment. Before this, every plan seeded one payment short and the "completed" demo plan never completed.
+
+## 2026-10-01 — Stay logged in
+
+- **Logins last 30 days (`SESSION_LIFETIME_DAYS`) and the clock resets on every visit.** Before, PHP's defaults ended sessions after 24 idle minutes or when the browser closed. Customers got logged out while paying on Paystack or approving a MoMo prompt.
+- **Sessions are stored in `storage/sessions`** instead of the system temp folder, so the server's own session cleanup (24-minute default on Debian/CloudPanel) can't delete them early.
+- **Paystack sends customers back to the host they were on** (`absolute_url()`): `www.` or bare domain, whichever they used, so the login cookie comes with them. Any other host falls back to `APP_URL`.
+- **Logout is per role.** Logging out as a customer doesn't end an admin or merchant login in the same browser. The session is destroyed only when no role is left. Admin got a Log out button (there was none).
