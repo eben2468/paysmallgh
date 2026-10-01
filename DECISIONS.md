@@ -61,3 +61,14 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **Categories come from a fixed list** (`Product::CATEGORIES`). Products saved earlier under a custom category keep it until edited.
 - **A fully paid plan can't be cancelled** while its payout is going through. Cancelling then would refund the customer and pay the shop for the same money.
 - Plan wording ("GHS 100 × 12 weeks", "Pay this month's…") now comes from shared helpers (`freq_words`, `plan_math`, `plan_rate`). This also fixes monthly plans being called "a week" in the start SMS.
+
+## 2026-10-01 — Homepage rebuilt as a storefront (ideas from Jumia, Jiji, Temu)
+
+- **Shopping comes first.** The hero's main action is now a big search box ("Phone, bed, kaba, fridge…") with popular-category chips under it, like Jiji. Then category tiles with live item counts, then the products.
+- **"People are paying for these" rail** ranks products by active + finished plans (`Product::popular`). Cards show "N paying" from the same real count. The section hides itself if fewer than two products have plans.
+- **Weekly-budget tiles** ("Up to GHS 25 / 50 / 100 a week", "Over GHS 100") are Temu's "under GHS X" bands turned into what you pay each week. They link to a new `/shop?budget=` filter (also in the shop sidebar). "Weekly" means price ÷ 12 weeks, the same figure product cards already show (`Product::CARD_WEEKS`). Empty bands are hidden.
+- **Recent payments feed** shows the latest payment on each live plan, with the customer's first name masked ("K***e"), so the page shows real people paying without saying who. Minutes-ago is calculated in SQL so PHP and MySQL timezones can't disagree.
+- **Shop showcase** lists approved shops with products: verified first, then location, item count and plans running. Cards also show the shop's location, like Jiji.
+- **The marquee now uses real listings and prices** instead of hardcoded examples.
+- **Left out on purpose:** countdown timers, flash sales and "almost sold out" pressure. They push people to rush, which is wrong for a no-stress layaway product. No USSD banner either, because the code isn't shown anywhere on the site at the moment.
+- The "Small payments, big things" stat numbers are still hardcoded demo figures. Swap them for live numbers before launch.

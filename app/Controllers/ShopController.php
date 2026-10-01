@@ -14,12 +14,14 @@ final class ShopController extends Controller
     {
         $category = isset($_GET['category']) ? (string) $_GET['category'] : null;
         $q = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+        $budget = isset($_GET['budget']) && isset(Product::BUDGETS[(string) $_GET['budget']]) ? (string) $_GET['budget'] : null;
         $this->render('shop/index', [
             'title' => ($q ? "\"{$q}\" — search" : 'Browse products') . ' — PaySmallSmall',
-            'products' => Product::browse($category, $q),
+            'products' => Product::browse($category, $q, $budget),
             'categories' => Product::categories(),
             'current' => $category,
             'q' => $q,
+            'budget' => $budget,
         ]);
     }
 

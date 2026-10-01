@@ -211,6 +211,47 @@ function when(?string $datetime, bool $withTime = true): string
     return $ts === false ? '—' : date($withTime ? 'j M Y, g:ia' : 'j M Y', $ts);
 }
 
+/** "just now", "12 min ago", "3 hours ago", "yesterday", "5 days ago", else a date. */
+function ago(int $minutes): string
+{
+    $minutes = max(0, $minutes);
+    if ($minutes < 2) {
+        return 'just now';
+    }
+    if ($minutes < 60) {
+        return $minutes . ' min ago';
+    }
+    $hours = intdiv($minutes, 60);
+    if ($hours < 24) {
+        return $hours === 1 ? '1 hour ago' : $hours . ' hours ago';
+    }
+    $days = intdiv($hours, 24);
+    if ($days === 1) {
+        return 'yesterday';
+    }
+    if ($days < 14) {
+        return $days . ' days ago';
+    }
+    return date('j M', time() - $minutes * 60);
+}
+
+/**
+ * First name with the middle hidden ("Kwame Boateng" -> "K***e"), for public
+ * activity feeds: shows a real person paid without saying who.
+ */
+function masked_name(string $fullName): string
+{
+    $first = (string) (preg_split('/\s+/', trim($fullName))[0] ?? '');
+    $len = mb_strlen($first);
+    if ($len === 0) {
+        return 'Someone';
+    }
+    if ($len < 3) {
+        return mb_strtoupper(mb_substr($first, 0, 1)) . '***';
+    }
+    return mb_strtoupper(mb_substr($first, 0, 1)) . '***' . mb_substr($first, -1);
+}
+
 /** Show 233244000000 as 024 400 0000 for display. */
 function pretty_phone(string $phone): string
 {

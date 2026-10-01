@@ -47,6 +47,27 @@ final class Merchant
         );
     }
 
+    /**
+     * Approved shops with at least one product on sale, for the homepage
+     * showcase: verified shops first, then the ones with the most products.
+     */
+    public static function showcase(int $limit = 6): array
+    {
+        $limit = max(1, $limit);
+        return DB::run(
+            "SELECT m.id, m.shop_name, m.location, m.verified,
+                    COUNT(p.id) AS product_count,
+                    (SELECT COUNT(*) FROM plans pl JOIN products pp ON pp.id = pl.product_id
+                     WHERE pp.merchant_id = m.id AND pl.status IN ('active','completed')) AS plan_count
+             FROM merchants m
+             JOIN products p ON p.merchant_id = m.id AND p.active = 1
+             WHERE m.status = 'approved'
+             GROUP BY m.id, m.shop_name, m.location, m.verified
+             ORDER BY m.verified DESC, product_count DESC, m.shop_name
+             LIMIT " . $limit
+        )->fetchAll();
+    }
+
     public static function all(): array
     {
         return DB::run('SELECT * FROM merchants ORDER BY created_at DESC')->fetchAll();

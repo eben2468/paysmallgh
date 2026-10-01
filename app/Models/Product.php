@@ -22,6 +22,37 @@ final class Product
         'general' => 'Other',
     ];
 
+    /**
+     * Weekly-budget bands for browsing (slug => [min, max] weekly pesewas, label).
+     * "Weekly" is the price spread over 12 weeks — the same figure product cards show.
+     */
+    public const BUDGETS = [
+        'up-to-25' => ['min' => 0, 'max' => 2500, 'label' => 'GHS 25 or less a week'],
+        'up-to-50' => ['min' => 0, 'max' => 5000, 'label' => 'GHS 50 or less a week'],
+        'up-to-100' => ['min' => 0, 'max' => 10000, 'label' => 'GHS 100 or less a week'],
+        'over-100' => ['min' => 10001, 'max' => null, 'label' => 'Over GHS 100 a week'],
+    ];
+
+    /** Weeks used for the "/wk" figure on cards and in budget bands. */
+    public const CARD_WEEKS = 12;
+
+    /** The "/wk" figure shown on product cards. */
+    public static function cardWeekly(int $cashPricePesewas): int
+    {
+        return (int) ceil($cashPricePesewas / self::CARD_WEEKS);
+    }
+
+    /** True if a product's card weekly price falls inside a budget band. */
+    public static function inBudget(int $cashPricePesewas, string $budget): bool
+    {
+        $b = self::BUDGETS[$budget] ?? null;
+        if ($b === null) {
+            return false;
+        }
+        $wk = self::cardWeekly($cashPricePesewas);
+        return $wk >= $b['min'] && ($b['max'] === null || $wk <= $b['max']);
+    }
+
     /** Installment schedules a merchant can allow (paying in full is always allowed). */
     public const FREQUENCIES = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
 
@@ -54,13 +85,26 @@ final class Product
         )->fetch() ?: null;
     }
 
-    /** Active products from approved merchants, filtered by category and/or search term. */
-    public static function browse(?string $category = null, ?string $q = null): array
-    {
-        $sql = "SELECT p.*, m.shop_name, m.location AS merchant_location, m.verified AS merchant_verified
+    /** Columns every product listing needs (card + shop details + live plan count). */
+    private const LISTING_SELECT = "SELECT p.*, m.shop_name, m.location AS merchant_location, m.verified AS merchant_verified,
+                (SELECT COUNT(*) FROM plans pl WHERE pl.product_id = p.id AND pl.status IN ('active','completed')) AS plan_count
                 FROM products p JOIN merchants m ON m.id = p.merchant_id
                 WHERE p.active = 1 AND m.status = 'approved'";
+
+    /** Active products from approved merchants, filtered by category, search term and/or weekly budget. */
+    public static function browse(?string $category = null, ?string $q = null, ?string $budget = null): array
+    {
+        $sql = self::LISTING_SELECT;
         $params = [];
+        if ($budget !== null && isset(self::BUDGETS[$budget])) {
+            $b = self::BUDGETS[$budget];
+            $sql .= ' AND CEIL(p.cash_price_pesewas / ' . self::CARD_WEEKS . ') >= ?';
+            $params[] = $b['min'];
+            if ($b['max'] !== null) {
+                $sql .= ' AND CEIL(p.cash_price_pesewas / ' . self::CARD_WEEKS . ') <= ?';
+                $params[] = $b['max'];
+            }
+        }
         if ($category !== null && $category !== '') {
             $sql .= ' AND p.category = ?';
             $params[] = $category;
@@ -72,6 +116,18 @@ final class Product
         }
         $sql .= ' ORDER BY p.created_at DESC';
         return DB::run($sql, $params)->fetchAll();
+    }
+
+    /** Products people are actually paying for (active or finished plans), most plans first. */
+    public static function popular(int $limit = 10): array
+    {
+        $limit = max(1, $limit);
+        return DB::run(
+            'SELECT * FROM (' . self::LISTING_SELECT . ') x
+             WHERE x.plan_count > 0
+             ORDER BY x.plan_count DESC, x.created_at DESC
+             LIMIT ' . $limit
+        )->fetchAll();
     }
 
     /** Category => product count, for nav and tiles. */

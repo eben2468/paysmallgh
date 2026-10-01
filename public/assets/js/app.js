@@ -105,6 +105,31 @@
     counters.forEach(function (el) { countObs.observe(el); });
   }
 
+  // ---- Product rails: prev/next buttons scroll one "page" of cards. Buttons
+  // grey out at either end and hide entirely when nothing overflows.
+  document.querySelectorAll('[data-rail]').forEach(function (rail) {
+    var nav = document.querySelector('[data-rail-nav="' + rail.getAttribute('data-rail') + '"]');
+    if (!nav) return;
+    var prev = nav.querySelector('[data-rail-prev]');
+    var next = nav.querySelector('[data-rail-next]');
+    if (!prev || !next) return;
+
+    function update() {
+      var max = rail.scrollWidth - rail.clientWidth;
+      nav.hidden = max <= 2;
+      prev.disabled = rail.scrollLeft <= 2;
+      next.disabled = rail.scrollLeft >= max - 2;
+    }
+    function go(dir) {
+      rail.scrollBy({ left: dir * rail.clientWidth * 0.9, behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+    prev.addEventListener('click', function () { go(-1); });
+    next.addEventListener('click', function () { go(1); });
+    rail.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    update();
+  });
+
   // ---- Plan picker: choose a frequency (daily/weekly/monthly), then a duration.
   // Options per frequency come from the server as JSON on [data-plans]. The form
   // submits two hidden inputs: frequency + count (number of installments).
