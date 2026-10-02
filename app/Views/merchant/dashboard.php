@@ -54,9 +54,9 @@ $first = explode(' ', (string) $merchant['owner_name'])[0];
       <?php foreach ($toRelease as $p): ?>
         <li><div class="attn-item">
           <span class="attn-ic is-ok"><?= micon('inventory_2', ['size' => 20]) ?></span>
-          <span class="attn-text"><b><?= e($p['product_name']) ?></b><span><?= e($p['customer_name']) ?> &middot; <?= e(pretty_phone($p['customer_phone'])) ?></span></span>
+          <span class="attn-text"><b><?= e(plan_item($p)) ?></b><span><?= e($p['customer_name']) ?> &middot; <?= e(pretty_phone($p['customer_phone'])) ?></span></span>
           <form class="inline-form" method="post" action="<?= url('/merchant/plan/' . $p['id'] . '/release') ?>"
-                data-confirm="Confirm you've handed <?= e($p['product_name']) ?> to <?= e($p['customer_name']) ?>?">
+                data-confirm="Confirm you've handed <?= e(plan_item($p)) ?> to <?= e($p['customer_name']) ?>?">
             <?= Csrf::field() ?>
             <button class="btn btn-sm btn-green" type="submit"><?= micon('check', ['size' => 16]) ?> Mark handed over</button>
           </form>
@@ -88,7 +88,7 @@ $first = explode(' ', (string) $merchant['owner_name'])[0];
             <tr>
               <td>
                 <span class="cell-main"><?= e($p['customer_name']) ?></span>
-                <span class="cell-sub"><?= e($p['product_name']) ?> &middot; <span class="mono"><?= e(pretty_phone($p['customer_phone'])) ?></span></span>
+                <span class="cell-sub"><?= e(plan_item($p)) ?> &middot; <span class="mono"><?= e(pretty_phone($p['customer_phone'])) ?></span></span>
               </td>
               <td class="cell-mini-bar">
                 <span class="small"><?= $paid ?> of <?= $tot ?> &middot; <?= e(plan_rate($p)) ?></span>

@@ -5,7 +5,7 @@
   <div class="receipt reveal">
     <span class="receipt-tag">Secure checkout &middot; test mode</span>
     <h1 class="receipt-title" style="font-size:1.6rem">Pay <?= ghs((int) $tx['amount_pesewas']) ?></h1>
-    <p class="receipt-sub"><?= e($plan['product_name']) ?> &middot; <?= e($plan['shop_name']) ?></p>
+    <p class="receipt-sub"><?= e(plan_item($plan)) ?> &middot; <?= e($plan['shop_name']) ?></p>
 
     <p class="small muted mt-2">This is a stand-in for Paystack's checkout so you can test the full flow without moving real money. In live mode the customer lands on Paystack's own hosted page here.</p>
 

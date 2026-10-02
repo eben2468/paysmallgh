@@ -72,3 +72,17 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **The marquee now uses real listings and prices** instead of hardcoded examples.
 - **Left out on purpose:** countdown timers, flash sales and "almost sold out" pressure. They push people to rush, which is wrong for a no-stress layaway product. No USSD banner either, because the code isn't shown anywhere on the site at the moment.
 - The "Small payments, big things" stat numbers are still hardcoded demo figures. Swap them for live numbers before launch.
+
+## 2026-10-02 — Product page, cart, saved items, search
+
+- **Options (size/colour/storage/model).** A merchant names up to three options and lists one row per version, each with its own optional price, stock and SKU (`product_variants`). Customers pick with chips; combinations that are sold out or don't exist are struck through. The plan records the variant and a text label ("Black / 256GB"), so editing or deleting a variant later never changes what a customer bought.
+- **Quantity.** 1 to 10 of an item per plan. The plan total is unit price × quantity and is always recomputed on the server. Payouts and refunds already work from the plan's own amounts, so they needed no change.
+- **Stock.** Optional. Empty means not counted. Stock comes off when a plan's first payment lands (not when someone opens checkout) and goes back when the plan is cancelled. `plans.stock_reserved` is claimed atomically both ways, so webhook replays and double taps can't move stock twice. Two people paying for the last item at the same moment can still both get a plan. That's rare, and the shop sees both plans.
+- **Cart.** Kept in the session so guests can use it. Every line is started as its own plan, because each plan has its own escrow and its own shop payout. One payment covering several shops would mix their money. In the cart you pick a schedule per line and start it. Lines that went out of stock or lost their option show why and can't be started.
+- **Buy now** means pay in full today: the existing pay-in-full plan type, as one button.
+- **Saved items (wishlist)** need an account so they follow the customer to any phone. A guest who taps the heart logs in and the item is saved for them.
+- **Old price / discount.** An optional old price on the product. It shows struck through with the % off whenever it's higher than the price being shown.
+- **Specifications** are "Name: value" lines the merchant types, shown as a table. **Delivery & returns** are per-product notes from the shop, shown under PaySmallSmall's own fixed text (collect from the shop when the plan is paid; cancel any time for a refund minus the fee).
+- **Search** matches every word against name, SKU (product or option), description, shop and category. Exact SKU matches rank first, then name matches. Suggestions appear as you type (`/search/suggest`). The shop has filters for price range, verified shops, in stock and pay schedule, plus sorting.
+- **Recently viewed** is the last 12 products, kept in the session. It shows on the product page and the homepage.
+- The weekly figure on cards still means "price ÷ 12 weeks". For items with options it uses the cheapest option, and the card says "From".

@@ -45,16 +45,30 @@ CREATE TABLE IF NOT EXISTS products (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   merchant_id INT UNSIGNED NOT NULL,
   name VARCHAR(160) NOT NULL,
+  sku VARCHAR(64) DEFAULT NULL,
   description TEXT NOT NULL,
+  -- "Key: Value" lines, shown as a specifications table.
+  specs TEXT DEFAULT NULL,
+  delivery_info TEXT DEFAULT NULL,
+  return_policy TEXT DEFAULT NULL,
   photo VARCHAR(255) NOT NULL DEFAULT '',
   cash_price_pesewas INT UNSIGNED NOT NULL,
+  -- Old price, shown struck through when higher than the price.
+  compare_at_pesewas INT UNSIGNED DEFAULT NULL,
+  -- NULL = not tracked (always available). Ignored when the product has variants.
+  stock INT UNSIGNED DEFAULT NULL,
   category VARCHAR(60) NOT NULL DEFAULT 'general',
   -- Installment schedules the merchant allows (paying in full is always allowed).
   plan_frequencies VARCHAR(30) NOT NULL DEFAULT 'daily,weekly,monthly',
+  -- Variant option names, e.g. Colour / Storage / Size ('' = unused).
+  option1_name VARCHAR(40) NOT NULL DEFAULT '',
+  option2_name VARCHAR(40) NOT NULL DEFAULT '',
+  option3_name VARCHAR(40) NOT NULL DEFAULT '',
   active TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_products_merchant (merchant_id),
+  KEY idx_products_sku (sku),
   CONSTRAINT fk_products_merchant FOREIGN KEY (merchant_id) REFERENCES merchants(id)
 ) ENGINE=InnoDB;
 
@@ -71,10 +85,34 @@ CREATE TABLE IF NOT EXISTS product_images (
   CONSTRAINT fk_product_images_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- One row per sellable combination (e.g. Black / 128GB). NULL price = the
+-- product's price; NULL stock = not tracked (always available).
+CREATE TABLE IF NOT EXISTS product_variants (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id INT UNSIGNED NOT NULL,
+  option1 VARCHAR(60) NOT NULL DEFAULT '',
+  option2 VARCHAR(60) NOT NULL DEFAULT '',
+  option3 VARCHAR(60) NOT NULL DEFAULT '',
+  sku VARCHAR(64) DEFAULT NULL,
+  price_pesewas INT UNSIGNED DEFAULT NULL,
+  stock INT UNSIGNED DEFAULT NULL,
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_variants_product (product_id),
+  KEY idx_variants_sku (sku),
+  CONSTRAINT fk_variants_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS plans (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   product_id INT UNSIGNED NOT NULL,
   customer_id INT UNSIGNED NOT NULL,
+  quantity SMALLINT UNSIGNED NOT NULL DEFAULT 1,
+  -- No FK: variants can be deleted later; variant_label keeps what was bought.
+  variant_id INT UNSIGNED DEFAULT NULL,
+  variant_label VARCHAR(190) NOT NULL DEFAULT '',
+  -- 1 once stock was taken for this plan (on activation); cleared on cancel.
+  stock_reserved TINYINT(1) NOT NULL DEFAULT 0,
   total_pesewas INT UNSIGNED NOT NULL,
   installment_pesewas INT UNSIGNED NOT NULL,
   -- once = paid in full in a single payment.
@@ -148,6 +186,17 @@ CREATE TABLE IF NOT EXISTS reviews (
   KEY idx_reviews_product (product_id),
   CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Saved items ("wishlist"), one row per customer per product.
+CREATE TABLE IF NOT EXISTS wishlists (
+  user_id INT UNSIGNED NOT NULL,
+  product_id INT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, product_id),
+  KEY idx_wishlists_product (product_id),
+  CONSTRAINT fk_wishlists_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_wishlists_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS sms_log (

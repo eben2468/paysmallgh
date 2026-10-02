@@ -10,28 +10,56 @@ use App\Models\Installment;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Services\Cart;
 use App\Services\PaystackService;
 use App\Services\PlanService;
 
 final class PlanController extends Controller
 {
+    /**
+     * Start a plan from the product page or a cart line. Posted fields:
+     *   product_id, variant_id (or opt1..opt3 values), quantity,
+     *   frequency + count, or plan="weekly:12" (cart), or buy_now=1 (pay in full),
+     *   cart_key (remove that cart line once the plan is created).
+     */
     public function start(): void
     {
         $product = Product::find((int) ($_POST['product_id'] ?? 0));
-        $choice = $this->validChoice($product, (string) ($_POST['frequency'] ?? ''), (int) ($_POST['count'] ?? 0));
+        $back = $product ? '/product/' . (int) $product['id'] : '/shop';
+        if (!empty($_POST['cart_key'])) {
+            $back = '/cart';
+        }
+
+        if (!empty($_POST['buy_now'])) {
+            [$freqIn, $countIn] = ['once', 1];
+        } elseif (isset($_POST['plan']) && preg_match('/^([a-z]+):(\d{1,3})$/', (string) $_POST['plan'], $m)) {
+            [$freqIn, $countIn] = [$m[1], (int) $m[2]];
+        } else {
+            [$freqIn, $countIn] = [(string) ($_POST['frequency'] ?? ''), (int) ($_POST['count'] ?? 0)];
+        }
+        $choice = $this->validChoice($product, $freqIn, $countIn);
         if ($choice === null) {
             flash('error', 'That payment option isn\'t available for this item. Pick again.');
-            redirect($product ? '/product/' . (int) $product['id'] : '/shop');
+            redirect($back);
         }
         [$frequency, $count] = $choice;
+
+        $item = Cart::resolveItem($product, $_POST);
+        if (is_string($item)) {
+            flash('error', $item);
+            redirect($back);
+        }
 
         // Guest? Remember exactly which plan they picked, send them to log in, and
         // resume the very same plan afterwards — no going back to re-select.
         if (Auth::userId() === null) {
             $_SESSION['pending_plan'] = [
                 'product_id' => (int) $product['id'],
+                'variant_id' => $item['variant'] !== null ? (int) $item['variant']['id'] : null,
+                'quantity' => $item['qty'],
                 'frequency' => $frequency,
                 'count' => $count,
+                'cart_key' => (string) ($_POST['cart_key'] ?? ''),
             ];
             $_SESSION['after_login'] = '/plan/resume';
             flash('error', 'Log in or create a quick account to start your plan — we\'ve saved your pick.');
@@ -39,7 +67,7 @@ final class PlanController extends Controller
         }
 
         Csrf::check();
-        $this->beginPlan($this->requireUser(), $product, $frequency, $count);
+        $this->beginPlan($this->requireUser(), $product, $item, $frequency, $count, (string) ($_POST['cart_key'] ?? ''));
     }
 
     /**
@@ -63,7 +91,17 @@ final class PlanController extends Controller
         }
         [$frequency, $count] = $choice;
 
-        $this->beginPlan($user, $product, $frequency, $count);
+        // Re-check the variant and stock: things may have changed while they logged in.
+        $item = Cart::resolveItem($product, [
+            'variant_id' => $intent['variant_id'] ?? 0,
+            'quantity' => $intent['quantity'] ?? 1,
+        ]);
+        if (is_string($item)) {
+            flash('error', $item);
+            redirect('/product/' . (int) $product['id']);
+        }
+
+        $this->beginPlan($user, $product, $item, $frequency, $count, (string) ($intent['cart_key'] ?? ''));
     }
 
     /**
@@ -85,14 +123,28 @@ final class PlanController extends Controller
         return [$frequency, $count];
     }
 
-    /** Shared: recompute the installment, create the plan and go to checkout. */
-    private function beginPlan(array $user, array $product, string $frequency, int $count): never
+    /**
+     * Shared: recompute the price, create the plan and go to checkout.
+     * $item comes from Cart::resolveItem(); $cartKey (if any) is removed from the
+     * cart once the plan exists.
+     */
+    private function beginPlan(array $user, array $product, array $item, string $frequency, int $count, string $cartKey = ''): never
     {
         // Server-side recompute — never trust a posted amount.
-        $per = (int) ceil((int) $product['cash_price_pesewas'] / $count);
+        $total = Product::unitPrice($product, $item['variant']) * $item['qty'];
+        $per = (int) ceil($total / $count);
 
         $svc = new PlanService();
-        [$planId, $result] = $svc->startPlan($user, $product, $per, $frequency, $count);
+        [$planId, $result] = $svc->startPlan($user, $product, $per, $frequency, $count, [
+            'total' => $total,
+            'quantity' => $item['qty'],
+            'variant_id' => $item['variant'] !== null ? (int) $item['variant']['id'] : null,
+            'variant_label' => Product::variantLabel($product, $item['variant']),
+        ]);
+
+        if ($cartKey !== '') {
+            Cart::remove($cartKey); // it's a plan now (pending until paid) — find it under My plans
+        }
 
         if ($result['status'] === 'failed') {
             $reason = !empty($result['reason']) ? ' Reason: ' . $result['reason'] : '';

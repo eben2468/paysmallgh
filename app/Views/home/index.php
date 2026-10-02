@@ -25,10 +25,10 @@ if (!empty($marquee)) {
       <h1 class="hero-title">Own what matters,<br><span class="accent">one installment</span> at a time.</h1>
       <p class="hero-lead">That phone you've been eyeing? Pay small small — GHS 100 a week — and it's yours. No lump sum, no borrowing. Your money sits safe in escrow till you finish.</p>
 
-      <form class="hero-search" action="<?= url('/shop') ?>" method="get" role="search">
+      <form class="hero-search" action="<?= url('/shop') ?>" method="get" role="search" data-suggest-form>
         <label class="sr-only" for="hero-q">What do you want to own?</label>
         <?= micon('search', ['class' => 'hero-search-ic']) ?>
-        <input id="hero-q" type="search" name="q" placeholder="Phone, bed, kaba, fridge…" autocomplete="off">
+        <input id="hero-q" type="search" name="q" placeholder="Phone, bed, kaba, fridge…" autocomplete="off" data-suggest>
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
 
@@ -94,6 +94,28 @@ if (!empty($marquee)) {
 </section>
 <?php endif; ?>
 
+<?php if (!empty($recentlyViewed)): ?>
+<section class="section section-tight section-rule">
+  <div class="wrap">
+    <div class="section-bar">
+      <div>
+        <h2>Pick up where you left off</h2>
+        <p class="muted">Things you looked at recently.</p>
+      </div>
+      <div class="rail-nav" data-rail-nav="recently-viewed">
+        <button type="button" class="rail-btn" data-rail-prev aria-label="Scroll back"><?= micon('chevron_left') ?></button>
+        <button type="button" class="rail-btn" data-rail-next aria-label="Scroll forward"><?= micon('chevron_right') ?></button>
+      </div>
+    </div>
+    <div class="rail" data-rail="recently-viewed">
+      <?php foreach ($recentlyViewed as $p): ?>
+        <?= $view->partial('partials/product-card', ['p' => $p]) ?>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
+
 <?php if (count($popular) >= 2): ?>
 <section class="section section-tight section-dim">
   <div class="wrap">
@@ -120,7 +142,7 @@ if (!empty($marquee)) {
 <div class="marquee" aria-hidden="true">
   <div class="marquee-track">
     <?php foreach ($ticker as $t): ?>
-      <span><?= e($t['name']) ?> — <b><?= ghs(Product::cardWeekly((int) $t['cash_price_pesewas'])) ?>/wk &times; <?= Product::CARD_WEEKS ?></b></span>
+      <span><?= e($t['name']) ?> — <b><?= ghs(Product::cardWeekly((int) $t['price_from'])) ?>/wk &times; <?= Product::CARD_WEEKS ?></b></span>
     <?php endforeach; ?>
   </div>
 </div>

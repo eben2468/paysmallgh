@@ -25,7 +25,7 @@
       <?php endif; ?>
 
       <span class="receipt-tag"><?= $isFull ? 'Bought outright' : 'Your plan' ?></span>
-      <h1 class="receipt-title"><?= e($plan['product_name']) ?></h1>
+      <h1 class="receipt-title"><?= e(plan_item($plan)) ?></h1>
       <p class="receipt-sub"><?= e($plan['shop_name']) ?></p>
       <p class="mt-1">
         <span class="tag tag-<?= e($plan['status']) ?>"><?= e($plan['status']) ?></span>

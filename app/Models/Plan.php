@@ -65,9 +65,12 @@ final class Plan
     public static function create(array $d): int
     {
         DB::run(
-            'INSERT INTO plans (product_id, customer_id, total_pesewas, installment_pesewas, frequency, installments_total)
-             VALUES (?, ?, ?, ?, ?, ?)',
-            [$d['product_id'], $d['customer_id'], $d['total_pesewas'], $d['installment_pesewas'], $d['frequency'], $d['installments_total']]
+            'INSERT INTO plans (product_id, customer_id, quantity, variant_id, variant_label, total_pesewas, installment_pesewas, frequency, installments_total)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $d['product_id'], $d['customer_id'], $d['quantity'] ?? 1, $d['variant_id'] ?? null, $d['variant_label'] ?? '',
+                $d['total_pesewas'], $d['installment_pesewas'], $d['frequency'], $d['installments_total'],
+            ]
         );
         return DB::lastId();
     }

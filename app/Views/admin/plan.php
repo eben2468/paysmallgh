@@ -10,7 +10,7 @@ $grace = ($plan['grace_state'] ?? 'ok') !== 'ok';
 <a class="pg-back" href="<?= url('/admin/plans') ?>"><?= micon('arrow_back', ['size' => 16]) ?> Plans</a>
 <div class="pg-head">
   <div>
-    <h1>Plan #<?= (int) $plan['id'] ?> &middot; <?= e($plan['product_name']) ?></h1>
+    <h1>Plan #<?= (int) $plan['id'] ?> &middot; <?= e(plan_item($plan)) ?></h1>
     <p>
       <?= status_tag($plan['status']) ?>
       <?php if ($grace): ?><?= status_tag($plan['grace_state']) ?><?php endif; ?>

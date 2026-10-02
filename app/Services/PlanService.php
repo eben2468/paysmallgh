@@ -8,6 +8,7 @@ use App\Core\Database as DB;
 use App\Models\Installment;
 use App\Models\Merchant;
 use App\Models\Plan;
+use App\Models\Product;
 use App\Models\Transaction;
 
 /**
@@ -31,13 +32,20 @@ final class PlanService
      * payment, no plan: the plan stays 'pending' until the first collection is
      * confirmed. Returns [planId, ['status' => ..., 'redirect' => ?url]] — the
      * caller redirects the browser to `redirect` (Paystack's payment page).
+     *
+     * $item (optional): what exactly is being bought —
+     *   total (pesewas, unit price × quantity), quantity, variant_id, variant_label.
+     * Without it the plan is for one of the product at its listed price.
      */
-    public function startPlan(array $user, array $product, int $installmentPesewas, string $frequency, int $count): array
+    public function startPlan(array $user, array $product, int $installmentPesewas, string $frequency, int $count, array $item = []): array
     {
         $planId = Plan::create([
             'product_id' => (int) $product['id'],
             'customer_id' => (int) $user['id'],
-            'total_pesewas' => (int) $product['cash_price_pesewas'],
+            'quantity' => max(1, (int) ($item['quantity'] ?? 1)),
+            'variant_id' => isset($item['variant_id']) ? (int) $item['variant_id'] : null,
+            'variant_label' => (string) ($item['variant_label'] ?? ''),
+            'total_pesewas' => (int) ($item['total'] ?? $product['cash_price_pesewas']),
             'installment_pesewas' => $installmentPesewas,
             'frequency' => $frequency,
             'installments_total' => $count,
@@ -195,6 +203,11 @@ final class PlanService
         DB::run('UPDATE plans SET installments_paid = installments_paid + 1 WHERE id = ?', [$tx['plan_id']]);
         $plan = Plan::find((int) $tx['plan_id']);
 
+        // First payment in: the plan is real now, so its item comes off the shelf.
+        if ($plan['status'] === 'pending') {
+            $this->reserveStock($plan);
+        }
+
         if ($plan['status'] === 'pending' && $plan['frequency'] === 'once') {
             // Bought outright: no plan to "start" — payout follows right below.
             Plan::setStatus((int) $plan['id'], 'active');
@@ -308,9 +321,10 @@ final class PlanService
         DB::run('UPDATE plans SET status = \'completed\', completed_at = NOW(), payout_transaction_id = ? WHERE id = ?', [$txId, $planId]);
 
         $tx = Transaction::find($txId);
-        $this->sms->send($plan['customer_phone'], SmsTemplates::planCompleteCustomer($plan['product_name'], $plan['shop_name']));
+        // The shop needs to know exactly which item to hand over (option + quantity).
+        $this->sms->send($plan['customer_phone'], SmsTemplates::planCompleteCustomer(plan_item($plan), $plan['shop_name']));
         $this->sms->send($plan['merchant_phone'], SmsTemplates::planCompleteMerchant(
-            $plan['product_name'],
+            plan_item($plan),
             ghs((int) $tx['amount_pesewas']),
             $plan['customer_name']
         ));
@@ -462,8 +476,38 @@ final class PlanService
             return false;
         }
 
+        $this->releaseStock($plan);
         $this->sms->send($plan['customer_phone'], SmsTemplates::refund($plan['product_name'], ghs($r['amount'])));
         return true;
+    }
+
+    /**
+     * Take the plan's quantity off the shop's stock, once. The stock_reserved
+     * flag is claimed atomically, so webhook replays can't take it twice.
+     */
+    private function reserveStock(array $plan): void
+    {
+        $claimed = DB::run('UPDATE plans SET stock_reserved = 1 WHERE id = ? AND stock_reserved = 0', [$plan['id']])->rowCount() > 0;
+        if ($claimed) {
+            Product::takeStock(
+                (int) $plan['product_id'],
+                $plan['variant_id'] !== null ? (int) $plan['variant_id'] : null,
+                max(1, (int) $plan['quantity'])
+            );
+        }
+    }
+
+    /** Put a cancelled plan's item back on the shelf, once. */
+    private function releaseStock(array $plan): void
+    {
+        $claimed = DB::run('UPDATE plans SET stock_reserved = 0 WHERE id = ? AND stock_reserved = 1', [$plan['id']])->rowCount() > 0;
+        if ($claimed) {
+            Product::returnStock(
+                (int) $plan['product_id'],
+                $plan['variant_id'] !== null ? (int) $plan['variant_id'] : null,
+                max(1, (int) $plan['quantity'])
+            );
+        }
     }
 
     /**

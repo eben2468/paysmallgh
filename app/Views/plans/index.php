@@ -52,7 +52,7 @@
               </div>
 
               <div class="plan-card-main">
-                <h3><a href="<?= url('/plan/' . $plan['id']) ?>"><?= e($plan['product_name']) ?></a></h3>
+                <h3><a href="<?= url('/plan/' . $plan['id']) ?>"><?= e(plan_item($plan)) ?></a></h3>
                 <p class="plan-card-shop"><?= e($plan['shop_name']) ?></p>
 
                 <?php if ($pending): ?>

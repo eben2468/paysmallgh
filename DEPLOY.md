@@ -48,12 +48,20 @@ Load the schema (the schema file also contains the CREATE DATABASE — it's idem
 mysql -u pss -p paysmallsmall < database/schema.sql
 ```
 
-Upgrading a database created before the Paystack switch? Run the migration once
-(safe to re-run):
+Upgrading an existing database? Run the migrations in order. Each one is safe
+to re-run, so running all of them is fine even if some were applied before:
 
 ```bash
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-01-paystack.sql
+mysql -u pss -p paysmallsmall < database/migrations/2026-10-02-payment-options.sql
+mysql -u pss -p paysmallsmall < database/migrations/2026-10-03-product-features.sql
 ```
+
+`2026-10-03-product-features.sql` adds SKU, old price, stock, specifications,
+delivery/returns notes, product options (size/colour/storage), saved items, and
+the quantity/option a plan was bought with. **Run it straight after the
+`git pull` that brings this code** — the shop pages read these columns and
+will error until it has run.
 
 Optional demo data:
 

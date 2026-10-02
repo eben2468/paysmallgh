@@ -5,12 +5,14 @@ declare(strict_types=1);
 
 use App\Controllers\AdminController;
 use App\Controllers\AuthController;
+use App\Controllers\CartController;
 use App\Controllers\HomeController;
 use App\Controllers\MerchantController;
 use App\Controllers\PlanController;
 use App\Controllers\ReviewController;
 use App\Controllers\ShopController;
 use App\Controllers\WebhookController;
+use App\Controllers\WishlistController;
 
 // Public
 $router->get('/', HomeController::class, 'index');
@@ -18,6 +20,18 @@ $router->get('/how-it-works', HomeController::class, 'howItWorks');
 $router->get('/shop', ShopController::class, 'index');
 $router->get('/product/{id}', ShopController::class, 'show');
 $router->post('/product/{id}/review', ReviewController::class, 'store');
+$router->get('/search/suggest', ShopController::class, 'suggest');
+
+// Cart (session-based; each line is started as its own plan)
+$router->get('/cart', CartController::class, 'index');
+$router->post('/cart/add', CartController::class, 'add');
+$router->post('/cart/update', CartController::class, 'update');
+$router->post('/cart/remove', CartController::class, 'remove');
+
+// Saved items (wishlist)
+$router->get('/wishlist', WishlistController::class, 'index');
+$router->post('/wishlist/toggle', WishlistController::class, 'toggle');
+$router->get('/wishlist/resume', WishlistController::class, 'resume');
 
 // Customer auth
 $router->get('/register', AuthController::class, 'registerForm');

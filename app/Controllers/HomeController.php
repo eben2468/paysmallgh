@@ -17,7 +17,7 @@ final class HomeController extends Controller
         // Budget bands with how many products fit each (empty bands are hidden).
         $budgets = [];
         foreach (Product::BUDGETS as $slug => $b) {
-            $n = count(array_filter($all, static fn (array $p): bool => Product::inBudget((int) $p['cash_price_pesewas'], $slug)));
+            $n = count(array_filter($all, static fn (array $p): bool => Product::inBudget((int) $p['price_from'], $slug)));
             if ($n > 0) {
                 $budgets[$slug] = $b + ['count' => $n];
             }
@@ -32,6 +32,7 @@ final class HomeController extends Controller
             'shops' => Merchant::showcase(6),
             'recent' => Installment::recentPayments(6),
             'marquee' => array_slice($all, 0, 10),
+            'recentlyViewed' => Product::byIds(array_slice((array) ($_SESSION['recently_viewed'] ?? []), 0, 10)),
         ]);
     }
 

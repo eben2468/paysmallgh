@@ -42,7 +42,7 @@ if (Config::get('PAYMENTS_MODE') !== 'mock') {
 $pdo = DB::pdo();
 echo "Clearing tables...\n";
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-foreach (['sms_log', 'reviews', 'transactions', 'installments', 'plans', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
+foreach (['sms_log', 'reviews', 'wishlists', 'transactions', 'installments', 'plans', 'product_variants', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
     $pdo->exec("TRUNCATE TABLE {$t}");
 }
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
@@ -121,9 +121,41 @@ $products = [
     [$efua, "Men's kaftan (2 sets)", "Two kaftans, your measurement, any colour. Ready in two weeks.", $P(800), 'fashion'],
     [$efua, 'School uniforms (bundle of 3)', "Three full uniforms sewn to your child's size. Ready before reopening.", $P(350), 'fashion'],
 ];
+// Extra shop details per product: SKU, old price (discount), stock, specs,
+// delivery/returns notes and options (size/colour/storage).
+$extras = [
+    'Samsung Galaxy A16' => [
+        'sku' => 'KM-A16', 'compare_at_pesewas' => $P(2100),
+        'specs' => "Screen: 6.7 inch Super AMOLED\nRAM: 6GB\nBattery: 5000mAh\nCamera: 50MP main\nWarranty: 1 year from the shop",
+        'delivery_info' => 'Same-day delivery within Accra for GHS 30. Outside Accra we send by VIP bus.',
+        'return_policy' => 'Faulty in the first 7 days? Bring it back with the box and we swap it.',
+        'option1_name' => 'Colour', 'option2_name' => 'Storage',
+        'variants' => [
+            ['Black', '128GB', 'KM-A16-BK-128', null, 4],
+            ['Black', '256GB', 'KM-A16-BK-256', $P(2150), 2],
+            ['Blue', '128GB', 'KM-A16-BL-128', null, 0],
+            ['Blue', '256GB', 'KM-A16-BL-256', $P(2150), 3],
+        ],
+    ],
+    'Tecno Spark 30C' => ['sku' => 'KM-SPARK30C', 'stock' => 6, 'compare_at_pesewas' => $P(1400),
+        'specs' => "Storage: 256GB\nRAM: 8GB\nBattery: 5000mAh\nWarranty: 1 year from the shop"],
+    'Infinix Hot 50i' => ['sku' => 'KM-HOT50I', 'stock' => 0],
+    'JBL Wave Buds (original)' => ['sku' => 'KM-JBL-WAVE', 'stock' => 8, 'specs' => "Battery: 8 hours (32 with case)\nWater resistance: IP54"],
+    'Double bed frame (mahogany)' => ['sku' => 'AS-BED-DBL', 'delivery_info' => 'Free delivery within Kumasi.',
+        'specs' => "Wood: Solid mahogany\nSize: 4.5ft x 6ft (double)\nMattress: Not included"],
+    '3-in-1 sofa set' => ['sku' => 'AS-SOFA-3IN1', 'option1_name' => 'Colour', 'delivery_info' => 'Free delivery within Kumasi.',
+        'variants' => [['Brown', '', null, null, null], ['Grey', '', null, null, null]]],
+    'Kaba and slit (custom sewn)' => ['sku' => 'EB-KABA', 'option1_name' => 'Size',
+        'return_policy' => 'Not fitting well? Bring it back within 14 days and we adjust it free.',
+        'variants' => [['S', '', null, null, null], ['M', '', null, null, null], ['L', '', null, null, null], ['XL', '', null, $P(650), null]]],
+];
+
 $productIds = [];
 foreach ($products as [$mid, $name, $desc, $price, $cat]) {
-    $productIds[$name] = Product::create([
+    $extra = $extras[$name] ?? [];
+    $variants = $extra['variants'] ?? [];
+    unset($extra['variants']);
+    $productIds[$name] = Product::create(array_merge([
         'merchant_id' => $mid,
         'name' => $name,
         'description' => $desc,
@@ -131,7 +163,13 @@ foreach ($products as [$mid, $name, $desc, $price, $cat]) {
         'cash_price_pesewas' => $price,
         'category' => $cat,
         'active' => 1,
-    ]);
+    ], $extra));
+    if ($variants) {
+        Product::saveVariants($productIds[$name], array_map(static fn (array $v): array => [
+            'option1' => $v[0], 'option2' => $v[1], 'option3' => '',
+            'sku' => $v[2], 'price_pesewas' => $v[3], 'stock' => $v[4],
+        ], $variants));
+    }
 }
 
 echo "Creating customers...\n";

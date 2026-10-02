@@ -38,6 +38,20 @@ final class Review
         return ['count' => (int) $row['n'], 'avg' => (float) $row['avg']];
     }
 
+    /** How many reviews gave each star rating: [5 => n, 4 => n, … 1 => n]. */
+    public static function distribution(int $productId): array
+    {
+        $out = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+        $rows = DB::run('SELECT rating, COUNT(*) AS n FROM reviews WHERE product_id = ? GROUP BY rating', [$productId])->fetchAll();
+        foreach ($rows as $r) {
+            $star = (int) $r['rating'];
+            if (isset($out[$star])) {
+                $out[$star] = (int) $r['n'];
+            }
+        }
+        return $out;
+    }
+
     /** This user's existing review of a product, if any (to prefill the form). */
     public static function byUser(int $productId, int $userId): ?array
     {

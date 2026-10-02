@@ -19,15 +19,32 @@
   <?php else: ?>
     <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Product</th><th>Category</th><th class="right">Cash price</th><th>Customers can pay</th><th>In shop</th><th class="right">Actions</th></tr></thead>
+        <thead><tr><th>Product</th><th>Category</th><th class="right">Cash price</th><th>Stock</th><th>Customers can pay</th><th>In shop</th><th class="right">Actions</th></tr></thead>
         <tbody>
           <?php foreach ($products as $p): ?>
             <tr>
               <td>
                 <a class="cell-main" href="<?= url('/merchant/products/' . $p['id'] . '/edit') ?>"><?= e($p['name']) ?></a>
+                <?php if (!empty($p['sku'])): ?><span class="cell-sub mono">SKU <?= e($p['sku']) ?></span><?php endif; ?>
               </td>
               <td class="small muted"><?= e(\App\Models\Product::categoryLabel((string) $p['category'])) ?></td>
-              <td class="right nowrap mono"><?= e(ghs((int) $p['cash_price_pesewas'])) ?></td>
+              <td class="right nowrap mono"><?= e(ghs((int) $p['cash_price_pesewas'])) ?><?php if (!empty($p['compare_at_pesewas'])): ?><span class="cell-sub"><s><?= e(ghs((int) $p['compare_at_pesewas'])) ?></s></span><?php endif; ?></td>
+              <td class="small nowrap">
+                <?php
+                  $vc = (int) $p['variant_count'];
+                  $units = $vc > 0
+                      ? ((int) $p['variant_untracked'] > 0 ? null : (int) $p['variant_stock'])
+                      : ($p['stock'] === null ? null : (int) $p['stock']);
+                ?>
+                <?php if ($units === null): ?>
+                  <span class="muted">Not counted</span>
+                <?php elseif ($units === 0): ?>
+                  <span class="tag tag-flagged">Sold out</span>
+                <?php else: ?>
+                  <?= $units ?> in stock
+                <?php endif; ?>
+                <?php if ($vc > 0): ?><span class="cell-sub"><?= $vc ?> option<?= $vc === 1 ? '' : 's' ?></span><?php endif; ?>
+              </td>
               <td class="small"><?= e(implode(' · ', array_map(fn($f) => \App\Models\Product::FREQUENCIES[$f], \App\Models\Product::allowedFrequencies($p)))) ?><span class="cell-sub">or in full</span></td>
               <td>
                 <?php if ($p['active']): ?>

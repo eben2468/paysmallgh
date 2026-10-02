@@ -211,6 +211,35 @@ function when(?string $datetime, bool $withTime = true): string
     return $ts === false ? '—' : date($withTime ? 'j M Y, g:ia' : 'j M Y', $ts);
 }
 
+/** The current page as an app-relative path with its query ("/shop?sort=new"), for "come back here" links. */
+function current_path(): string
+{
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+    $base = rtrim(url('/'), '/');
+    if ($base !== '' && str_starts_with($uri, $base)) {
+        $uri = substr($uri, strlen($base)) ?: '/';
+    }
+    return '/' . ltrim($uri, '/');
+}
+
+/**
+ * What a plan is for, in full: "Samsung Galaxy A16 (Black / 128GB) x2".
+ * Expects product_name plus the plan's variant_label and quantity.
+ */
+function plan_item(array $plan): string
+{
+    $s = (string) ($plan['product_name'] ?? '');
+    $label = trim((string) ($plan['variant_label'] ?? ''));
+    if ($label !== '') {
+        $s .= ' (' . $label . ')';
+    }
+    $qty = (int) ($plan['quantity'] ?? 1);
+    if ($qty > 1) {
+        $s .= ' x' . $qty;
+    }
+    return $s;
+}
+
 /** "just now", "12 min ago", "3 hours ago", "yesterday", "5 days ago", else a date. */
 function ago(int $minutes): string
 {

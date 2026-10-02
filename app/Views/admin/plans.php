@@ -50,7 +50,7 @@ $tabs = [
               $grace = $p['grace_state'] !== 'ok' && $p['status'] === 'active';
             ?>
             <tr>
-              <td><a class="cell-main" href="<?= url('/admin/plan/' . $p['id']) ?>">#<?= (int) $p['id'] ?></a><span class="cell-sub"><?= e($p['product_name']) ?></span></td>
+              <td><a class="cell-main" href="<?= url('/admin/plan/' . $p['id']) ?>">#<?= (int) $p['id'] ?></a><span class="cell-sub"><?= e(plan_item($p)) ?></span></td>
               <td><?= e($p['customer_name']) ?></td>
               <td><?= e($p['shop_name']) ?></td>
               <td class="cell-mini-bar">

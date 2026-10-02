@@ -24,6 +24,8 @@ $accounts = [];
 if (Auth::userId() && ($u = Auth::user())) {
     $accounts[] = ['name' => $u['name'], 'role' => 'Customer', 'links' => [
         ['My plans', 'receipt_long', '/plans'],
+        ['Saved items', 'favorite', '/wishlist'],
+        ['Cart', 'shopping_cart', '/cart'],
         ['Browse products', 'storefront', '/shop'],
     ], 'logout' => ['get', '/logout']];
 }
@@ -101,11 +103,24 @@ $accountBlock = static function (array $a, bool $showHead): string {
       <a class="<?= $is('/merchant') ?>" href="<?= url($merchantHref) ?>">Merchant portal</a>
     </nav>
 
-    <form class="search" action="<?= url('/shop') ?>" method="get" role="search">
+    <form class="search" action="<?= url('/shop') ?>" method="get" role="search" data-suggest-form>
       <?= micon('search', ['class' => 'search-ic']) ?>
-      <input type="search" name="q" value="<?= e($_GET['q'] ?? '') ?>" placeholder="Search products…" aria-label="Search products">
+      <input type="search" name="q" value="<?= e(is_string($_GET['q'] ?? null) ? $_GET['q'] : '') ?>" placeholder="Search products or SKU…" aria-label="Search products" autocomplete="off" data-suggest>
       <button type="submit" aria-label="Search"><?= micon('arrow_forward', ['size' => 18]) ?></button>
     </form>
+
+    <?php
+      $cartCount = \App\Services\Cart::count();
+      $savedCount = Auth::userId() ? \App\Models\Wishlist::count((int) Auth::userId()) : 0;
+    ?>
+    <div class="header-icons">
+      <a class="header-icon-btn <?= $is('/wishlist') ?>" href="<?= url('/wishlist') ?>" aria-label="Saved items<?= $savedCount ? ' (' . $savedCount . ')' : '' ?>" title="Saved items">
+        <?= micon('favorite') ?><span class="icon-badge" data-saved-count<?= $savedCount ? '' : ' hidden' ?>><?= $savedCount ?></span>
+      </a>
+      <a class="header-icon-btn <?= $is('/cart') ?>" href="<?= url('/cart') ?>" aria-label="Cart<?= $cartCount ? ' (' . $cartCount . ' item' . ($cartCount === 1 ? '' : 's') . ')' : '' ?>" title="Cart">
+        <?= micon('shopping_cart') ?><span class="icon-badge" data-cart-count<?= $cartCount ? '' : ' hidden' ?>><?= $cartCount ?></span>
+      </a>
+    </div>
 
     <nav class="header-actions" id="site-nav" aria-label="Account">
       <div class="acct-mobile">

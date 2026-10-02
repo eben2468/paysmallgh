@@ -254,6 +254,7 @@ final class MerchantController extends Controller
             'merchant' => $merchant,
             'product' => $product,
             'images' => $product ? Product::images((int) $id) : [],
+            'variants' => $product ? Product::variants((int) $id) : [],
         ]);
     }
 
@@ -262,36 +263,58 @@ final class MerchantController extends Controller
         $merchant = $this->requireMerchant();
         Csrf::check();
 
-        $priceCedis = (float) str_replace(',', '', (string) ($_POST['price'] ?? '0'));
         $d = [
             'merchant_id' => (int) $merchant['id'],
             'name' => trim((string) ($_POST['name'] ?? '')),
+            'sku' => self::optionalText($_POST['sku'] ?? '', 64),
             'description' => trim((string) ($_POST['description'] ?? '')),
+            'specs' => self::optionalText($_POST['specs'] ?? '', 3000),
+            'delivery_info' => self::optionalText($_POST['delivery_info'] ?? '', 1000),
+            'return_policy' => self::optionalText($_POST['return_policy'] ?? '', 1000),
             'photo' => '',
-            'cash_price_pesewas' => (int) round($priceCedis * 100),
+            'cash_price_pesewas' => self::pesewas($_POST['price'] ?? '') ?? 0,
+            'compare_at_pesewas' => self::pesewas($_POST['old_price'] ?? ''),
+            'stock' => self::optionalCount($_POST['stock'] ?? ''),
             'category' => trim(strtolower((string) ($_POST['category'] ?? ''))),
             'plan_frequencies' => implode(',', array_values(array_intersect(
                 array_keys(Product::FREQUENCIES),
                 array_map('strval', (array) ($_POST['frequencies'] ?? []))
             ))),
+            'option1_name' => mb_substr(trim((string) ($_POST['option1_name'] ?? '')), 0, 40),
+            'option2_name' => mb_substr(trim((string) ($_POST['option2_name'] ?? '')), 0, 40),
+            'option3_name' => mb_substr(trim((string) ($_POST['option3_name'] ?? '')), 0, 40),
             'active' => isset($_POST['active']) ? 1 : 0,
         ];
         $back = $id ? "/merchant/products/{$id}/edit" : '/merchant/products/new';
+        // On a validation error, send the merchant back with what they typed.
+        $fail = static function (string $message) use ($back): never {
+            $_SESSION['product_form_old'] = $_POST;
+            flash('error', $message);
+            redirect($back);
+        };
 
         if ($d['name'] === '' || $d['cash_price_pesewas'] < 1000) {
-            flash('error', 'Give the product a name and a price of at least GHS 10.');
-            redirect($back);
+            $fail('Give the product a name and a price of at least GHS 10.');
+        }
+        if ($d['compare_at_pesewas'] !== null && $d['compare_at_pesewas'] <= $d['cash_price_pesewas']) {
+            $fail('The old price has to be higher than the price — or leave it empty if there\'s no discount.');
+        }
+        if (($_POST['stock'] ?? '') !== '' && $d['stock'] === null) {
+            $fail('Stock must be a whole number (0 or more), or leave it empty if you don\'t count stock.');
         }
         // Category must come from the list — except a product already saved
         // under an older custom category may keep it.
         $current = $id !== null ? (Product::find((int) $id)['category'] ?? null) : null;
         if (!isset(Product::CATEGORIES[$d['category']]) && $d['category'] !== $current) {
-            flash('error', 'Pick a category from the list.');
-            redirect($back);
+            $fail('Pick a category from the list.');
         }
         if ($d['plan_frequencies'] === '') {
-            flash('error', 'Tick at least one way customers can pay small small: daily, weekly or monthly.');
-            redirect($back);
+            $fail('Tick at least one way customers can pay small small: daily, weekly or monthly.');
+        }
+
+        $variants = $this->variantsFromPost($d);
+        if (is_string($variants)) {
+            $fail($variants);
         }
 
         if ($id !== null) {
@@ -315,6 +338,8 @@ final class MerchantController extends Controller
             flash('success', 'Product added. Customers can see it once your shop is approved.');
         }
 
+        Product::saveVariants($pid, $variants);
+
         // Save any newly uploaded photos (multiple).
         $this->saveUploadedPhotos($pid, (int) $merchant['id']);
 
@@ -322,6 +347,101 @@ final class MerchantController extends Controller
         Product::refreshCover($pid);
 
         redirect('/merchant/products');
+    }
+
+    /**
+     * Variant rows from the product form (variants[n][id|opt1|opt2|opt3|sku|price|stock]).
+     * Option names on the product decide which values each row needs. No
+     * option names = no variants. Returns rows for Product::saveVariants() or
+     * an error message.
+     */
+    private function variantsFromPost(array $d): array|string
+    {
+        $names = [];
+        for ($i = 1; $i <= 3; $i++) {
+            if ($d["option{$i}_name"] !== '') {
+                $names[$i] = $d["option{$i}_name"];
+            }
+        }
+
+        $rows = [];
+        $seen = [];
+        foreach (array_slice((array) ($_POST['variants'] ?? []), 0, 60) as $r) {
+            if (!is_array($r)) {
+                continue;
+            }
+            $vals = [];
+            for ($i = 1; $i <= 3; $i++) {
+                $vals[$i] = mb_substr(trim((string) ($r["opt{$i}"] ?? '')), 0, 60);
+            }
+            if (implode('', $vals) === '') {
+                continue; // blank row
+            }
+            if (!$names) {
+                return 'You filled in option rows but no option names. Name them first (e.g. Colour, Storage), or clear the rows.';
+            }
+            foreach ($vals as $i => $v) {
+                if (isset($names[$i]) && $v === '') {
+                    return 'Every option row needs a ' . $names[$i] . '.';
+                }
+                if (!isset($names[$i])) {
+                    $vals[$i] = ''; // value for an unnamed option — drop it
+                }
+            }
+            $combo = mb_strtolower(implode('|', $vals));
+            if (isset($seen[$combo])) {
+                return 'Two option rows are the same (' . implode(' / ', array_filter($vals)) . '). Each row must be different.';
+            }
+            $seen[$combo] = true;
+
+            $price = self::pesewas($r['price'] ?? '');
+            if (($r['price'] ?? '') !== '' && ($price === null || $price < 1000)) {
+                return 'Option prices must be at least GHS 10 — or leave the price empty to use the main price.';
+            }
+            $stock = self::optionalCount($r['stock'] ?? '');
+            if (($r['stock'] ?? '') !== '' && $stock === null) {
+                return 'Option stock must be a whole number (0 or more), or empty if you don\'t count it.';
+            }
+            $rows[] = [
+                'id' => (int) ($r['id'] ?? 0),
+                'option1' => $vals[1], 'option2' => $vals[2], 'option3' => $vals[3],
+                'sku' => self::optionalText($r['sku'] ?? '', 64),
+                'price_pesewas' => $price,
+                'stock' => $stock,
+            ];
+        }
+
+        if ($names && !$rows) {
+            return 'You named options (' . implode(', ', $names) . ') but added no option rows. Add at least one, or clear the names.';
+        }
+        return $rows;
+    }
+
+    /** "1,250.50" (GHS) -> 125050 pesewas; empty/invalid -> null. */
+    private static function pesewas(mixed $raw): ?int
+    {
+        $s = str_replace([',', ' '], '', trim((string) $raw));
+        if ($s === '' || !is_numeric($s) || (float) $s < 0) {
+            return null;
+        }
+        return (int) round((float) $s * 100);
+    }
+
+    /** Whole number 0..100000, or null when empty/invalid. */
+    private static function optionalCount(mixed $raw): ?int
+    {
+        $s = trim((string) $raw);
+        if ($s === '' || !ctype_digit($s) || (int) $s > 100000) {
+            return null;
+        }
+        return (int) $s;
+    }
+
+    /** Trimmed text capped at $max characters, or null when empty. */
+    private static function optionalText(mixed $raw, int $max): ?string
+    {
+        $s = trim((string) $raw);
+        return $s === '' ? null : mb_substr($s, 0, $max);
     }
 
     /** Move validated image uploads from photos[] into /public/uploads and record them. Caps at 8 per submit. */

@@ -10,19 +10,49 @@ use App\Models\Review;
 
 final class ShopController extends Controller
 {
+    /** How many recently viewed products we remember per visitor. */
+    private const RECENT_MAX = 12;
+
     public function index(): void
     {
-        $category = isset($_GET['category']) ? (string) $_GET['category'] : null;
-        $q = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
-        $budget = isset($_GET['budget']) && isset(Product::BUDGETS[(string) $_GET['budget']]) ? (string) $_GET['budget'] : null;
+        $f = self::filtersFromQuery($_GET);
+        $q = $f['q'];
         $this->render('shop/index', [
-            'title' => ($q ? "\"{$q}\" — search" : 'Browse products') . ' — PaySmallSmall',
-            'products' => Product::browse($category, $q, $budget),
+            'title' => ($q !== '' ? "\"{$q}\" — search" : 'Browse products') . ' — PaySmallSmall',
+            'products' => Product::browse($f),
             'categories' => Product::categories(),
-            'current' => $category,
+            'filters' => $f,
+            'current' => $f['category'],
             'q' => $q,
-            'budget' => $budget,
+            'budget' => $f['budget'],
         ]);
+    }
+
+    /**
+     * Clean the shop's query string into browse() filters. Prices arrive in
+     * GHS and are stored as pesewas; anything unknown is dropped.
+     */
+    public static function filtersFromQuery(array $in): array
+    {
+        $cedis = static function ($v): int {
+            $n = (float) str_replace(',', '', trim((string) $v));
+            return $n > 0 ? (int) round($n * 100) : 0;
+        };
+        $f = [
+            'q' => mb_substr(trim((string) ($in['q'] ?? '')), 0, 80),
+            'category' => (string) ($in['category'] ?? ''),
+            'budget' => isset($in['budget']) && isset(Product::BUDGETS[(string) $in['budget']]) ? (string) $in['budget'] : '',
+            'min' => $cedis($in['min'] ?? ''),
+            'max' => $cedis($in['max'] ?? ''),
+            'verified' => !empty($in['verified']),
+            'in_stock' => !empty($in['in_stock']),
+            'freq' => isset($in['freq']) && isset(Product::FREQUENCIES[(string) $in['freq']]) ? (string) $in['freq'] : '',
+            'sort' => isset($in['sort']) && isset(Product::SORTS[(string) $in['sort']]) ? (string) $in['sort'] : '',
+        ];
+        if ($f['min'] > 0 && $f['max'] > 0 && $f['min'] > $f['max']) {
+            [$f['min'], $f['max']] = [$f['max'], $f['min']]; // typed the wrong way round
+        }
+        return $f;
     }
 
     public function show(string $id): void
@@ -34,59 +64,88 @@ final class ShopController extends Controller
             return;
         }
 
+        $variants = Product::variants((int) $id);
+        // Start on the first option that's actually available.
+        $selected = null;
+        foreach ($variants as $v) {
+            if ($v['stock'] === null || (int) $v['stock'] > 0) {
+                $selected = $v;
+                break;
+            }
+        }
+        $selected ??= $variants[0] ?? null;
+
+        $recent = $this->rememberViewed((int) $id);
         $uid = Auth::userId();
         $this->render('shop/show', [
             'title' => $product['name'] . ' — PaySmallSmall',
             'product' => $product,
-            'plans' => $this->planOptions((int) $product['cash_price_pesewas'], Product::allowedFrequencies($product)),
+            'variants' => $variants,
+            'optionNames' => $variants ? Product::optionNames($product) : [],
+            'selected' => $selected,
+            'plans' => Product::planOptions(Product::unitPrice($product, $selected), Product::allowedFrequencies($product)),
             'images' => Product::images((int) $id),
+            'specs' => Product::specRows($product),
             'reviews' => Review::forProduct((int) $id),
             'reviewSummary' => Review::summary((int) $id),
+            'ratingBars' => Review::distribution((int) $id),
             'myReview' => $uid ? Review::byUser((int) $id, $uid) : null,
+            'related' => Product::related($product, 8),
+            'recent' => Product::byIds(array_slice($recent, 0, 8)),
         ]);
     }
 
     /**
-     * Build plan-picker options for each frequency. The customer picks how often
-     * (daily/weekly/monthly) and over how many installments. We keep each
-     * installment above a small floor so plans stay sensible, but always offer at
-     * least one option — even cheap products get a plan.
-     *
-     * @return array<string, array{unit:string, noun:string, options: list<array{count:int, per:int, perLabel:string}>}>
+     * Search-as-you-type for the search boxes: a few matching products and
+     * categories. JSON, read-only, safe for anyone to call.
      */
-    private function planOptions(int $price, array $allowed): array
+    public function suggest(): void
     {
-        $floor = 100; // GHS 1.00 minimum per installment
-        $defs = [
-            'daily'   => ['unit' => 'day',   'noun' => 'days',   'counts' => [7, 14, 21, 30, 45, 60, 90]],
-            'weekly'  => ['unit' => 'week',  'noun' => 'weeks',  'counts' => [4, 6, 8, 12, 16, 24, 36]],
-            'monthly' => ['unit' => 'month', 'noun' => 'months', 'counts' => [2, 3, 4, 6, 9, 12]],
-        ];
-
-        $plans = [];
-        foreach ($defs as $freq => $def) {
-            if (!in_array($freq, $allowed, true)) {
-                continue; // the merchant doesn't offer this schedule
-            }
-            $options = [];
-            foreach ($def['counts'] as $count) {
-                $per = (int) ceil($price / $count);
-                if ($per >= $floor) {
-                    $options[] = ['count' => $count, 'per' => $per, 'perLabel' => ghs($per)];
-                }
-            }
-            if (!$options) { // price too small for any listed count — offer the fewest installments
-                $count = $def['counts'][0];
-                $per = (int) ceil($price / $count);
-                $options[] = ['count' => $count, 'per' => $per, 'perLabel' => ghs($per)];
-            }
-            $plans[$freq] = ['unit' => $def['unit'], 'noun' => $def['noun'], 'options' => $options];
+        $q = mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 80);
+        if (mb_strlen($q) < 2) {
+            $this->json(['q' => $q, 'products' => [], 'categories' => []]);
         }
 
-        // Always available: pay the whole cash price now in one payment.
-        $plans['once'] = ['unit' => '', 'noun' => '', 'full' => true, 'options' => [
-            ['count' => 1, 'per' => $price, 'perLabel' => ghs($price)],
-        ]];
-        return $plans;
+        $products = [];
+        foreach (Product::browse(['q' => $q, 'sort' => 'relevance', 'limit' => 6]) as $p) {
+            $from = (int) $p['price_from'];
+            $products[] = [
+                'name' => $p['name'],
+                'url' => url('/product/' . (int) $p['id']),
+                'price' => ((int) $p['price_to'] > $from ? 'From ' : '') . ghs($from),
+                'weekly' => ghs(Product::cardWeekly($from)) . '/wk',
+                'shop' => $p['shop_name'],
+                'sku' => (string) ($p['sku'] ?? ''),
+                'photo' => $p['photo'] !== '' ? url('/' . $p['photo']) : null,
+                'soldOut' => !(int) $p['in_stock'],
+            ];
+        }
+
+        $categories = [];
+        $needle = mb_strtolower($q);
+        foreach (Product::categoryCounts() as $slug => $n) {
+            $label = Product::categoryLabel((string) $slug);
+            if (str_contains(mb_strtolower($label), $needle) || str_contains((string) $slug, $needle)) {
+                $categories[] = ['label' => $label, 'count' => (int) $n, 'url' => url('/shop?category=' . urlencode((string) $slug))];
+            }
+        }
+
+        header('Cache-Control: private, max-age=30');
+        $this->json(['q' => $q, 'products' => $products, 'categories' => array_slice($categories, 0, 3)]);
+    }
+
+    /**
+     * Push this product to the front of the visitor's recently-viewed list and
+     * return the others (most recent first), not including this one.
+     * @return list<int>
+     */
+    private function rememberViewed(int $productId): array
+    {
+        $list = array_values(array_filter(
+            array_map('intval', (array) ($_SESSION['recently_viewed'] ?? [])),
+            static fn (int $id): bool => $id > 0 && $id !== $productId
+        ));
+        $_SESSION['recently_viewed'] = array_slice(array_merge([$productId], $list), 0, self::RECENT_MAX);
+        return $list;
     }
 }
