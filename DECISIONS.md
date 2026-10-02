@@ -99,3 +99,12 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **Mock checkout** returns a pretend reusable card when "Card" is picked, so saved cards can be demoed without real money.
 - **Order history** is My plans with tabs (All / Active / Finished / Cancelled), plus a Payment history page listing every payment and refund with its reference.
 - **Merchant approval** was already in place: shops start pending and are hidden until approved. Added on top: an SMS to `ADMIN_PHONE` when a shop registers or asks for review again; decline with a required reason (status `rejected`, texted to the owner and shown on their dashboard); re-uploading the Ghana Card while not yet approved; and "Ask for review again". An admin can also approve a declined shop directly.
+
+## 2026-10-02 — Review moderation, photos, reports
+
+- **Who goes live straight away.** A text review from a verified buyer (an active or finished plan on that product) is published immediately. Reviews from anyone else wait for an admin. This keeps reviews flowing for real buyers and stops drive-by spam. "Verified purchase" now means an active or finished plan; before, a cancelled plan counted too.
+- **Every photo is checked** by an admin before anyone else sees it. The author sees their own with "Being checked". Photos are limited to 4 per review, JPG/PNG/WebP under 5MB, and checked by their content, not their file name. Camera metadata (EXIF/XMP, which often includes the GPS location of the customer's home) is removed in plain PHP before saving, so it works without the GD extension. A photo an admin rejects is deleted for good.
+- **Editing.** A verified buyer's live review stays live when edited and shows "edited". A rejected review that's edited goes back to the admin.
+- **Reports.** Logged-in customers only, one per customer per review, never on their own. When 3 different customers report a review, it's hidden automatically until an admin either keeps it ("reports are wrong") or rejects or deletes it.
+- **Rejections carry a reason** that only the author sees under their review. Ratings, card stars and the "top rated" sort count published reviews only.
+- Existing reviews stay published (the new `status` column defaults to `approved`).

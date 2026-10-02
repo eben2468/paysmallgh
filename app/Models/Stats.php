@@ -11,10 +11,13 @@ final class Stats
     /** Sidebar badges: things waiting on an admin. */
     public static function adminNavCounts(): array
     {
+        $reviews = Review::moderationCounts();
         return [
             'merchants' => (int) DB::run("SELECT COUNT(*) FROM merchants WHERE status = 'pending'")->fetchColumn(),
             'plans' => (int) DB::run("SELECT COUNT(*) FROM plans WHERE status = 'active' AND grace_state = 'flagged'")->fetchColumn(),
             'ledger' => Transaction::pendingCount(),
+            // Reviews or photos waiting, plus reviews with open reports.
+            'reviews' => $reviews['pending'] + $reviews['photos'] + $reviews['reported'],
         ];
     }
 

@@ -2,7 +2,7 @@
 /**
  * Portal layout — admin and merchant back offices.
  * Vars: $portal ('admin'|'merchant'), $content, $title, plus
- *   admin:    $navCounts (['merchants','plans','ledger'] => int)
+ *   admin:    $navCounts (['merchants','plans','reviews','ledger'] => int)
  *   merchant: $merchant (row)
  */
 use App\Core\Config;
@@ -28,6 +28,7 @@ $groups = $isAdmin
             ['Merchants', 'storefront', '/admin/merchants', ['/admin/merchants', '/admin/merchant/'], $counts['merchants'] ?? 0],
             ['Customers', 'group', '/admin/users', ['/admin/users', '/admin/user/'], 0],
             ['Plans', 'receipt_long', '/admin/plans', ['/admin/plans', '/admin/plan/'], $counts['plans'] ?? 0],
+            ['Reviews', 'reviews', '/admin/reviews', ['/admin/reviews'], $counts['reviews'] ?? 0],
         ],
         'Money & messages' => [
             ['Transactions', 'account_balance', '/admin/ledger', ['/admin/ledger'], $counts['ledger'] ?? 0],

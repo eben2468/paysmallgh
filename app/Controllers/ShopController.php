@@ -86,10 +86,12 @@ final class ShopController extends Controller
             'plans' => Product::planOptions(Product::unitPrice($product, $selected), Product::allowedFrequencies($product)),
             'images' => Product::images((int) $id),
             'specs' => Product::specRows($product),
-            'reviews' => Review::forProduct((int) $id),
+            'reviews' => Review::forProduct((int) $id, $uid),
             'reviewSummary' => Review::summary((int) $id),
             'ratingBars' => Review::distribution((int) $id),
             'myReview' => $uid ? Review::byUser((int) $id, $uid) : null,
+            'reportedIds' => $uid ? Review::reportedBy($uid, (int) $id) : [],
+            'isBuyer' => $uid ? Review::isVerifiedBuyer((int) $id, $uid) : false,
             'related' => Product::related($product, 8),
             'recent' => Product::byIds(array_slice($recent, 0, 8)),
         ]);

@@ -42,7 +42,7 @@ if (Config::get('PAYMENTS_MODE') !== 'mock') {
 $pdo = DB::pdo();
 echo "Clearing tables...\n";
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-foreach (['sms_log', 'otp_codes', 'login_failures', 'saved_cards', 'user_addresses', 'reviews', 'wishlists', 'transactions', 'installments', 'plans', 'product_variants', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
+foreach (['sms_log', 'otp_codes', 'login_failures', 'saved_cards', 'user_addresses', 'review_reports', 'review_photos', 'reviews', 'wishlists', 'transactions', 'installments', 'plans', 'product_variants', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
     $pdo->exec("TRUNCATE TABLE {$t}");
 }
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');

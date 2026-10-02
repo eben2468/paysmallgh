@@ -165,8 +165,8 @@ final class Product
      */
     private const LISTING_INNER = "SELECT p.*, m.shop_name, m.location AS merchant_location, m.verified AS merchant_verified,
                 (SELECT COUNT(*) FROM plans pl WHERE pl.product_id = p.id AND pl.status IN ('active','completed')) AS plan_count,
-                (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id) AS review_count,
-                (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.product_id = p.id) AS avg_rating,
+                (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS review_count,
+                (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.product_id = p.id AND r.status = 'approved') AS avg_rating,
                 (SELECT COUNT(*) FROM product_variants v WHERE v.product_id = p.id) AS variant_count,
                 COALESCE((SELECT MIN(COALESCE(v.price_pesewas, p.cash_price_pesewas)) FROM product_variants v WHERE v.product_id = p.id), p.cash_price_pesewas) AS price_from,
                 COALESCE((SELECT MAX(COALESCE(v.price_pesewas, p.cash_price_pesewas)) FROM product_variants v WHERE v.product_id = p.id), p.cash_price_pesewas) AS price_to,

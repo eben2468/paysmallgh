@@ -56,6 +56,7 @@ mysql -u pss -p paysmallsmall < database/migrations/2026-10-01-paystack.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-02-payment-options.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-03-product-features.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-04-accounts.sql
+mysql -u pss -p paysmallsmall < database/migrations/2026-10-05-reviews.sql
 ```
 
 **Run new migrations straight after the `git pull` that brings them** — the

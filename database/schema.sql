@@ -189,12 +189,46 @@ CREATE TABLE IF NOT EXISTS reviews (
   user_id INT UNSIGNED NOT NULL,
   rating TINYINT UNSIGNED NOT NULL,        -- 1..5
   body VARCHAR(600) NOT NULL DEFAULT '',
+  -- pending = waiting for an admin; only 'approved' shows publicly and counts in ratings.
+  status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'approved',
+  moderation_note VARCHAR(255) NOT NULL DEFAULT '',  -- why rejected/hidden (shown to the author)
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_reviews_product_user (product_id, user_id),
   KEY idx_reviews_product (product_id),
+  KEY idx_reviews_status (status),
   CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Customer photos on a review. Each one is checked by an admin before it shows.
+CREATE TABLE IF NOT EXISTS review_photos (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  review_id INT UNSIGNED NOT NULL,
+  path VARCHAR(255) NOT NULL,
+  status ENUM('pending','approved') NOT NULL DEFAULT 'pending',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_review_photos_review (review_id),
+  KEY idx_review_photos_status (status),
+  CONSTRAINT fk_review_photos_review FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- "Report this review". One report per customer per review.
+CREATE TABLE IF NOT EXISTS review_reports (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  review_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  reason VARCHAR(20) NOT NULL,             -- spam | offensive | fake | off_topic | private_info | other
+  note VARCHAR(255) NOT NULL DEFAULT '',
+  status ENUM('open','closed') NOT NULL DEFAULT 'open',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_review_reports_user (review_id, user_id),
+  KEY idx_review_reports_status (status),
+  CONSTRAINT fk_review_reports_review FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+  CONSTRAINT fk_review_reports_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Saved items ("wishlist"), one row per customer per product.
