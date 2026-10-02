@@ -121,3 +121,10 @@ Running log of choices made where the brief was ambiguous. Newest last.
 - **Icon font trimmed** to the axes the CSS actually uses (weight 400, grade 0, size 24, fill 0–1) instead of the full variable range. That's a much smaller download on every page.
 - **CDN:** Cloudflare already caches `/assets` and `/uploads` at the edge using our year-long immutable headers. `CDN_URL` is there to move them to a separate host if that's ever needed.
 - **DB:** added composite indexes for the listing subqueries (plans and reviews per product + status), category/newest listing, pending transactions and unpaid installments. There's no FULLTEXT search: with a catalogue this size, the word-by-word LIKE search plus relevance ordering is fast enough and also matches SKUs and partial words.
+
+## 2026-10-02 — Email at sign-up
+
+- **Both sign-up forms now ask for an email, and it's required.** That covers customers (`/register`) and shops (`/merchant/register`). It's stored lower-cased and has to be unique within customers and within shops. One person can still be a customer and a shop with the same email.
+- **Accounts made before this have no email (NULL).** Customers can add one on My account and shops in Shop settings. Both forms require it the next time they're saved.
+- **Login is still by phone + PIN/password, and emails aren't verified.** The phone stays the identity, confirmed by SMS code. The email is contact information only for now.
+- Paystack is still sent `<phone>@PAYSTACK_EMAIL_DOMAIN`, as before. Switching to the real email would mean Paystack sends receipts to customers' inboxes, but it's a separate change: saved cards are tied to the email they were first charged with.

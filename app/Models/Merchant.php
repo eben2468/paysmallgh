@@ -17,13 +17,19 @@ final class Merchant
         return DB::run('SELECT * FROM merchants WHERE phone = ?', [$phone])->fetch() ?: null;
     }
 
+    /** Is this email already on another shop? */
+    public static function emailTaken(string $email, int $exceptId = 0): bool
+    {
+        return (bool) DB::run('SELECT 1 FROM merchants WHERE email = ? AND id <> ? LIMIT 1', [$email, $exceptId])->fetchColumn();
+    }
+
     public static function create(array $d): int
     {
         DB::run(
-            'INSERT INTO merchants (shop_name, owner_name, phone, location, password_hash, payout_channel, payout_number, payout_bank_code, id_number, business_reg)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO merchants (shop_name, owner_name, phone, email, location, password_hash, payout_channel, payout_number, payout_bank_code, id_number, business_reg)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
-                $d['shop_name'], $d['owner_name'], $d['phone'], $d['location'],
+                $d['shop_name'], $d['owner_name'], $d['phone'], $d['email'], $d['location'],
                 password_hash($d['password'], PASSWORD_DEFAULT),
                 $d['payout_channel'], $d['payout_number'], $d['payout_bank_code'] ?? '',
                 $d['id_number'] ?? '', $d['business_reg'] ?? '',
@@ -100,11 +106,11 @@ final class Merchant
         DB::run(
             "UPDATE merchants SET
                 paystack_recipient_code = IF(payout_channel = ? AND payout_number = ? AND payout_bank_code = ?, paystack_recipient_code, ''),
-                shop_name = ?, owner_name = ?, location = ?, payout_channel = ?, payout_number = ?, payout_bank_code = ?
+                shop_name = ?, owner_name = ?, email = ?, location = ?, payout_channel = ?, payout_number = ?, payout_bank_code = ?
              WHERE id = ?",
             [
                 $d['payout_channel'], $d['payout_number'], $d['payout_bank_code'],
-                $d['shop_name'], $d['owner_name'], $d['location'],
+                $d['shop_name'], $d['owner_name'], $d['email'], $d['location'],
                 $d['payout_channel'], $d['payout_number'], $d['payout_bank_code'], $id,
             ]
         );

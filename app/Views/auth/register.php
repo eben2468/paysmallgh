@@ -19,12 +19,12 @@
           <div><b>Your money stays safe</b><span>Held in escrow till the item is fully yours.</span></div>
         </li>
       </ul>
-      <p class="auth-foot"><?= micon('lock', ['size' => 16]) ?> Just a name, your MoMo number, and a PIN.</p>
+      <p class="auth-foot"><?= micon('lock', ['size' => 16]) ?> Just your name, MoMo number, email and a PIN.</p>
     </aside>
 
     <div class="auth-form">
       <h1>Create your account</h1>
-      <p class="sub">Just your name, your MoMo number, and a PIN you'll remember.</p>
+      <p class="sub">Your name, MoMo number and email, plus a PIN you'll remember.</p>
       <form method="post" action="<?= url('/register') ?>">
         <?= Csrf::field() ?>
         <div class="field">
@@ -35,6 +35,11 @@
           <label for="phone">Phone (your MoMo number)</label>
           <input id="phone" name="phone" type="tel" required placeholder="024 XXX XXXX" autocomplete="tel">
           <p class="field-hint">This is the number we'll charge and text receipts to.</p>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required maxlength="190" placeholder="you@example.com" autocomplete="email" inputmode="email">
+          <p class="field-hint">For payment receipts and your plan details.</p>
         </div>
         <div class="field">
           <label for="pin">Choose a PIN (4–6 digits)</label>

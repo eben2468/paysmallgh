@@ -50,8 +50,17 @@ final class AccountController extends Controller
             flash('error', 'Your name can\'t be empty.');
             redirect('/account');
         }
-        User::updateName((int) $user['id'], $name);
-        flash('success', 'Name updated.');
+        $email = normalize_email((string) ($_POST['email'] ?? ''));
+        if ($email === null) {
+            flash('error', 'That email doesn\'t look right. Check it, like ama@gmail.com.');
+            redirect('/account');
+        }
+        if (User::emailTaken($email, (int) $user['id'])) {
+            flash('error', 'That email is already on another account.');
+            redirect('/account');
+        }
+        User::updateProfile((int) $user['id'], $name, $email);
+        flash('success', 'Details updated.');
         redirect('/account');
     }
 

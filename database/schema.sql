@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(120) NOT NULL,
   phone VARCHAR(12) NOT NULL,              -- 233XXXXXXXXX
+  email VARCHAR(190) DEFAULT NULL,         -- asked at sign-up; NULL for older accounts
   pin_hash VARCHAR(255) NOT NULL,
   -- Set once the customer proves they own the number (SMS code).
   phone_verified_at DATETIME DEFAULT NULL,
@@ -19,7 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   save_cards TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_users_phone (phone)
+  UNIQUE KEY uq_users_phone (phone),
+  UNIQUE KEY uq_users_email (email)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS merchants (
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS merchants (
   shop_name VARCHAR(160) NOT NULL,
   owner_name VARCHAR(120) NOT NULL,
   phone VARCHAR(12) NOT NULL,
+  email VARCHAR(190) DEFAULT NULL,         -- asked at sign-up; NULL for older shops
   location VARCHAR(160) NOT NULL DEFAULT '',
   password_hash VARCHAR(255) NOT NULL,
   payout_channel ENUM('momo','bank') NOT NULL DEFAULT 'momo',
@@ -48,6 +51,7 @@ CREATE TABLE IF NOT EXISTS merchants (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_merchants_phone (phone),
+  UNIQUE KEY uq_merchants_email (email),
   KEY idx_merchants_status (status)
 ) ENGINE=InnoDB;
 

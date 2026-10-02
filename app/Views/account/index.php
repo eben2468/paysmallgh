@@ -29,6 +29,11 @@ $verified = User::isVerified($user);
             <label for="name">Name</label>
             <input id="name" name="name" type="text" maxlength="120" required value="<?= e((string) $user['name']) ?>" autocomplete="name">
           </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" maxlength="190" required value="<?= e((string) ($user['email'] ?? '')) ?>" placeholder="you@example.com" autocomplete="email" inputmode="email">
+            <?php if (empty($user['email'])): ?><p class="field-hint">Add one so we can send you payment receipts.</p><?php endif; ?>
+          </div>
           <button class="btn btn-primary" type="submit">Save</button>
         </form>
 

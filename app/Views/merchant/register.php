@@ -40,6 +40,11 @@
           <input id="phone" name="phone" type="tel" required placeholder="024 XXX XXXX">
         </div>
         <div class="field">
+          <label for="email">Business email</label>
+          <input id="email" name="email" type="email" required maxlength="190" placeholder="you@example.com" autocomplete="email" inputmode="email">
+          <p class="field-hint">For payout statements and news about your shop.</p>
+        </div>
+        <div class="field">
           <label for="location">Where's the shop?</label>
           <input id="location" name="location" type="text" maxlength="160" placeholder="e.g. Circle, near the overhead">
         </div>

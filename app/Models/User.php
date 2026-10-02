@@ -45,9 +45,15 @@ final class User
         DB::run('UPDATE users SET phone_verified_at = COALESCE(phone_verified_at, NOW()) WHERE id = ?', [$id]);
     }
 
-    public static function updateName(int $id, string $name): void
+    public static function updateProfile(int $id, string $name, ?string $email): void
     {
-        DB::run('UPDATE users SET name = ? WHERE id = ?', [$name, $id]);
+        DB::run('UPDATE users SET name = ?, email = ? WHERE id = ?', [$name, $email, $id]);
+    }
+
+    /** Is this email already on another customer account? */
+    public static function emailTaken(string $email, int $exceptId = 0): bool
+    {
+        return (bool) DB::run('SELECT 1 FROM users WHERE email = ? AND id <> ? LIMIT 1', [$email, $exceptId])->fetchColumn();
     }
 
     /** New number, already proven with a code — so it's verified too. */
@@ -92,11 +98,11 @@ final class User
         return ['active' => (int) $row['active'], 'completed' => (int) $row['completed'], 'paid' => (int) $row['paid']];
     }
 
-    public static function create(string $name, string $phone, string $pin): int
+    public static function create(string $name, string $phone, string $email, string $pin): int
     {
         DB::run(
-            'INSERT INTO users (name, phone, pin_hash) VALUES (?, ?, ?)',
-            [$name, $phone, password_hash($pin, PASSWORD_DEFAULT)]
+            'INSERT INTO users (name, phone, email, pin_hash) VALUES (?, ?, ?, ?)',
+            [$name, $phone, $email, password_hash($pin, PASSWORD_DEFAULT)]
         );
         return DB::lastId();
     }

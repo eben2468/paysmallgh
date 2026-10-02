@@ -21,6 +21,10 @@
           <input id="owner_name" name="owner_name" type="text" required maxlength="120" value="<?= e($merchant['owner_name']) ?>">
         </div>
         <div class="field">
+          <label for="email">Business email</label>
+          <input id="email" name="email" type="email" required maxlength="190" value="<?= e((string) ($merchant['email'] ?? '')) ?>" placeholder="you@example.com" autocomplete="email" inputmode="email">
+        </div>
+        <div class="field">
           <label for="location">Where's the shop?</label>
           <input id="location" name="location" type="text" maxlength="160" value="<?= e($merchant['location']) ?>" placeholder="e.g. Circle, near the overhead">
         </div>

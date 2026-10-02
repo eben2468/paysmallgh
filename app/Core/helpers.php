@@ -268,6 +268,16 @@ function normalize_phone(string $raw): ?string
     return null;
 }
 
+/** Trim and lower-case an email address. Returns null if it isn't a valid one. */
+function normalize_email(string $raw): ?string
+{
+    $email = mb_strtolower(trim($raw));
+    if ($email === '' || strlen($email) > 190 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        return null;
+    }
+    return $email;
+}
+
 /** 233244000000 -> 0244000000 (the local format Paystack's MoMo endpoints take). */
 function local_phone(string $phone): string
 {

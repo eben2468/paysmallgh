@@ -41,6 +41,7 @@ final class MerchantController extends Controller
             'shop_name' => trim((string) ($_POST['shop_name'] ?? '')),
             'owner_name' => trim((string) ($_POST['owner_name'] ?? '')),
             'phone' => normalize_phone((string) ($_POST['phone'] ?? '')),
+            'email' => normalize_email((string) ($_POST['email'] ?? '')),
             'location' => trim((string) ($_POST['location'] ?? '')),
             'password' => (string) ($_POST['password'] ?? ''),
             'id_number' => strtoupper(trim((string) ($_POST['id_number'] ?? ''))),
@@ -55,6 +56,10 @@ final class MerchantController extends Controller
             flash('error', 'That phone number doesn\'t look right.');
             redirect('/merchant/register');
         }
+        if ($d['email'] === null) {
+            flash('error', 'That email doesn\'t look right. Check it, like kofi@gmail.com.');
+            redirect('/merchant/register');
+        }
         if (strlen($d['password']) < 8) {
             flash('error', 'Password needs at least 8 characters.');
             redirect('/merchant/register');
@@ -67,6 +72,10 @@ final class MerchantController extends Controller
         if (Merchant::findByPhone($d['phone'])) {
             flash('error', 'This number already has a shop. Log in instead.');
             redirect('/merchant/login');
+        }
+        if (Merchant::emailTaken($d['email'])) {
+            flash('error', 'That email is already on another shop. Log in instead, or use another email.');
+            redirect('/merchant/register');
         }
         $payout = $this->payoutFromPost($d['phone']);
         if (is_string($payout)) {
@@ -267,11 +276,20 @@ final class MerchantController extends Controller
         $d = [
             'shop_name' => trim((string) ($_POST['shop_name'] ?? '')),
             'owner_name' => trim((string) ($_POST['owner_name'] ?? '')),
+            'email' => normalize_email((string) ($_POST['email'] ?? '')),
             'location' => trim((string) ($_POST['location'] ?? '')),
         ];
 
         if ($d['shop_name'] === '' || $d['owner_name'] === '') {
             flash('error', 'Shop name and owner name are required.');
+            redirect('/merchant/settings');
+        }
+        if ($d['email'] === null) {
+            flash('error', 'That email doesn\x27t look right. Check it, like kofi@gmail.com.');
+            redirect('/merchant/settings');
+        }
+        if (Merchant::emailTaken($d['email'], (int) $merchant['id'])) {
+            flash('error', 'That email is already on another shop.');
             redirect('/merchant/settings');
         }
         $payout = $this->payoutFromPost($merchant['phone']);

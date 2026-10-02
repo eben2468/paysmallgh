@@ -52,6 +52,7 @@ $kofi = Merchant::create([
     'shop_name' => 'Kofi Mensah Phones & Accessories',
     'owner_name' => 'Kofi Mensah',
     'phone' => '233244111222',
+    'email' => 'kofi.mensah.phones@example.com',
     'location' => 'Kwame Nkrumah Circle, Accra',
     'password' => 'demo1234',
     'payout_channel' => 'momo',
@@ -64,6 +65,7 @@ $adjoa = Merchant::create([
     'shop_name' => 'Adjoa Serwaa Furniture Works',
     'owner_name' => 'Adjoa Serwaa',
     'phone' => '233209333444',
+    'email' => 'adjoa.furniture@example.com',
     'location' => 'Suame Magazine, Kumasi',
     'password' => 'demo1234',
     'payout_channel' => 'momo',
@@ -75,6 +77,7 @@ $efua = Merchant::create([
     'shop_name' => 'Efua Baidoo Fashion House',
     'owner_name' => 'Efua Baidoo',
     'phone' => '233551555666',
+    'email' => 'efua.stitches@example.com',
     'location' => 'Takoradi Market Circle',
     'password' => 'demo1234',
     'payout_channel' => 'momo',
@@ -95,6 +98,7 @@ Merchant::create([
     'shop_name' => 'Yaw Darko Electricals',
     'owner_name' => 'Yaw Darko',
     'phone' => '233277888999',
+    'email' => 'pending.shop@example.com',
     'location' => 'Madina Market, Accra',
     'password' => 'demo1234',
     'payout_channel' => 'momo',
@@ -173,10 +177,10 @@ foreach ($products as [$mid, $name, $desc, $price, $cat]) {
 }
 
 echo "Creating customers...\n";
-$ama = User::create('Ama Owusu', '233241000001', '1234');
-$kwame = User::create('Kwame Boateng', '233501000002', '1234');
-$abena = User::create('Abena Asante', '233261000003', '1234');
-$yaw = User::create('Yaw Ofori', '233541000004', '1234');
+$ama = User::create('Ama Owusu', '233241000001', 'ama.owusu@example.com', '1234');
+$kwame = User::create('Kwame Boateng', '233501000002', 'kwame.boateng@example.com', '1234');
+$abena = User::create('Abena Asante', '233261000003', 'abena.asante@example.com', '1234');
+$yaw = User::create('Yaw Ofori', '233541000004', 'yaw.ofori@example.com', '1234');
 // Demo customers have confirmed their numbers already.
 foreach ([$ama, $kwame, $abena, $yaw] as $uid) {
     User::markVerified($uid);

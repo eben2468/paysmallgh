@@ -25,6 +25,7 @@ final class AuthController extends Controller
         Csrf::check();
         $name = trim((string) ($_POST['name'] ?? ''));
         $phone = normalize_phone((string) ($_POST['phone'] ?? ''));
+        $email = normalize_email((string) ($_POST['email'] ?? ''));
         $pin = (string) ($_POST['pin'] ?? '');
 
         if ($name === '' || mb_strlen($name) > 120) {
@@ -35,6 +36,10 @@ final class AuthController extends Controller
             flash('error', 'That phone number doesn\'t look right. Use the one on your MoMo, like 024 XXX XXXX.');
             redirect('/register');
         }
+        if ($email === null) {
+            flash('error', 'That email doesn\'t look right. Check it, like ama@gmail.com.');
+            redirect('/register');
+        }
         if (!preg_match('/^\d{4,6}$/', $pin)) {
             flash('error', 'Pick a PIN of 4 to 6 digits.');
             redirect('/register');
@@ -43,8 +48,12 @@ final class AuthController extends Controller
             flash('error', 'This number already has an account. Log in instead.');
             redirect('/login');
         }
+        if (User::emailTaken($email)) {
+            flash('error', 'That email is already on an account. Log in with that account\'s number, or use another email.');
+            redirect('/register');
+        }
 
-        $id = User::create($name, $phone, $pin);
+        $id = User::create($name, $phone, $email, $pin);
         Auth::loginUser($id);
 
         // Confirm the number with a code, then carry on to wherever they were headed.

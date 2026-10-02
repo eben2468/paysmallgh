@@ -58,6 +58,7 @@ mysql -u pss -p paysmallsmall < database/migrations/2026-10-03-product-features.
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-04-accounts.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-05-reviews.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-06-performance-indexes.sql
+mysql -u pss -p paysmallsmall < database/migrations/2026-10-07-emails.sql
 ```
 
 **Run new migrations before the `git pull` that needs them** (they only add

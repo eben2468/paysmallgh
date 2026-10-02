@@ -139,6 +139,7 @@ foreach ($plans as $pl) {
         <dl class="kv">
           <div><dt>Owner</dt><dd><?= e($merchant['owner_name']) ?></dd></div>
           <div><dt>Phone</dt><dd class="mono"><?= e(pretty_phone($merchant['phone'])) ?></dd></div>
+          <div><dt>Email</dt><dd><?= !empty($merchant['email']) ? '<a href="mailto:' . e($merchant['email']) . '">' . e($merchant['email']) . '</a>' : '—' ?></dd></div>
           <div><dt>Location</dt><dd><?= e($merchant['location'] ?: '—') ?></dd></div>
           <div><dt>Payout</dt><dd><?= $merchant['payout_channel'] === 'bank' ? 'Bank' : 'MoMo' ?><?= ($merchant['payout_bank_code'] ?? '') !== '' ? ' (' . e($merchant['payout_bank_code']) . ')' : '' ?> &middot; <span class="mono"><?= e(pretty_phone($merchant['payout_number'])) ?></span></dd></div>
           <div><dt>Ghana Card</dt><dd class="mono"><?= e($merchant['id_number'] ?: '—') ?></dd></div>

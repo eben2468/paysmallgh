@@ -10,7 +10,7 @@
 <div class="pg-head">
   <div>
     <h1><?= e($user['name']) ?></h1>
-    <p class="mono"><?= e(pretty_phone($user['phone'])) ?> &middot; joined <?= e(when($user['created_at'], false)) ?></p>
+    <p class="mono"><?= e(pretty_phone($user['phone'])) ?><?= !empty($user['email']) ? ' &middot; ' . e($user['email']) : '' ?> &middot; joined <?= e(when($user['created_at'], false)) ?></p>
   </div>
 </div>
 
