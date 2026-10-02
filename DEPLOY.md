@@ -59,8 +59,9 @@ mysql -u pss -p paysmallsmall < database/migrations/2026-10-04-accounts.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-05-reviews.sql
 ```
 
-**Run new migrations straight after the `git pull` that brings them** — the
-pages read the new columns and will error until they have run.
+**Run new migrations before the `git pull` that needs them** (they only add
+columns and tables, so the old code keeps working on the upgraded database).
+The new pages read the new columns and will error until the migrations have run.
 
 `2026-10-04-accounts.sql` adds phone verification, SMS codes (PIN/password
 reset, number change), saved addresses, saved cards and MoMo wallet, login
