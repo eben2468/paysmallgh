@@ -32,7 +32,7 @@
           <input id="phone" name="phone" type="tel" required placeholder="024 XXX XXXX" autocomplete="tel">
         </div>
         <div class="field">
-          <label for="password">Password</label>
+          <label for="password" class="label-row">Password <a href="<?= url('/merchant/forgot-password') ?>">Forgot your password?</a></label>
           <input id="password" name="password" type="password" required autocomplete="current-password">
         </div>
         <button class="btn btn-primary btn-block btn-lg" type="submit">Log in</button>

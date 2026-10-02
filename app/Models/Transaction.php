@@ -111,6 +111,28 @@ final class Transaction
         )->fetchAll();
     }
 
+    /**
+     * A customer's money in and out, newest first: payments they made and
+     * refunds sent back to them (their receipts). Failed attempts are left out.
+     */
+    public static function forCustomer(int $customerId, int $limit = 200): array
+    {
+        return DB::run(
+            "SELECT t.id, t.type, t.status, t.amount_pesewas, t.provider_ref, t.created_at, t.updated_at,
+                    pl.id AS plan_id, pl.installments_total, pl.frequency, pl.quantity, pl.variant_label,
+                    i.number AS installment_number, pr.name AS product_name, m.shop_name
+             FROM transactions t
+             JOIN plans pl ON pl.id = t.plan_id AND pl.customer_id = ?
+             JOIN products pr ON pr.id = pl.product_id
+             JOIN merchants m ON m.id = pr.merchant_id
+             LEFT JOIN installments i ON i.id = t.installment_id
+             WHERE t.type IN ('collection','refund') AND t.status IN ('success','pending')
+             ORDER BY t.id DESC
+             LIMIT " . max(1, $limit),
+            [$customerId]
+        )->fetchAll();
+    }
+
     public static function payoutsForMerchant(int $merchantId): array
     {
         return DB::run(

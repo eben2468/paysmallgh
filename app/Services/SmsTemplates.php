@@ -59,6 +59,25 @@ final class SmsTemplates
         return "Your plan for {$product} is cancelled. {$refundGhs} is coming back to your MoMo (small cancellation fee applied). #PaySmallSmall";
     }
 
+    /** One-time code. $what: what the code is for, e.g. "confirm your number". */
+    public static function oneTimeCode(string $code, string $what): string
+    {
+        return "Your PaySmallSmall code is {$code}. Use it to {$what}. It expires in 10 minutes. Don't share it - we never call to ask for it.";
+    }
+
+    /** To the admin: a new shop is waiting for review. */
+    public static function merchantPendingAdmin(string $shop, string $location): string
+    {
+        return "New shop waiting for approval: {$shop} ({$location}). Check their Ghana Card in the admin before approving. #PaySmallSmall";
+    }
+
+    /** To the shop owner: not approved yet, with the reason. */
+    public static function merchantDeclined(string $shop, string $reason): string
+    {
+        $reason = mb_strimwidth($reason, 0, 70, '...');
+        return "{$shop} wasn't approved yet: {$reason}. Fix it in your shop settings and tap 'Ask for review again'. #PaySmallSmall";
+    }
+
     public static function merchantApproved(string $shop): string
     {
         return "{$shop} is live on PaySmallSmall! Add your products and start selling small small. Log in to your dashboard to begin.";

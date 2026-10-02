@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 /** @var App\Core\Router $router */
 
+use App\Controllers\AccountController;
 use App\Controllers\AdminController;
 use App\Controllers\AuthController;
 use App\Controllers\CartController;
@@ -39,6 +40,35 @@ $router->post('/register', AuthController::class, 'register');
 $router->get('/login', AuthController::class, 'loginForm');
 $router->post('/login', AuthController::class, 'login');
 $router->get('/logout', AuthController::class, 'logout');
+$router->get('/verify-phone', AuthController::class, 'verifyForm');
+$router->post('/verify-phone', AuthController::class, 'verify');
+$router->post('/verify-phone/resend', AuthController::class, 'verifyResend');
+$router->get('/forgot-pin', AuthController::class, 'forgotForm');
+$router->post('/forgot-pin', AuthController::class, 'forgot');
+$router->get('/reset-pin', AuthController::class, 'resetForm');
+$router->post('/reset-pin', AuthController::class, 'reset');
+
+// Customer account
+$router->get('/account', AccountController::class, 'index');
+$router->post('/account/profile', AccountController::class, 'updateProfile');
+$router->get('/account/phone', AccountController::class, 'phoneForm');
+$router->post('/account/phone', AccountController::class, 'phoneSend');
+$router->post('/account/phone/confirm', AccountController::class, 'phoneConfirm');
+$router->post('/account/phone/cancel', AccountController::class, 'phoneCancel');
+$router->get('/account/security', AccountController::class, 'securityForm');
+$router->post('/account/pin', AccountController::class, 'changePin');
+$router->get('/account/addresses', AccountController::class, 'addresses');
+$router->get('/account/addresses/new', AccountController::class, 'addressForm');
+$router->post('/account/addresses/new', AccountController::class, 'addressSave');
+$router->get('/account/addresses/{id}/edit', AccountController::class, 'addressForm');
+$router->post('/account/addresses/{id}/edit', AccountController::class, 'addressSave');
+$router->post('/account/addresses/{id}/delete', AccountController::class, 'addressDelete');
+$router->post('/account/addresses/{id}/default', AccountController::class, 'addressDefault');
+$router->get('/account/payment-methods', AccountController::class, 'paymentMethods');
+$router->post('/account/momo', AccountController::class, 'saveMomo');
+$router->post('/account/cards/settings', AccountController::class, 'cardSettings');
+$router->post('/account/cards/{id}/delete', AccountController::class, 'deleteCard');
+$router->get('/account/history', AccountController::class, 'history');
 
 // Plans (customer)
 $router->post('/plan/start', PlanController::class, 'start');
@@ -63,6 +93,11 @@ $router->post('/merchant/register', MerchantController::class, 'register');
 $router->get('/merchant/login', MerchantController::class, 'loginForm');
 $router->post('/merchant/login', MerchantController::class, 'login');
 $router->get('/merchant/logout', MerchantController::class, 'logout');
+$router->get('/merchant/forgot-password', MerchantController::class, 'forgotForm');
+$router->post('/merchant/forgot-password', MerchantController::class, 'forgot');
+$router->get('/merchant/reset-password', MerchantController::class, 'resetForm');
+$router->post('/merchant/reset-password', MerchantController::class, 'reset');
+$router->post('/merchant/request-review', MerchantController::class, 'requestReview');
 $router->get('/merchant/dashboard', MerchantController::class, 'dashboard');
 $router->get('/merchant/settings', MerchantController::class, 'settingsForm');
 $router->post('/merchant/settings', MerchantController::class, 'settingsSave');
@@ -85,6 +120,7 @@ $router->get('/admin/merchants', AdminController::class, 'merchants');
 $router->get('/admin/sms', AdminController::class, 'sms');
 $router->get('/admin/system', AdminController::class, 'system');
 $router->post('/admin/merchant/{id}/approve', AdminController::class, 'approveMerchant');
+$router->post('/admin/merchant/{id}/decline', AdminController::class, 'declineMerchant');
 $router->post('/admin/merchant/{id}/suspend', AdminController::class, 'suspendMerchant');
 $router->post('/admin/merchant/{id}/reactivate', AdminController::class, 'reactivateMerchant');
 $router->post('/admin/merchant/{id}/verify', AdminController::class, 'verifyMerchant');

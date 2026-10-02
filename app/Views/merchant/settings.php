@@ -6,7 +6,7 @@
   </div>
 </div>
 
-<form method="post" action="<?= url('/merchant/settings') ?>">
+<form method="post" action="<?= url('/merchant/settings') ?>" enctype="multipart/form-data">
   <?= Csrf::field() ?>
   <div class="grid-2-even">
     <section class="panel">
@@ -29,6 +29,13 @@
           <input type="tel" value="<?= e(pretty_phone($merchant['phone'])) ?>" disabled>
           <p class="field-hint">This is how you log in &mdash; call us if you need it changed.</p>
         </div>
+        <?php if ($merchant['status'] !== 'approved'): ?>
+          <div class="field mb-1">
+            <label for="id_card">New photo of your Ghana Card <span class="muted">(optional)</span></label>
+            <input id="id_card" name="id_card" type="file" accept="image/jpeg,image/png,image/webp">
+            <p class="field-hint"><?= !empty($merchant['id_card_path']) ? 'We have one on file. Upload a new one only if we asked — a clear, flat photo with every corner showing.' : 'Not uploaded yet. A clear, flat photo with every corner showing speeds up approval.' ?> JPG/PNG/WebP, up to 5MB.</p>
+          </div>
+        <?php endif; ?>
       </div>
     </section>
 

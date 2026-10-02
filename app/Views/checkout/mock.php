@@ -20,6 +20,7 @@
     <form method="post" action="<?= url('/checkout/mock/confirm') ?>" class="mt-2">
       <?= Csrf::field() ?>
       <input type="hidden" name="ref" value="<?= e($ref) ?>">
+      <input type="hidden" name="method" value="momo" data-method-input>
       <button class="btn btn-momo btn-lg btn-block" type="submit">Pay <?= ghs((int) $tx['amount_pesewas']) ?> now</button>
     </form>
     <p class="small muted mt-2" style="text-align:center">Test payment &middot; no real charge</p>
@@ -30,7 +31,7 @@
   (function () {
     var notes = {
       momo: 'Enter your mobile money number and approve the prompt.',
-      card: 'Enter your card number, expiry and CVV.',
+      card: 'Enter your card number, expiry and CVV. (Test card: it can be saved for one-tap payments.)',
       bank: 'Choose your bank and authorise the transfer.'
     };
     var note = document.querySelector('[data-method-note]');
@@ -39,6 +40,8 @@
         document.querySelectorAll('.pay-method').forEach(function (x) { x.classList.remove('is-active'); });
         b.classList.add('is-active');
         if (note) note.textContent = notes[b.getAttribute('data-method')] || '';
+        var input = document.querySelector('[data-method-input]');
+        if (input) input.value = b.getAttribute('data-method');
       });
     });
   })();

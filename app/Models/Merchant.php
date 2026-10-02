@@ -68,6 +68,23 @@ final class Merchant
         )->fetchAll();
     }
 
+    /** Admin declines a shop for now, with a reason the owner sees. */
+    public static function decline(int $id, string $note): void
+    {
+        DB::run("UPDATE merchants SET status = 'rejected', review_note = ? WHERE id = ?", [$note, $id]);
+    }
+
+    /** Owner fixed things and wants another look: back in the review queue. */
+    public static function requestReview(int $id): bool
+    {
+        return DB::run("UPDATE merchants SET status = 'pending' WHERE id = ? AND status = 'rejected'", [$id])->rowCount() > 0;
+    }
+
+    public static function updatePassword(int $id, string $password): void
+    {
+        DB::run('UPDATE merchants SET password_hash = ? WHERE id = ?', [password_hash($password, PASSWORD_DEFAULT), $id]);
+    }
+
     public static function all(): array
     {
         return DB::run('SELECT * FROM merchants ORDER BY created_at DESC')->fetchAll();
@@ -101,7 +118,7 @@ final class Merchant
 
     public static function approve(int $id): void
     {
-        DB::run("UPDATE merchants SET status = 'approved' WHERE id = ?", [$id]);
+        DB::run("UPDATE merchants SET status = 'approved', review_note = '' WHERE id = ?", [$id]);
     }
 
     /** Set an allowed status (pending | approved | suspended). */

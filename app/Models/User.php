@@ -35,6 +35,63 @@ final class User
         )->fetchAll();
     }
 
+    public static function isVerified(array $user): bool
+    {
+        return !empty($user['phone_verified_at']);
+    }
+
+    public static function markVerified(int $id): void
+    {
+        DB::run('UPDATE users SET phone_verified_at = COALESCE(phone_verified_at, NOW()) WHERE id = ?', [$id]);
+    }
+
+    public static function updateName(int $id, string $name): void
+    {
+        DB::run('UPDATE users SET name = ? WHERE id = ?', [$name, $id]);
+    }
+
+    /** New number, already proven with a code — so it's verified too. */
+    public static function updatePhone(int $id, string $phone): void
+    {
+        DB::run('UPDATE users SET phone = ?, phone_verified_at = NOW() WHERE id = ?', [$phone, $id]);
+    }
+
+    public static function updatePin(int $id, string $pin): void
+    {
+        DB::run('UPDATE users SET pin_hash = ? WHERE id = ?', [password_hash($pin, PASSWORD_DEFAULT), $id]);
+    }
+
+    /** MoMo wallet for direct prompts; null number = use the account phone. */
+    public static function setMomo(int $id, ?string $number, ?string $network): void
+    {
+        DB::run('UPDATE users SET momo_number = ?, momo_network = ? WHERE id = ?', [$number, $network, $id]);
+    }
+
+    public static function setSaveCards(int $id, bool $on): void
+    {
+        DB::run('UPDATE users SET save_cards = ? WHERE id = ?', [$on ? 1 : 0, $id]);
+    }
+
+    /** The wallet to prompt: [phone, network] — the saved one, else the account phone. */
+    public static function momoWallet(array $user): array
+    {
+        $phone = (string) ($user['momo_number'] ?? '') !== '' ? (string) $user['momo_number'] : (string) $user['phone'];
+        $network = (string) ($user['momo_network'] ?? '') !== '' ? (string) $user['momo_network'] : momo_network($phone);
+        return [$phone, $network];
+    }
+
+    /** Plans and money for the profile page. */
+    public static function stats(int $id): array
+    {
+        $row = DB::run(
+            "SELECT SUM(status = 'active') AS active, SUM(status = 'completed') AS completed,
+                    COALESCE(SUM(CASE WHEN status <> 'pending' THEN installments_paid * installment_pesewas END), 0) AS paid
+             FROM plans WHERE customer_id = ?",
+            [$id]
+        )->fetch();
+        return ['active' => (int) $row['active'], 'completed' => (int) $row['completed'], 'paid' => (int) $row['paid']];
+    }
+
     public static function create(string $name, string $phone, string $pin): int
     {
         DB::run(

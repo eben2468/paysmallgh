@@ -105,7 +105,7 @@ $initial = strtoupper(mb_substr($owner, 0, 1));
       <div class="portal-shop">
         <b><?= e($m['shop_name'] ?? '') ?></b>
         <?php $st = (string) ($m['status'] ?? 'pending'); ?>
-        <span class="portal-shop-status is-<?= e($st) ?>"><?= e(['approved' => 'Live', 'pending' => 'Under review', 'suspended' => 'Suspended'][$st] ?? $st) ?></span>
+        <span class="portal-shop-status is-<?= e($st) ?>"><?= e(['approved' => 'Live', 'pending' => 'Under review', 'rejected' => 'Not approved', 'suspended' => 'Suspended'][$st] ?? $st) ?></span>
       </div>
       <a class="btn btn-gold btn-block portal-cta" href="<?= url('/merchant/products/new') ?>"><?= micon('add', ['size' => 18]) ?> Add product</a>
     <?php endif; ?>

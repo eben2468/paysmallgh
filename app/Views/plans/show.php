@@ -48,7 +48,7 @@
       <?php $firstEver = $plan['status'] === 'pending'; ?>
       <div class="pay-pending mt-3" data-poll-status="<?= url('/plan/' . $plan['id'] . '/status') ?>">
         <p class="pay-pending-title"><?= micon('schedule', ['size' => 20]) ?> Waiting for your payment</p>
-        <p class="small">You're paying <strong><?= ghs((int) $pendingTx['amount_pesewas']) ?></strong> on the payment page. Once it goes through, we'll confirm it here automatically.<?= $firstEver ? ' Your plan starts the moment it clears.' : '' ?></p>
+        <p class="small">You're paying <strong><?= ghs((int) $pendingTx['amount_pesewas']) ?></strong><?= !empty($canResumeCheckout) ? ' on the payment page' : ' — approve the prompt on your phone if one came' ?>. Once it goes through, we'll confirm it here automatically.<?= $firstEver ? ' Your plan starts the moment it clears.' : '' ?></p>
         <p class="small muted" data-poll-note style="display:none"><?= micon('autorenew', ['size' => 14]) ?> Checking for your payment&hellip;</p>
         <form method="post" action="<?= url('/plan/' . $plan['id'] . '/check') ?>" class="mt-2">
           <?= Csrf::field() ?>
@@ -67,10 +67,11 @@
         <p class="small">We're sending the money to <?= e($plan['shop_name']) ?> now. You'll get an SMS the moment your <?= e($plan['product_name']) ?> is ready to collect.</p>
       </div>
     <?php elseif ($plan['status'] === 'active'): ?>
-      <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-3">
-        <?= Csrf::field() ?>
-        <button class="btn btn-momo btn-lg btn-block" type="submit"><?= micon('smartphone', ['size' => 20]) ?> Pay <?= e(freq_words((string) $plan['frequency'])['this']) ?> <?= ghs((int) $plan['installment_pesewas']) ?></button>
-      </form>
+      <h3 class="pay-head mt-3">Pay <?= e(freq_words((string) $plan['frequency'])['this']) ?> <?= ghs((int) $plan['installment_pesewas']) ?></h3>
+      <?= (new App\Core\View())->partial('partials/pay-options', [
+          'plan' => $plan, 'amountLabel' => ghs((int) $plan['installment_pesewas']),
+          'savedCards' => $savedCards ?? [], 'momoWallet' => $momoWallet ?? null,
+      ]) ?>
       <form method="post" action="<?= url('/plan/' . $plan['id'] . '/cancel') ?>" class="mt-2"
             data-confirm="Cancel this plan? You'll get back what you've paid minus a 5% fee.">
         <?= Csrf::field() ?>
@@ -80,10 +81,12 @@
       <div class="pay-pending mt-3">
         <p class="pay-pending-title"><?= micon('schedule', ['size' => 20]) ?> This plan hasn't started yet</p>
         <p class="small">The first payment wasn't completed. Start it now to lock in your plan.</p>
-        <form method="post" action="<?= url('/plan/' . $plan['id'] . '/pay') ?>" class="mt-2">
-          <?= Csrf::field() ?>
-          <button class="btn btn-primary" type="submit"><?= $isFull ? 'Pay ' . ghs((int) $plan['installment_pesewas']) . ' now' : 'Pay first ' . ghs((int) $plan['installment_pesewas']) . ' now' ?></button>
-        </form>
+        <div class="mt-2">
+          <?= (new App\Core\View())->partial('partials/pay-options', [
+              'plan' => $plan, 'amountLabel' => ghs((int) $plan['installment_pesewas']),
+              'savedCards' => $savedCards ?? [], 'momoWallet' => $momoWallet ?? null,
+          ]) ?>
+        </div>
       </div>
     <?php elseif ($done): ?>
       <div class="info-card mt-3">

@@ -189,12 +189,14 @@ function status_tag(string $status, ?string $label = null): string
 {
     $class = [
         'suspended' => 'cancelled',
+        'rejected' => 'cancelled',
         'approved' => 'approved',
         'ok' => 'on-track',
     ][$status] ?? $status;
     $text = $label ?? [
         'approved' => 'Live',
         'pending' => 'Pending',
+        'rejected' => 'Declined',
         'grace' => 'In grace',
         'flagged' => 'Stalled',
     ][$status] ?? ucfirst($status);

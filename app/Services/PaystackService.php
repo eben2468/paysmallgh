@@ -24,7 +24,8 @@ use App\Core\Config;
  * Endpoints used:
  *   POST /transaction/initialize      hosted checkout (web: MoMo / card / bank)
  *   GET  /transaction/verify/{ref}     final state of a collection
- *   POST /charge                       direct MoMo prompt (USSD flow)
+ *   POST /charge                       direct MoMo prompt (USSD flow, and "prompt my phone" on the web)
+ *   POST /transaction/charge_authorization  charge a saved card (customer opted in)
  *   POST /transferrecipient            register a merchant's payout account
  *   POST /transfer                     merchant payout
  *   GET  /transfer/verify/{ref}        final state of a payout
@@ -166,15 +167,18 @@ final class PaystackService
      * 'ok'      — charge accepted (customer will be prompted) or already paid.
      * 'instant' — money already moved (mock, or Paystack answered "success").
      */
-    public function collect(string $phone, int $amountPesewas, string $reference, string $description, array $metadata = []): array
+    public function collect(string $phone, int $amountPesewas, string $reference, string $description, array $metadata = [], ?string $walletPhone = null, ?string $provider = null): array
     {
         if ($this->isMock()) {
             return $this->mockOk();
         }
 
-        $network = momo_network($phone);
+        // $phone is the customer's account (it decides the Paystack email);
+        // the prompt can go to a different saved wallet on a chosen network.
+        $wallet = $walletPhone ?? $phone;
+        $network = $provider ?? momo_network($wallet);
         if ($network === null) {
-            return $this->fail('Unknown mobile money network for ' . $phone);
+            return $this->fail('Unknown mobile money network for ' . $wallet);
         }
 
         $res = $this->request('POST', '/charge', [
@@ -183,7 +187,7 @@ final class PaystackService
             'currency' => $this->currency(),
             'reference' => $reference,
             'mobile_money' => [
-                'phone' => local_phone($phone),
+                'phone' => local_phone($wallet),
                 'provider' => strtolower($network),
             ],
             'metadata' => array_merge($metadata, [
@@ -211,6 +215,54 @@ final class PaystackService
         }
         // pay_offline / pending: the customer approves the prompt on their phone.
         return ['ok' => true, 'instant' => false, 'external_ref' => $id, 'reason' => '', 'raw' => $res['raw']];
+    }
+
+    /**
+     * Charge a saved card (POST /transaction/charge_authorization): no checkout
+     * page, no card details typed again. $email must be the one the card was
+     * first charged with.
+     *
+     * Returns ['ok' => bool, 'instant' => bool, 'external_ref' => string,
+     *          'reason' => string, 'raw' => array].
+     * 'instant' — Paystack answered "success": the money has moved.
+     * ok + !instant — still processing; the webhook/verify settles it.
+     */
+    public function chargeAuthorization(string $email, string $authorizationCode, int $amountPesewas, string $reference, string $description, array $metadata = []): array
+    {
+        if ($this->isMock()) {
+            return $this->mockOk();
+        }
+
+        $res = $this->request('POST', '/transaction/charge_authorization', [
+            'email' => $email,
+            'amount' => $amountPesewas,
+            'authorization_code' => $authorizationCode,
+            'reference' => $reference,
+            'currency' => $this->currency(),
+            // The spec types metadata as a stringified JSON object here.
+            'metadata' => json_encode(array_merge($metadata, ['description' => $description])),
+        ]);
+
+        $status = strtolower((string) ($res['raw']['data']['status'] ?? ''));
+        $id = (string) ($res['raw']['data']['id'] ?? '');
+        if (!$res['ok'] || $status === 'failed' || $status === 'abandoned' || $status === 'reversed') {
+            return $this->fail($this->reason($res['raw']), $res['raw']);
+        }
+        if ($status === 'success') {
+            return ['ok' => true, 'instant' => true, 'external_ref' => $id, 'reason' => '', 'raw' => $res['raw']];
+        }
+        // pending / ongoing / send_otp etc.: not settled yet.
+        return ['ok' => true, 'instant' => false, 'external_ref' => $id, 'reason' => $status, 'raw' => $res['raw']];
+    }
+
+    /**
+     * The card details Paystack returned with a payment (data.authorization),
+     * or null. Works on verify, charge and charge_authorization responses.
+     */
+    public static function authorizationFrom(?array $raw): ?array
+    {
+        $auth = $raw['data']['authorization'] ?? null;
+        return is_array($auth) ? $auth : null;
     }
 
     /**

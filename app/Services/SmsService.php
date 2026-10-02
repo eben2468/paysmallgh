@@ -58,13 +58,17 @@ final class SmsService
      *
      * $forceLive lets the admin "send test SMS" tool hit the real API even when
      * SMS_MODE is mock, so the integration can be verified on demand.
+     *
+     * $logBody (optional) is what goes into sms_log instead of $body — used to
+     * keep one-time codes out of the admin-visible log.
      */
-    public function send(string $phone, string $body, bool $forceLive = false): bool
+    public function send(string $phone, string $body, bool $forceLive = false, ?string $logBody = null): bool
     {
         $ref = 'SMS-' . strtoupper(bin2hex(random_bytes(6)));
+        $logged = $logBody ?? $body;
 
         if (!$forceLive && !$this->isLive()) {
-            SmsLog::create($phone, $body, 'sent', 'MOCK-' . $ref);
+            SmsLog::create($phone, $logged, 'sent', 'MOCK-' . $ref);
             return true;
         }
 
@@ -76,10 +80,10 @@ final class SmsService
                     ['recipient' => $phone, 'message' => $body, 'ref' => $ref],
                 ],
             ]);
-            SmsLog::create($phone, $body, $res['ok'] ? 'sent' : 'failed', $ref);
+            SmsLog::create($phone, $logged, $res['ok'] ? 'sent' : 'failed', $ref);
             return $res['ok'];
         } catch (\Throwable $e) {
-            SmsLog::create($phone, $body, 'failed', '');
+            SmsLog::create($phone, $logged, 'failed', '');
             return false;
         }
     }

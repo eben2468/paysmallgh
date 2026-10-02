@@ -17,6 +17,15 @@ $first = explode(' ', (string) $merchant['owner_name'])[0];
 
 <?php if ($merchant['status'] === 'pending'): ?>
   <div class="banner"><?= micon('hourglass_top', ['size' => 22]) ?><div><b>Your shop is under review.</b>Customers can't see your products yet. Add them now so you're ready the moment we approve you &mdash; we'll text you.</div></div>
+<?php elseif ($merchant['status'] === 'rejected'): ?>
+  <div class="banner is-bad"><?= micon('error', ['size' => 22]) ?><div>
+    <b>Your shop wasn't approved yet.</b>
+    <?= $merchant['review_note'] !== '' ? 'Reason: ' . e($merchant['review_note']) . '. ' : '' ?>Fix it in <a href="<?= url('/merchant/settings') ?>">shop settings</a>, then ask us to look again.
+    <form class="inline-form mt-1" method="post" action="<?= url('/merchant/request-review') ?>">
+      <?= \App\Core\Csrf::field() ?>
+      <button class="btn btn-sm btn-primary" type="submit"><?= micon('refresh', ['size' => 16]) ?> Ask for review again</button>
+    </form>
+  </div></div>
 <?php elseif ($merchant['status'] === 'suspended'): ?>
   <div class="banner is-bad"><?= micon('block', ['size' => 22]) ?><div><b>Your shop is suspended.</b>Your products are hidden from customers. Running plans continue. Call us to sort it out.</div></div>
 <?php endif; ?>
@@ -54,7 +63,10 @@ $first = explode(' ', (string) $merchant['owner_name'])[0];
       <?php foreach ($toRelease as $p): ?>
         <li><div class="attn-item">
           <span class="attn-ic is-ok"><?= micon('inventory_2', ['size' => 20]) ?></span>
-          <span class="attn-text"><b><?= e(plan_item($p)) ?></b><span><?= e($p['customer_name']) ?> &middot; <?= e(pretty_phone($p['customer_phone'])) ?></span></span>
+          <span class="attn-text"><b><?= e(plan_item($p)) ?></b><span><?= e($p['customer_name']) ?> &middot; <?= e(pretty_phone($p['customer_phone'])) ?></span>
+            <?php if (!empty($p['delivery'])): ?>
+              <span class="attn-addr"><?= micon('location_on', ['size' => 14]) ?> <?= e(\App\Models\Address::oneLine($p['delivery'])) ?><?= $p['delivery']['phone'] !== $p['customer_phone'] ? ' &middot; for ' . e($p['delivery']['recipient']) . ', ' . e(pretty_phone($p['delivery']['phone'])) : '' ?></span>
+            <?php endif; ?></span>
           <form class="inline-form" method="post" action="<?= url('/merchant/plan/' . $p['id'] . '/release') ?>"
                 data-confirm="Confirm you've handed <?= e(plan_item($p)) ?> to <?= e($p['customer_name']) ?>?">
             <?= Csrf::field() ?>

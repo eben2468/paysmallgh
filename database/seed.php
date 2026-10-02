@@ -42,7 +42,7 @@ if (Config::get('PAYMENTS_MODE') !== 'mock') {
 $pdo = DB::pdo();
 echo "Clearing tables...\n";
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-foreach (['sms_log', 'reviews', 'wishlists', 'transactions', 'installments', 'plans', 'product_variants', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
+foreach (['sms_log', 'otp_codes', 'login_failures', 'saved_cards', 'user_addresses', 'reviews', 'wishlists', 'transactions', 'installments', 'plans', 'product_variants', 'products', 'merchants', 'users', 'ussd_sessions'] as $t) {
     $pdo->exec("TRUNCATE TABLE {$t}");
 }
 $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
@@ -177,6 +177,15 @@ $ama = User::create('Ama Owusu', '233241000001', '1234');
 $kwame = User::create('Kwame Boateng', '233501000002', '1234');
 $abena = User::create('Abena Asante', '233261000003', '1234');
 $yaw = User::create('Yaw Ofori', '233541000004', '1234');
+// Demo customers have confirmed their numbers already.
+foreach ([$ama, $kwame, $abena, $yaw] as $uid) {
+    User::markVerified($uid);
+}
+\App\Models\Address::save($ama, null, [
+    'label' => 'Home', 'recipient' => 'Ama Owusu', 'phone' => '233241000001',
+    'region' => 'Greater Accra', 'town' => 'Madina', 'area' => 'Zongo Junction, 4th lane, blue gate',
+    'landmark' => 'Opposite the Goil filling station', 'gps' => 'GM-047-1234',
+], true);
 
 echo "Creating plans in various states...\n";
 $svc = new PlanService();

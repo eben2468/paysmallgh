@@ -32,7 +32,7 @@
           <input id="phone" name="phone" type="tel" required placeholder="024 XXX XXXX" autocomplete="tel">
         </div>
         <div class="field">
-          <label for="pin">PIN</label>
+          <label for="pin" class="label-row">PIN <a href="<?= url('/forgot-pin') ?>">Forgot your PIN?</a></label>
           <input id="pin" name="pin" type="password" required inputmode="numeric" maxlength="6" autocomplete="current-password">
         </div>
         <button class="btn btn-primary btn-block btn-lg" type="submit">Log in</button>

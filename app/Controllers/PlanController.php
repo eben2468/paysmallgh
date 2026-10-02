@@ -10,7 +10,10 @@ use App\Models\Installment;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Models\SavedCard;
+use App\Models\User;
 use App\Services\Cart;
+use App\Services\Otp;
 use App\Services\PaystackService;
 use App\Services\PlanService;
 
@@ -67,7 +70,34 @@ final class PlanController extends Controller
         }
 
         Csrf::check();
-        $this->beginPlan($this->requireUser(), $product, $item, $frequency, $count, (string) ($_POST['cart_key'] ?? ''));
+        $user = $this->requireUser();
+
+        // Receipts and MoMo prompts go to this number, so it must be confirmed
+        // before the first plan. Keep the pick and come back to it after.
+        if (!User::isVerified($user)) {
+            $_SESSION['pending_plan'] = [
+                'product_id' => (int) $product['id'],
+                'variant_id' => $item['variant'] !== null ? (int) $item['variant']['id'] : null,
+                'quantity' => $item['qty'],
+                'frequency' => $frequency,
+                'count' => $count,
+                'cart_key' => (string) ($_POST['cart_key'] ?? ''),
+            ];
+            $this->sendToVerify('/plan/resume');
+        }
+
+        $this->beginPlan($user, $product, $item, $frequency, $count, (string) ($_POST['cart_key'] ?? ''));
+    }
+
+    /** Text a code to the customer's number, ask for it, then carry on to $then. */
+    private function sendToVerify(string $then): never
+    {
+        $user = $this->requireUser();
+        $_SESSION['after_verify'] = $then;
+        $sent = Otp::send((string) $user['phone'], 'verify');
+        flash('error', 'One quick step: confirm your phone number. '
+            . ($sent['ok'] ? 'We\'ve texted you a code — your pick is saved.' : $sent['message']));
+        redirect('/verify-phone');
     }
 
     /**
@@ -77,6 +107,9 @@ final class PlanController extends Controller
     public function resume(): void
     {
         $user = $this->requireUser();
+        if (!User::isVerified($user) && isset($_SESSION['pending_plan'])) {
+            $this->sendToVerify('/plan/resume'); // the pick stays saved
+        }
         $intent = $_SESSION['pending_plan'] ?? null;
         unset($_SESSION['pending_plan']);
         if (!is_array($intent)) {
@@ -216,9 +249,23 @@ final class PlanController extends Controller
     public function index(): void
     {
         $user = $this->requireUser();
+        $all = Plan::forCustomer((int) $user['id']);
+
+        // Order-history tabs. "Active" includes plans still waiting for their first payment.
+        $groups = [
+            'all' => static fn (array $p): bool => true,
+            'active' => static fn (array $p): bool => in_array($p['status'], ['active', 'pending'], true),
+            'completed' => static fn (array $p): bool => $p['status'] === 'completed',
+            'cancelled' => static fn (array $p): bool => in_array($p['status'], ['cancelled', 'defaulted'], true),
+        ];
+        $filter = isset($groups[$_GET['status'] ?? '']) ? (string) $_GET['status'] : 'all';
+        $counts = array_map(static fn (callable $fn): int => count(array_filter($all, $fn)), $groups);
+
         $this->render('plans/index', [
             'title' => 'My plans — PaySmallSmall',
-            'plans' => Plan::forCustomer((int) $user['id']),
+            'plans' => array_values(array_filter($all, $groups[$filter])),
+            'filter' => $filter,
+            'counts' => $counts,
             'user' => $user,
         ]);
     }
@@ -252,6 +299,8 @@ final class PlanController extends Controller
             'installments' => Installment::forPlan((int) $plan['id']),
             'pendingTx' => Transaction::latestPendingForPlan((int) $plan['id'], 'collection'),
             'canResumeCheckout' => (new PlanService())->resumableCheckout((int) $plan['id']) !== null,
+            'savedCards' => array_values(array_filter(SavedCard::forUser((int) $user['id']), static fn (array $c): bool => !SavedCard::isExpired($c))),
+            'momoWallet' => User::momoWallet($user),
         ]);
     }
 
@@ -276,6 +325,46 @@ final class PlanController extends Controller
                 $this->goToCheckout($resume);
             }
             flash('error', 'A payment on this plan is still being confirmed. Approve the MoMo prompt on your phone, then check its status.');
+            redirect('/plan/' . $plan['id']);
+        }
+
+        $method = (string) ($_POST['method'] ?? 'checkout');
+
+        // One tap with a saved card.
+        if (preg_match('/^card:(\d+)$/', $method, $m)) {
+            $card = SavedCard::find((int) $m[1], (int) $user['id']);
+            if (!$card || SavedCard::isExpired($card)) {
+                flash('error', 'That card isn\'t available any more. Pick another way to pay.');
+                redirect('/plan/' . $plan['id']);
+            }
+            $r = $svc->chargeSavedCard((int) $plan['id'], $card);
+            if ($r === 'awaiting_payment') {
+                flash('success', 'Your card payment is processing. We\'ll confirm it here the moment it clears.');
+            } elseif ($r === 'failed') {
+                flash('error', 'Your bank didn\'t accept that card payment. Try another way to pay — nothing was taken.');
+            } else {
+                $this->flashPaymentResult($r);
+            }
+            redirect('/plan/' . $plan['id']);
+        }
+
+        // A MoMo approval prompt straight to the customer's saved wallet.
+        if ($method === 'momo') {
+            [$wallet, $network] = User::momoWallet($user);
+            if ($network === null) {
+                flash('error', 'We can\'t tell which network your MoMo number is on. Set it under Account → Payment methods.');
+                redirect('/plan/' . $plan['id']);
+            }
+            $r = $svc->collectInstallment((int) $plan['id'], $wallet, $network);
+            if ($r === 'awaiting_payment') {
+                flash('success', 'Check your phone (' . pretty_phone($wallet) . ') and approve the MoMo prompt. We\'ll confirm it here automatically.');
+            } elseif ($r === 'needs_voucher') {
+                flash('error', 'Telecel Cash needs a voucher for this. Use "Other ways to pay" instead — it walks you through it.');
+            } elseif ($r === 'failed') {
+                flash('error', 'We couldn\'t send the MoMo prompt. Use "Other ways to pay" instead.');
+            } else {
+                $this->flashPaymentResult($r);
+            }
             redirect('/plan/' . $plan['id']);
         }
 
@@ -427,7 +516,24 @@ final class PlanController extends Controller
         }
 
         if ($tx['status'] === 'pending') {
-            Transaction::setStatus((int) $tx['id'], 'success', 'MOCK-' . strtoupper(bin2hex(random_bytes(4))), json_encode(['mode' => 'mock']));
+            // Paying "by card" on the stand-in checkout returns a pretend
+            // reusable card, shaped like Paystack's data.authorization, so
+            // saved cards can be demoed without real money.
+            $raw = ['mode' => 'mock'];
+            if (($_POST['method'] ?? '') === 'card') {
+                $raw['data'] = [
+                    'channel' => 'card',
+                    'customer' => ['email' => (new PaystackService())->customerEmail((string) $plan['customer_phone'])],
+                    'authorization' => [
+                        'authorization_code' => 'AUTH_mock' . (int) $user['id'],
+                        'signature' => 'SIG_mock' . (int) $user['id'],
+                        'channel' => 'card', 'reusable' => true,
+                        'brand' => 'visa', 'card_type' => 'visa', 'last4' => '4081',
+                        'exp_month' => '12', 'exp_year' => (string) ((int) date('Y') + 3), 'bank' => 'Test Bank',
+                    ],
+                ];
+            }
+            Transaction::setStatus((int) $tx['id'], 'success', 'MOCK-' . strtoupper(bin2hex(random_bytes(4))), json_encode($raw));
             $result = (new PlanService())->applyCollectionSuccess((int) $tx['id']);
             flash('stamped', '1');
             flash('success', $result === 'completed'

@@ -24,6 +24,7 @@ $accounts = [];
 if (Auth::userId() && ($u = Auth::user())) {
     $accounts[] = ['name' => $u['name'], 'role' => 'Customer', 'links' => [
         ['My plans', 'receipt_long', '/plans'],
+        ['My account', 'manage_accounts', '/account'],
         ['Saved items', 'favorite', '/wishlist'],
         ['Cart', 'shopping_cart', '/cart'],
         ['Browse products', 'storefront', '/shop'],

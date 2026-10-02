@@ -9,7 +9,9 @@ use App\Models\Installment;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Product;
+use App\Models\SavedCard;
 use App\Models\Transaction;
+use App\Models\User;
 
 /**
  * All plan money movements live here: starting a plan, recording installment
@@ -125,7 +127,7 @@ final class PlanService
      * 'awaiting_payment' (customer must approve the prompt; webhook confirms),
      * 'needs_voucher' (Telecel Cash — can't finish inside USSD) or 'failed'.
      */
-    public function collectInstallment(int $planId): string
+    public function collectInstallment(int $planId, ?string $walletPhone = null, ?string $provider = null): string
     {
         $plan = Plan::find($planId);
         $inst = Installment::nextUnpaid($planId);
@@ -149,7 +151,9 @@ final class PlanService
             (int) $inst['amount_pesewas'],
             $ref,
             $desc,
-            ['plan_id' => $planId, 'installment' => (int) $inst['number']]
+            ['plan_id' => $planId, 'installment' => (int) $inst['number']],
+            $walletPhone,
+            $provider
         );
 
         if (!$res['ok']) {
@@ -166,6 +170,72 @@ final class PlanService
 
         Transaction::setStatus($txId, 'pending', $res['external_ref'], json_encode($res['raw']));
         return 'awaiting_payment';
+    }
+
+    /**
+     * Pay the next installment with a card the customer saved earlier — no
+     * checkout page. Same ledger and confirmation path as every other
+     * collection. Returns 'active'|'completed' (paid), 'awaiting_payment'
+     * (Paystack still processing) or 'failed'.
+     */
+    public function chargeSavedCard(int $planId, array $card): string
+    {
+        $plan = Plan::find($planId);
+        $inst = Installment::nextUnpaid($planId);
+        if (!$plan || !$inst || (int) $card['user_id'] !== (int) $plan['customer_id']) {
+            return 'failed';
+        }
+
+        $ref = PaystackService::newReference('c', $planId, (int) $inst['number']);
+        $txId = Transaction::create([
+            'type' => 'collection',
+            'amount_pesewas' => (int) $inst['amount_pesewas'],
+            'phone' => $plan['customer_phone'],
+            'plan_id' => $planId,
+            'installment_id' => (int) $inst['id'],
+            'provider_ref' => $ref,
+        ]);
+
+        $desc = sprintf('%s — payment %d of %d', $plan['product_name'], $inst['number'], $plan['installments_total']);
+        $res = $this->paystack->chargeAuthorization(
+            (string) $card['email'],
+            (string) $card['authorization_code'],
+            (int) $inst['amount_pesewas'],
+            $ref,
+            $desc,
+            ['plan_id' => $planId, 'installment' => (int) $inst['number']]
+        );
+
+        if (!$res['ok']) {
+            Transaction::setStatus($txId, 'failed', $res['external_ref'], json_encode($res['raw']));
+            return 'failed';
+        }
+        if ($res['instant']) {
+            Transaction::setStatus($txId, 'success', $res['external_ref'], json_encode($res['raw']));
+            return $this->applyCollectionSuccess($txId);
+        }
+        Transaction::setStatus($txId, 'pending', $res['external_ref'], json_encode($res['raw']));
+        return 'awaiting_payment';
+    }
+
+    /**
+     * After a confirmed card payment, keep the card for one-tap payments next
+     * time (only if Paystack marks it reusable and the customer allows it).
+     * Never allowed to break the payment flow.
+     */
+    private function rememberCard(array $tx, array $plan): void
+    {
+        try {
+            $raw = json_decode((string) ($tx['raw_payload'] ?? ''), true);
+            $auth = PaystackService::authorizationFrom(is_array($raw) ? $raw : null);
+            $user = $auth ? User::find((int) $plan['customer_id']) : null;
+            if ($auth && $user) {
+                $email = (string) ($raw['data']['customer']['email'] ?? '') ?: $this->paystack->customerEmail((string) $plan['customer_phone']);
+                SavedCard::rememberFrom($user, $auth, $email);
+            }
+        } catch (\Throwable $e) {
+            error_log('[cards] could not save card for plan #' . $plan['id'] . ': ' . $e->getMessage());
+        }
     }
 
     /**
@@ -202,6 +272,7 @@ final class PlanService
 
         DB::run('UPDATE plans SET installments_paid = installments_paid + 1 WHERE id = ?', [$tx['plan_id']]);
         $plan = Plan::find((int) $tx['plan_id']);
+        $this->rememberCard($tx, $plan);
 
         // First payment in: the plan is real now, so its item comes off the shelf.
         if ($plan['status'] === 'pending') {

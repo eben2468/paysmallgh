@@ -10,6 +10,13 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(120) NOT NULL,
   phone VARCHAR(12) NOT NULL,              -- 233XXXXXXXXX
   pin_hash VARCHAR(255) NOT NULL,
+  -- Set once the customer proves they own the number (SMS code).
+  phone_verified_at DATETIME DEFAULT NULL,
+  -- MoMo wallet for direct prompts (NULL = the account phone) and its network.
+  momo_number VARCHAR(12) DEFAULT NULL,
+  momo_network VARCHAR(5) DEFAULT NULL,
+  -- Remember cards paid with (Paystack tokens only, never card numbers).
+  save_cards TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_users_phone (phone)
@@ -28,7 +35,9 @@ CREATE TABLE IF NOT EXISTS merchants (
   payout_bank_code VARCHAR(20) NOT NULL DEFAULT '',
   -- Cached Paystack transfer recipient (RCP_...); cleared when payout details change.
   paystack_recipient_code VARCHAR(40) NOT NULL DEFAULT '',
-  status ENUM('pending','approved','suspended') NOT NULL DEFAULT 'pending',
+  status ENUM('pending','approved','suspended','rejected') NOT NULL DEFAULT 'pending',
+  -- Admin's reason when declining (shown to the shop owner).
+  review_note VARCHAR(255) NOT NULL DEFAULT '',
   -- KYC: Ghana Card number + uploaded card image (stored outside the webroot).
   id_number VARCHAR(32) NOT NULL DEFAULT '',
   id_card_path VARCHAR(255) NOT NULL DEFAULT '',
@@ -197,6 +206,70 @@ CREATE TABLE IF NOT EXISTS wishlists (
   KEY idx_wishlists_product (product_id),
   CONSTRAINT fk_wishlists_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_wishlists_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- One-time SMS codes: verify a number, reset a PIN/password, change number.
+-- Only a hash of the code is stored.
+CREATE TABLE IF NOT EXISTS otp_codes (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  phone VARCHAR(12) NOT NULL,
+  purpose VARCHAR(20) NOT NULL,            -- verify | reset | merchant_reset | change_phone
+  code_hash VARCHAR(255) NOT NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_otp_phone_purpose (phone, purpose, created_at)
+) ENGINE=InnoDB;
+
+-- Wrong PIN/password attempts; 5 in 15 minutes locks that number briefly.
+CREATE TABLE IF NOT EXISTS login_failures (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  phone VARCHAR(12) NOT NULL,
+  role VARCHAR(10) NOT NULL,               -- customer | merchant
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_login_failures (phone, role, created_at)
+) ENGINE=InnoDB;
+
+-- Customer delivery addresses.
+CREATE TABLE IF NOT EXISTS user_addresses (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  label VARCHAR(40) NOT NULL DEFAULT '',   -- Home, Work, Mum's house…
+  recipient VARCHAR(120) NOT NULL,
+  phone VARCHAR(12) NOT NULL,
+  region VARCHAR(40) NOT NULL,
+  town VARCHAR(80) NOT NULL,
+  area VARCHAR(160) NOT NULL,              -- street / area / house number
+  landmark VARCHAR(160) NOT NULL DEFAULT '',
+  gps VARCHAR(20) NOT NULL DEFAULT '',     -- GhanaPost GPS, e.g. GA-123-4567
+  is_default TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_addresses_user (user_id),
+  CONSTRAINT fk_addresses_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Saved cards: Paystack reusable authorizations (tokens), never card numbers.
+-- email = the address the card was first charged with; Paystack needs the
+-- same one to charge it again.
+CREATE TABLE IF NOT EXISTS saved_cards (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  authorization_code VARCHAR(100) NOT NULL,
+  signature VARCHAR(100) NOT NULL,
+  email VARCHAR(160) NOT NULL,
+  brand VARCHAR(30) NOT NULL DEFAULT '',
+  last4 CHAR(4) NOT NULL DEFAULT '',
+  exp_month CHAR(2) NOT NULL DEFAULT '',
+  exp_year CHAR(4) NOT NULL DEFAULT '',
+  bank VARCHAR(80) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_saved_cards_user_signature (user_id, signature),
+  CONSTRAINT fk_saved_cards_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS sms_log (

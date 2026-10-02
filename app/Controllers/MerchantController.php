@@ -4,13 +4,19 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Config;
 use App\Core\Controller;
 use App\Core\Csrf;
+use App\Models\Address;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Services\LoginThrottle;
+use App\Services\Otp;
 use App\Services\PaystackService;
+use App\Services\SmsService;
+use App\Services\SmsTemplates;
 
 final class MerchantController extends Controller
 {
@@ -76,8 +82,99 @@ final class MerchantController extends Controller
             Merchant::setIdCardPath($id, $idPath);
         }
 
+        $this->notifyAdminOfReview($d['shop_name'], $d['location']);
+
         Auth::loginMerchant($id);
-        flash('success', 'Shop registered! We\'ll review your details and approve you shortly — you can add products while you wait.');
+        flash('success', 'Shop registered! An admin checks every new shop before it goes live — we\'ll text you once you\'re approved. You can add products while you wait.');
+        redirect('/merchant/dashboard');
+    }
+
+    /** Text the admin that a shop is waiting in the approval queue. */
+    private function notifyAdminOfReview(string $shop, string $location): void
+    {
+        $admin = normalize_phone((string) Config::get('ADMIN_PHONE', ''));
+        if ($admin !== null) {
+            (new SmsService())->send($admin, SmsTemplates::merchantPendingAdmin($shop, $location !== '' ? $location : 'no location'));
+        }
+    }
+
+    /** Declined shop fixed its details: back into the approval queue. */
+    public function requestReview(): void
+    {
+        $merchant = $this->requireMerchant();
+        Csrf::check();
+        if (Merchant::requestReview((int) $merchant['id'])) {
+            $this->notifyAdminOfReview((string) $merchant['shop_name'], (string) $merchant['location']);
+            flash('success', 'Sent back for review. We\'ll text you as soon as an admin has looked.');
+        }
+        redirect('/merchant/dashboard');
+    }
+
+    /* ---------- Forgot password (code by SMS) ---------- */
+
+    public function forgotForm(): void
+    {
+        $this->render('auth/forgot', ['title' => 'Forgot your password — PaySmallSmall', 'role' => 'merchant']);
+    }
+
+    public function forgot(): void
+    {
+        Csrf::check();
+        $phone = normalize_phone((string) ($_POST['phone'] ?? ''));
+        if ($phone === null) {
+            flash('error', 'That phone number doesn\'t look right. Use your shop\'s login number.');
+            redirect('/merchant/forgot-password');
+        }
+        // Same answer whether or not the number is a shop, so it can't be probed.
+        if (Merchant::findByPhone($phone)) {
+            $sent = Otp::send($phone, 'merchant_reset');
+            if (!$sent['ok'] && $sent['wait'] === 0) {
+                flash('error', $sent['message']);
+                redirect('/merchant/forgot-password');
+            }
+        }
+        $_SESSION['merchant_reset_phone'] = $phone;
+        flash('success', 'If ' . pretty_phone($phone) . ' has a shop, a 6-digit code is on its way by SMS.');
+        redirect('/merchant/reset-password');
+    }
+
+    public function resetForm(): void
+    {
+        $phone = (string) ($_SESSION['merchant_reset_phone'] ?? '');
+        if ($phone === '') {
+            redirect('/merchant/forgot-password');
+        }
+        $this->render('auth/reset', [
+            'title' => 'Set a new password — PaySmallSmall',
+            'role' => 'merchant',
+            'phone' => $phone,
+            'demoCode' => Otp::demoCode('merchant_reset'),
+        ]);
+    }
+
+    public function reset(): void
+    {
+        Csrf::check();
+        $phone = (string) ($_SESSION['merchant_reset_phone'] ?? '');
+        if ($phone === '') {
+            redirect('/merchant/forgot-password');
+        }
+        $password = (string) ($_POST['password'] ?? '');
+        if (strlen($password) < 8 || $password !== (string) ($_POST['password_confirm'] ?? '')) {
+            flash('error', 'Your new password needs at least 8 characters, typed the same twice.');
+            redirect('/merchant/reset-password');
+        }
+        $result = Otp::check($phone, 'merchant_reset', (string) ($_POST['code'] ?? ''));
+        $merchant = Merchant::findByPhone($phone);
+        if ($result !== 'ok' || !$merchant) {
+            flash('error', Otp::errorMessage($result === 'ok' ? 'expired' : $result));
+            redirect('/merchant/reset-password');
+        }
+        Merchant::updatePassword((int) $merchant['id'], $password);
+        LoginThrottle::clear($phone, 'merchant');
+        unset($_SESSION['merchant_reset_phone']);
+        Auth::loginMerchant((int) $merchant['id']);
+        flash('success', 'New password set. You\'re logged in.');
         redirect('/merchant/dashboard');
     }
 
@@ -95,12 +192,20 @@ final class MerchantController extends Controller
         $phone = normalize_phone((string) ($_POST['phone'] ?? ''));
         $password = (string) ($_POST['password'] ?? '');
 
+        if ($phone !== null && ($mins = LoginThrottle::lockedFor($phone, 'merchant')) > 0) {
+            flash('error', "Too many wrong passwords. Wait {$mins} minute" . ($mins === 1 ? '' : 's') . ' and try again — or reset your password.');
+            redirect('/merchant/login');
+        }
         $merchant = $phone ? Merchant::findByPhone($phone) : null;
         if (!$merchant || !password_verify($password, $merchant['password_hash'])) {
+            if ($phone !== null) {
+                LoginThrottle::fail($phone, 'merchant');
+            }
             flash('error', 'Phone or password no match.');
             redirect('/merchant/login');
         }
 
+        LoginThrottle::clear($phone, 'merchant');
         Auth::loginMerchant((int) $merchant['id']);
         redirect('/merchant/dashboard');
     }
@@ -115,6 +220,13 @@ final class MerchantController extends Controller
     {
         $merchant = $this->requireMerchant();
         $plans = Plan::forMerchant((int) $merchant['id']);
+        // Item ready to hand over: show where the customer wants it (only then).
+        foreach ($plans as &$p) {
+            $p['delivery'] = ($p['status'] === 'completed' && empty($p['released_at']))
+                ? Address::defaultFor((int) $p['customer_id'])
+                : null;
+        }
+        unset($p);
 
         $active = array_filter($plans, fn($p) => $p['status'] === 'active');
         $completed = array_filter($plans, fn($p) => $p['status'] === 'completed');
@@ -169,7 +281,23 @@ final class MerchantController extends Controller
         $d += $payout;
 
         Merchant::updateDetails((int) $merchant['id'], $d);
-        flash('success', 'Shop details saved.');
+
+        // Still under review (or declined): the owner may replace their Ghana Card photo.
+        $extra = '';
+        if ($merchant['status'] !== 'approved' && ($_FILES['id_card']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $idPath = $this->storeIdCard((int) $merchant['id']);
+            if ($idPath === null) {
+                flash('error', 'Details saved, but that Ghana Card photo didn\'t upload. Use a JPG, PNG or WebP under 5MB.');
+                redirect('/merchant/settings');
+            }
+            $old = (string) ($merchant['id_card_path'] ?? '');
+            Merchant::setIdCardPath((int) $merchant['id'], $idPath);
+            if ($old !== '' && $old !== $idPath && is_file(BASE_PATH . '/storage/' . $old)) {
+                @unlink(BASE_PATH . '/storage/' . $old);
+            }
+            $extra = ' New Ghana Card photo uploaded.';
+        }
+        flash('success', 'Shop details saved.' . $extra . ($merchant['status'] === 'rejected' ? ' When you\'re ready, tap "Ask for review again".' : ''));
         redirect('/merchant/dashboard');
     }
 

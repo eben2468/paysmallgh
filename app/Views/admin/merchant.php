@@ -20,9 +20,9 @@ foreach ($plans as $pl) {
     </p>
   </div>
   <div class="pg-actions">
-    <?php if ($merchant['status'] === 'pending'): ?>
+    <?php if (in_array($merchant['status'], ['pending', 'rejected'], true)): ?>
       <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $merchant['id'] . '/approve') ?>">
-        <?= Csrf::field() ?><button class="btn btn-sm btn-green" type="submit"><?= micon('check', ['size' => 18]) ?> Approve shop</button>
+        <?= Csrf::field() ?><button class="btn btn-sm btn-green" type="submit"><?= micon('check', ['size' => 18]) ?> <?= $merchant['status'] === 'rejected' ? 'Approve anyway' : 'Approve shop' ?></button>
       </form>
     <?php elseif ($merchant['status'] === 'approved'): ?>
       <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $merchant['id'] . '/suspend') ?>" data-confirm="Suspend this shop? Its products stop showing to customers.">
@@ -44,6 +44,25 @@ foreach ($plans as $pl) {
     <?php endif; ?>
   </div>
 </div>
+
+<?php if ($merchant['status'] === 'pending'): ?>
+  <section class="panel review-panel">
+    <div class="panel-head"><h2><?= micon('fact_check', ['size' => 20]) ?> Review this shop</h2></div>
+    <div class="panel-body">
+      <p class="small muted mb-2">Check the Ghana Card below against the owner's name and number. Approve to put the shop live, or decline with a clear reason — the owner gets it by SMS, fixes it, and asks for another look.</p>
+      <form method="post" action="<?= url('/admin/merchant/' . $merchant['id'] . '/decline') ?>" class="decline-form">
+        <?= Csrf::field() ?>
+        <div class="field">
+          <label for="decline-note">Reason for declining</label>
+          <input id="decline-note" name="note" type="text" maxlength="255" required placeholder="e.g. Ghana Card photo is blurry — upload a clear one">
+        </div>
+        <button class="btn btn-sm btn-danger" type="submit"><?= micon('block', ['size' => 18]) ?> Decline for now</button>
+      </form>
+    </div>
+  </section>
+<?php elseif ($merchant['status'] === 'rejected'): ?>
+  <div class="banner is-bad"><?= micon('block', ['size' => 22]) ?><div><b>Declined.</b>Reason given: <?= e($merchant['review_note'] !== '' ? $merchant['review_note'] : '—') ?>. The owner can fix it and ask for review again; it'll come back to "Waiting approval".</div></div>
+<?php endif; ?>
 
 <div class="kpi-grid">
   <div class="kpi is-money">

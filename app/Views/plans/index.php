@@ -1,11 +1,40 @@
 <?php use App\Core\Csrf; ?>
-<section class="page-head wrap">
-  <h1>My plans</h1>
-  <p>Track what you're paying for, what's due next, and every receipt.</p>
+<section class="page-head wrap page-head-row">
+  <div>
+    <h1>My plans</h1>
+    <p>Track what you're paying for, what's due next, and every receipt.</p>
+  </div>
+  <a class="btn btn-ghost btn-sm" href="<?= url('/account/history') ?>"><?= micon('history', ['size' => 18]) ?> Payment history</a>
 </section>
 
+<?php $filter = $filter ?? 'all'; $counts = $counts ?? []; ?>
+<?php if (!empty($user) && !\App\Models\User::isVerified($user)): ?>
+  <div class="wrap">
+    <div class="banner"><?= micon('sms', ['size' => 22]) ?><div>
+      <b>Confirm your number to start a plan.</b>Receipts and MoMo prompts go to <?= e(pretty_phone((string) $user['phone'])) ?>, so we check it's yours with a quick SMS code.
+      <form class="inline-form mt-1" method="post" action="<?= url('/verify-phone/resend') ?>">
+        <?= Csrf::field() ?><button class="btn btn-sm btn-primary" type="submit">Text me a code</button>
+      </form>
+    </div></div>
+  </div>
+<?php endif; ?>
+<?php if (($counts['all'] ?? 0) > 0): ?>
+<nav class="wrap plan-tabs" aria-label="Filter plans">
+  <?php foreach (['all' => 'All', 'active' => 'Active', 'completed' => 'Finished', 'cancelled' => 'Cancelled'] as $key => $label): ?>
+    <a class="<?= $filter === $key ? 'active' : '' ?>" href="<?= url('/plans' . ($key === 'all' ? '' : '?status=' . $key)) ?>"<?= $filter === $key ? ' aria-current="page"' : '' ?>>
+      <?= e($label) ?> <span><?= (int) ($counts[$key] ?? 0) ?></span>
+    </a>
+  <?php endforeach; ?>
+</nav>
+<?php endif; ?>
+
 <section class="wrap" style="padding-bottom:3rem">
-  <?php if (empty($plans)): ?>
+  <?php if (empty($plans) && ($counts['all'] ?? 0) > 0): ?>
+    <div class="empty-card">
+      <h2>Nothing here</h2>
+      <p>No plans in this list. <a href="<?= url('/plans') ?>">See all your plans</a>.</p>
+    </div>
+  <?php elseif (empty($plans)): ?>
     <div class="empty-card">
       <h2>No plans yet</h2>
       <p>Find something you've been putting off buying and start paying small small.</p>

@@ -78,7 +78,7 @@ final class AdminController extends Controller
         $this->requireAdmin();
         $all = Merchant::all();
         $filter = (string) ($_GET['status'] ?? 'all');
-        $counts = ['all' => count($all), 'pending' => 0, 'approved' => 0, 'suspended' => 0];
+        $counts = ['all' => count($all), 'pending' => 0, 'approved' => 0, 'rejected' => 0, 'suspended' => 0];
         foreach ($all as $m) {
             $counts[$m['status']] = ($counts[$m['status']] ?? 0) + 1;
         }
@@ -98,11 +98,35 @@ final class AdminController extends Controller
         $this->requireAdmin();
         Csrf::check();
         $merchant = Merchant::find((int) $id);
-        if ($merchant && $merchant['status'] === 'pending') {
+        // A declined shop can be approved straight away too (admin changed their mind).
+        if ($merchant && in_array($merchant['status'], ['pending', 'rejected'], true)) {
             Merchant::approve((int) $id);
             (new SmsService())->send($merchant['phone'], SmsTemplates::merchantApproved($merchant['shop_name']));
             flash('success', $merchant['shop_name'] . ' approved — their products are now live.');
         }
+        redirect_back('/admin/merchants');
+    }
+
+    /**
+     * Not approved (yet): the shop stays hidden and the owner gets the reason
+     * by SMS and on their dashboard, so they can fix it and ask again.
+     */
+    public function declineMerchant(string $id): void
+    {
+        $this->requireAdmin();
+        Csrf::check();
+        $merchant = Merchant::find((int) $id);
+        $note = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 255);
+        if (!$merchant || $merchant['status'] !== 'pending') {
+            redirect_back('/admin/merchants');
+        }
+        if ($note === '') {
+            flash('error', 'Say why, so the shop knows what to fix (e.g. "Ghana Card photo is blurry").');
+            redirect_back('/admin/merchant/' . (int) $id);
+        }
+        Merchant::decline((int) $id, $note);
+        (new SmsService())->send($merchant['phone'], SmsTemplates::merchantDeclined($merchant['shop_name'], $note));
+        flash('success', $merchant['shop_name'] . ' declined. We texted them the reason.');
         redirect_back('/admin/merchants');
     }
 

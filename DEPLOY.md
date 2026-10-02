@@ -55,13 +55,23 @@ to re-run, so running all of them is fine even if some were applied before:
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-01-paystack.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-02-payment-options.sql
 mysql -u pss -p paysmallsmall < database/migrations/2026-10-03-product-features.sql
+mysql -u pss -p paysmallsmall < database/migrations/2026-10-04-accounts.sql
 ```
+
+**Run new migrations straight after the `git pull` that brings them** — the
+pages read the new columns and will error until they have run.
+
+`2026-10-04-accounts.sql` adds phone verification, SMS codes (PIN/password
+reset, number change), saved addresses, saved cards and MoMo wallet, login
+lockout after wrong PINs, and "declined" for merchants. Customers who signed up
+before it count as verified, so nobody is locked out.
 
 `2026-10-03-product-features.sql` adds SKU, old price, stock, specifications,
 delivery/returns notes, product options (size/colour/storage), saved items, and
-the quantity/option a plan was bought with. **Run it straight after the
-`git pull` that brings this code** — the shop pages read these columns and
-will error until it has run.
+the quantity/option a plan was bought with.
+
+Set `ADMIN_PHONE` in `.env` to the admin's real number: it receives an SMS
+whenever a new shop is waiting for approval.
 
 Optional demo data:
 

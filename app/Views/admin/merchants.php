@@ -1,7 +1,7 @@
 <?php
 use App\Core\Csrf;
 
-$tabs = ['all' => 'All shops', 'pending' => 'Waiting approval', 'approved' => 'Live', 'suspended' => 'Suspended'];
+$tabs = ['all' => 'All shops', 'pending' => 'Waiting approval', 'approved' => 'Live', 'rejected' => 'Declined', 'suspended' => 'Suspended'];
 ?>
 <div class="pg-head">
   <div>
@@ -62,10 +62,15 @@ $tabs = ['all' => 'All shops', 'pending' => 'Waiting approval', 'approved' => 'L
                           data-confirm="Suspend <?= e($m['shop_name']) ?>? Their products stop showing to customers.">
                       <?= Csrf::field() ?><button class="btn btn-sm btn-ghost" type="submit">Suspend</button>
                     </form>
+                  <?php elseif ($m['status'] === 'rejected'): ?>
+                    <a class="btn btn-sm btn-ghost" href="<?= url('/admin/merchant/' . $m['id']) ?>">View reason</a>
                   <?php else: ?>
                     <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/reactivate') ?>">
                       <?= Csrf::field() ?><button class="btn btn-sm btn-green" type="submit">Reactivate</button>
                     </form>
+                  <?php endif; ?>
+                  <?php if ($m['status'] === 'pending'): ?>
+                    <a class="btn btn-sm btn-quiet" href="<?= url('/admin/merchant/' . $m['id']) ?>">Review / decline</a>
                   <?php endif; ?>
                   <?php if (!$m['verified']): ?>
                     <form class="inline-form" method="post" action="<?= url('/admin/merchant/' . $m['id'] . '/verify') ?>">
