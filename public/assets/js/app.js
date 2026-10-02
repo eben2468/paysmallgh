@@ -440,6 +440,11 @@
 
     function show(i) {
       index = (i + srcs.length) % srcs.length;
+      // The first photo arrives as <picture> with WebP/AVIF <source>s, which
+      // would win over a new src — drop them once we start switching.
+      if (main.parentNode && main.parentNode.tagName === 'PICTURE') {
+        main.parentNode.querySelectorAll('source').forEach(function (s) { s.remove(); });
+      }
       main.src = srcs[index];
       thumbs.forEach(function (t, k) { t.classList.toggle('active', k === index); });
     }
@@ -782,6 +787,50 @@
         })
         .catch(function () { /* transient — keep polling */ });
     }, EVERY);
+  })();
+
+  // ---- Shop: infinite scroll. The page links still work without JS (and are
+  // what search engines follow); with JS, the next batch of cards is fetched
+  // as you near the bottom and added to the grid.
+  (function () {
+    var grid = document.querySelector('[data-infinite-grid]');
+    var pager = document.querySelector('[data-pager]');
+    var status = document.querySelector('[data-infinite-status]');
+    if (!grid || !pager || !window.fetch || !('IntersectionObserver' in window)) return;
+    var next = pager.querySelector('[data-next-page]');
+    if (!next) return;
+    var nextUrl = next.getAttribute('href');
+    var busy = false;
+
+    function load() {
+      if (busy || !nextUrl) return;
+      busy = true;
+      if (status) status.textContent = 'Loading more items…';
+      var u = nextUrl + (nextUrl.indexOf('?') === -1 ? '?' : '&') + 'fragment=1';
+      fetch(u, { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+        .then(function (d) {
+          grid.insertAdjacentHTML('beforeend', d.html || '');
+          nextUrl = d.next;
+          if (status) status.textContent = nextUrl ? 'Page ' + d.page + ' of ' + d.pages : "That's everything.";
+          if (!nextUrl) { io.disconnect(); pager.hidden = true; }
+          busy = false;
+        })
+        .catch(function () {
+          // Leave the normal page links in place to fall back on.
+          if (status) status.textContent = "Couldn't load more. Use the page links.";
+          io.disconnect();
+        });
+    }
+
+    // The numbered links would jump around as cards are added — keep just the
+    // "More items" button (a tap still loads the next batch in place).
+    pager.querySelectorAll('.pager-num, .pager-gap').forEach(function (el) { el.hidden = true; });
+    next.addEventListener('click', function (e) { e.preventDefault(); load(); });
+    var io = new IntersectionObserver(function (entries) {
+      if (entries[0].isIntersecting) load();
+    }, { rootMargin: '600px 0px' });
+    io.observe(pager);
   })();
 
 })();

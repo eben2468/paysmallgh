@@ -71,8 +71,10 @@ $collectAt = trim($product['shop_name'] . ($product['merchant_location'] !== '' 
       <div class="gallery" data-gallery>
         <div class="gallery-main" data-zoom>
           <button type="button" class="gallery-open" data-lightbox-open aria-label="View photos full screen">
-            <img src="<?= url('/' . $images[0]['path']) ?>" alt="<?= e($product['name']) ?>" data-gallery-main
-                 onerror="this.onerror=null;this.style.display='none';this.closest('.gallery-main').querySelector('.photo-placeholder').style.display='';">
+            <?= picture($images[0]['path'], $product['name'] . ' — ' . Product::categoryLabel((string) $product['category']) . ' from ' . $product['shop_name'], [
+                'loading' => 'eager', 'fetchpriority' => 'high', 'data-gallery-main' => true,
+                'onerror' => "this.onerror=null;this.style.display='none';this.closest('.gallery-main').querySelector('.photo-placeholder').style.display='';",
+            ]) ?>
           </button>
           <div class="photo-placeholder" style="display:none"><?= micon(product_micon($product['category']), ['size' => 48]) ?><b><?= e($product['name']) ?></b><span class="small">photo coming from the shop</span></div>
           <?php if ($discount > 0): ?><span class="gallery-discount" data-discount-badge>-<?= $discount ?>%</span><?php endif; ?>
@@ -85,9 +87,8 @@ $collectAt = trim($product['shop_name'] . ($product['merchant_location'] !== '' 
           <div class="gallery-thumbs">
             <?php foreach ($images as $i => $img): ?>
               <button type="button" class="gallery-thumb <?= $i === 0 ? 'active' : '' ?>" data-gallery-thumb data-index="<?= $i ?>"
-                      data-full="<?= url('/' . $img['path']) ?>" aria-label="View photo <?= $i + 1 ?>">
-                <img src="<?= url('/' . $img['path']) ?>" alt="<?= e($product['name']) ?> photo <?= $i + 1 ?>" loading="lazy"
-                     onerror="this.onerror=null;this.closest('.gallery-thumb').style.display='none';">
+                      data-full="<?= media_url($img['path']) ?>" aria-label="View photo <?= $i + 1 ?>">
+                <?= picture($img['path'], $product['name'] . ' photo ' . ($i + 1), ['width' => 80, 'height' => 80, 'onerror' => "this.onerror=null;this.closest('.gallery-thumb').style.display='none';"]) ?>
               </button>
             <?php endforeach; ?>
           </div>

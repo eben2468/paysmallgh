@@ -12,6 +12,7 @@ use App\Controllers\MerchantController;
 use App\Controllers\PlanController;
 use App\Controllers\ReviewController;
 use App\Controllers\ReviewModerationController;
+use App\Controllers\SeoController;
 use App\Controllers\ShopController;
 use App\Controllers\WebhookController;
 use App\Controllers\WishlistController;
@@ -25,6 +26,10 @@ $router->post('/product/{id}/review', ReviewController::class, 'store');
 $router->post('/product/{id}/review/delete', ReviewController::class, 'destroy');
 $router->post('/review/{id}/report', ReviewController::class, 'report');
 $router->get('/search/suggest', ShopController::class, 'suggest');
+
+// Search engines
+$router->get('/robots.txt', SeoController::class, 'robots');
+$router->get('/sitemap.xml', SeoController::class, 'sitemap');
 
 // Cart (session-based; each line is started as its own plan)
 $router->get('/cart', CartController::class, 'index');

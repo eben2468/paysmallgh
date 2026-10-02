@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS merchants (
   verified_at DATETIME DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_merchants_phone (phone)
+  UNIQUE KEY uq_merchants_phone (phone),
+  KEY idx_merchants_status (status)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS products (
@@ -78,6 +79,8 @@ CREATE TABLE IF NOT EXISTS products (
   PRIMARY KEY (id),
   KEY idx_products_merchant (merchant_id),
   KEY idx_products_sku (sku),
+  KEY idx_products_listing (active, category, created_at),
+  KEY idx_products_created (active, created_at),
   CONSTRAINT fk_products_merchant FOREIGN KEY (merchant_id) REFERENCES merchants(id)
 ) ENGINE=InnoDB;
 
@@ -141,6 +144,8 @@ CREATE TABLE IF NOT EXISTS plans (
   KEY idx_plans_customer (customer_id),
   KEY idx_plans_product (product_id),
   KEY idx_plans_status (status),
+  KEY idx_plans_product_status (product_id, status),
+  KEY idx_plans_customer_status (customer_id, status),
   CONSTRAINT fk_plans_product FOREIGN KEY (product_id) REFERENCES products(id),
   CONSTRAINT fk_plans_customer FOREIGN KEY (customer_id) REFERENCES users(id)
 ) ENGINE=InnoDB;
@@ -158,6 +163,7 @@ CREATE TABLE IF NOT EXISTS installments (
   PRIMARY KEY (id),
   UNIQUE KEY uq_installments_plan_number (plan_id, number),
   KEY idx_installments_due (due_date),
+  KEY idx_installments_unpaid_due (paid_at, due_date),
   CONSTRAINT fk_installments_plan FOREIGN KEY (plan_id) REFERENCES plans(id)
 ) ENGINE=InnoDB;
 
@@ -179,7 +185,9 @@ CREATE TABLE IF NOT EXISTS transactions (
   updated_at DATETIME DEFAULT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_transactions_ref (provider_ref),
-  KEY idx_transactions_plan (plan_id)
+  KEY idx_transactions_plan (plan_id),
+  KEY idx_transactions_status (status, created_at),
+  KEY idx_transactions_installment (installment_id, type, status)
 ) ENGINE=InnoDB;
 
 -- Product reviews. One review per customer per product (enforced by unique key).
@@ -198,6 +206,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   UNIQUE KEY uq_reviews_product_user (product_id, user_id),
   KEY idx_reviews_product (product_id),
   KEY idx_reviews_status (status),
+  KEY idx_reviews_product_status (product_id, status, rating),
   CONSTRAINT fk_reviews_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
   CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

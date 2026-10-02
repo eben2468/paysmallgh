@@ -192,8 +192,61 @@ final class Product
      *   freq      only items the shop allows on this schedule (daily/weekly/monthly)
      *   sort      a SORTS slug (default: relevance when searching, else newest)
      *   limit     max rows
+     *   offset    rows to skip (for pagination; needs limit)
      */
     public static function browse(array $f = []): array
+    {
+        [$where, $params] = self::browseWhere($f);
+        $q = trim((string) ($f['q'] ?? ''));
+
+        $sort = (string) ($f['sort'] ?? '');
+        if (!isset(self::SORTS[$sort]) || ($sort === 'relevance' && $q === '')) {
+            $sort = $q !== '' ? 'relevance' : 'newest';
+        }
+        $order = match ($sort) {
+            'popular' => 'x.plan_count DESC, x.created_at DESC, x.id DESC',
+            'price-asc' => 'x.price_from ASC, x.id ASC',
+            'price-desc' => 'x.price_from DESC, x.id DESC',
+            'rating' => 'COALESCE(x.avg_rating, 0) DESC, x.review_count DESC, x.created_at DESC, x.id DESC',
+            'discount' => 'discount_pct DESC, x.created_at DESC, x.id DESC',
+            'newest' => 'x.created_at DESC, x.id DESC',
+            default => null, // relevance, built below
+        };
+        if ($order === null) {
+            // Exact SKU first, then names starting with the search, names containing
+            // it, then category matches — shop-name/description matches come last.
+            $order = '(x.sku = ? OR EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = x.id AND v.sku = ?)) DESC,
+                      (x.name LIKE ?) DESC, (x.name LIKE ?) DESC, (x.category LIKE ?) DESC, x.plan_count DESC, x.created_at DESC, x.id DESC';
+            $esc = self::escapeLike($q);
+            array_push($params, $q, $q, $esc . '%', '%' . $esc . '%', '%' . $esc . '%');
+        }
+        // Every order ends on a unique column, so pages never repeat or skip an item.
+
+        $sql = self::LISTING . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY ' . $order;
+        if (!empty($f['limit'])) {
+            $sql .= ' LIMIT ' . max(1, (int) $f['limit']);
+            if (!empty($f['offset'])) {
+                $sql .= ' OFFSET ' . max(0, (int) $f['offset']);
+            }
+        }
+        return DB::run($sql, $params)->fetchAll();
+    }
+
+    /** How many products browse() would return for these filters (ignores limit/offset). */
+    public static function browseCount(array $f = []): int
+    {
+        [$where, $params] = self::browseWhere($f);
+        return (int) DB::run(
+            'SELECT COUNT(*) FROM (' . self::LISTING_INNER . ') x' . ($where ? ' WHERE ' . implode(' AND ', $where) : ''),
+            $params
+        )->fetchColumn();
+    }
+
+    /**
+     * WHERE parts + params for browse() filters (shared with browseCount()).
+     * @return array{0: list<string>, 1: list<mixed>}
+     */
+    private static function browseWhere(array $f): array
     {
         $where = [];
         $params = [];
@@ -239,34 +292,7 @@ final class Product
             $where[] = 'FIND_IN_SET(?, x.plan_frequencies) > 0';
             $params[] = (string) $f['freq'];
         }
-
-        $sort = (string) ($f['sort'] ?? '');
-        if (!isset(self::SORTS[$sort]) || ($sort === 'relevance' && $q === '')) {
-            $sort = $q !== '' ? 'relevance' : 'newest';
-        }
-        $order = match ($sort) {
-            'popular' => 'x.plan_count DESC, x.created_at DESC',
-            'price-asc' => 'x.price_from ASC, x.id ASC',
-            'price-desc' => 'x.price_from DESC, x.id DESC',
-            'rating' => 'COALESCE(x.avg_rating, 0) DESC, x.review_count DESC, x.created_at DESC',
-            'discount' => 'discount_pct DESC, x.created_at DESC',
-            'newest' => 'x.created_at DESC, x.id DESC',
-            default => null, // relevance, built below
-        };
-        if ($order === null) {
-            // Exact SKU first, then names starting with the search, names containing
-            // it, then category matches — shop-name/description matches come last.
-            $order = '(x.sku = ? OR EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = x.id AND v.sku = ?)) DESC,
-                      (x.name LIKE ?) DESC, (x.name LIKE ?) DESC, (x.category LIKE ?) DESC, x.plan_count DESC, x.created_at DESC';
-            $esc = self::escapeLike($q);
-            array_push($params, $q, $q, $esc . '%', '%' . $esc . '%', '%' . $esc . '%');
-        }
-
-        $sql = self::LISTING . ($where ? ' WHERE ' . implode(' AND ', $where) : '') . ' ORDER BY ' . $order;
-        if (!empty($f['limit'])) {
-            $sql .= ' LIMIT ' . max(1, (int) $f['limit']);
-        }
-        return DB::run($sql, $params)->fetchAll();
+        return [$where, $params];
     }
 
     /** Escape % and _ so a search for "50%" means the characters, not a wildcard. */

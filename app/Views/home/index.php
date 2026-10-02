@@ -50,7 +50,7 @@ if (!empty($marquee)) {
     <div class="hero-visual">
       <div class="hero-card">
         <div class="hero-phone-photo">
-          <img src="<?= url('/assets/img/phone-hero.jpg') ?>" alt="A shopper's phone — their layaway plan is fully paid" width="260" height="347">
+          <?= picture('assets/img/phone-hero.jpg', "A shopper's phone — their layaway plan is fully paid", ['width' => 260, 'height' => 347]) ?>
           <span class="hero-phone-caption"><b>Payment complete</b>Tecno Spark 30C · fully yours</span>
         </div>
         <div class="hero-badge">
@@ -276,7 +276,7 @@ if (!empty($marquee)) {
             <span class="feed-ic<?= ($once || $last) ? ' done' : '' ?>"><?= micon(($once || $last) ? 'task_alt' : 'payments', ['size' => 20, 'fill' => true]) ?></span>
             <span class="feed-body">
               <b><?= e(masked_name($r['customer_name'])) ?> paid <?= ghs((int) $r['amount_pesewas']) ?></b>
-              <a href="<?= url('/product/' . (int) $r['product_id']) ?>"><?= e($r['product_name']) ?></a>
+              <a href="<?= product_url($r) ?>"><?= e($r['product_name']) ?></a>
               <span class="feed-meta"><?= $once ? 'Paid in full' : ($last ? 'Final payment — all done' : 'Payment ' . (int) $r['number'] . ' of ' . (int) $r['installments_total']) ?> · <?= e(ago((int) $r['mins_ago'])) ?></span>
             </span>
           </li>

@@ -67,8 +67,8 @@ $statusNote = [
             <?php if (!empty($rev['photos'])): ?>
               <div class="review-photos">
                 <?php foreach ($rev['photos'] as $ph): ?>
-                  <a class="review-photo<?= $ph['status'] !== 'approved' ? ' is-pending' : '' ?>" href="<?= url('/' . $ph['path']) ?>" target="_blank" rel="noopener">
-                    <img src="<?= url('/' . $ph['path']) ?>" alt="Photo from <?= e($rev['user_name']) ?>'s review" loading="lazy">
+                  <a class="review-photo<?= $ph['status'] !== 'approved' ? ' is-pending' : '' ?>" href="<?= media_url($ph['path']) ?>" target="_blank" rel="noopener">
+                    <?= picture($ph['path'], 'Photo from ' . $rev['user_name'] . "'s review") ?>
                     <?php if ($ph['status'] !== 'approved'): ?><span>Being checked</span><?php endif; ?>
                   </a>
                 <?php endforeach; ?>
@@ -131,7 +131,7 @@ $statusNote = [
               <div class="review-photo-manage">
                 <?php foreach ($have as $ph): ?>
                   <label class="img-manage-item">
-                    <img src="<?= url('/' . $ph['path']) ?>" alt="Your review photo">
+                    <?= picture($ph['path'], 'Your review photo') ?>
                     <span class="img-remove"><input type="checkbox" name="remove_photos[]" value="<?= (int) $ph['id'] ?>"><span><?= micon('delete', ['size' => 15]) ?> Remove</span></span>
                     <?php if ($ph['status'] !== 'approved'): ?><span class="img-pending">Being checked</span><?php endif; ?>
                   </label>

@@ -55,6 +55,7 @@ final class ImageUpload
         if (file_put_contents($folder . '/' . $name, $clean) === false) {
             return null;
         }
+        ImageOptimizer::optimize('uploads/' . $dir . '/' . $name);
         return 'uploads/' . $dir . '/' . $name;
     }
 
@@ -68,6 +69,7 @@ final class ImageUpload
         if (is_file($file)) {
             @unlink($file);
         }
+        ImageOptimizer::deleteVariants($path);
     }
 
     /**

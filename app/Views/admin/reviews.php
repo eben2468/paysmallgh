@@ -42,7 +42,7 @@ $empty = [
     <article class="panel mod-card">
       <div class="mod-top">
         <div>
-          <a class="cell-main" href="<?= url('/product/' . (int) $r['product_id']) ?>#reviews" target="_blank" rel="noopener"><?= e($r['product_name']) ?></a>
+          <a class="cell-main" href="<?= product_url($r) ?>#reviews" target="_blank" rel="noopener"><?= e($r['product_name']) ?></a>
           <span class="cell-sub"><?= e($r['shop_name']) ?></span>
         </div>
         <div class="mod-tags">
@@ -77,7 +77,7 @@ $empty = [
           <div class="mod-photos">
             <?php foreach ($r['photos'] as $ph): ?>
               <figure class="mod-photo<?= $ph['status'] === 'pending' ? ' is-pending' : '' ?>">
-                <a href="<?= url('/' . $ph['path']) ?>" target="_blank" rel="noopener"><img src="<?= url('/' . $ph['path']) ?>" alt="Review photo" loading="lazy"></a>
+                <a href="<?= media_url($ph['path']) ?>" target="_blank" rel="noopener"><?= picture($ph['path'], 'Review photo') ?></a>
                 <figcaption>
                   <?php if ($ph['status'] === 'pending'): ?>
                     <form class="inline-form" method="post" action="<?= url('/admin/review-photo/' . (int) $ph['id'] . '/approve') ?>">

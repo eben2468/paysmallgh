@@ -2,7 +2,7 @@
 <section class="auth wrap">
   <div class="auth-card">
     <aside class="auth-aside is-merchant">
-      <span class="auth-logo"><img class="logo-mark-img" src="<?= asset('/assets/img/logo-mark.png') ?>" alt="" width="32" height="32"><span>Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></span></span>
+      <span class="auth-logo"><?= picture('assets/img/logo-mark.png', '', ['class' => 'logo-mark-img', 'width' => 32, 'height' => 32, 'loading' => 'eager']) ?><span>Pay<span class="logo-small">Small</span><span class="logo-small2">Small</span></span></span>
       <span class="auth-eyebrow">For shop owners</span>
       <h2>Back to business.</h2>
       <ul class="auth-points">

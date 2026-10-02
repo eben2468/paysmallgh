@@ -12,6 +12,7 @@ use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Services\ImageOptimizer;
 use App\Services\LoginThrottle;
 use App\Services\Otp;
 use App\Services\PaystackService;
@@ -458,6 +459,7 @@ final class MerchantController extends Controller
                 $path = Product::deleteImage((int) $imgId, $pid);
                 if ($path !== null) {
                     @unlink(BASE_PATH . '/public/' . $path);
+                    ImageOptimizer::deleteVariants($path);
                 }
             }
             flash('success', 'Product updated.');
@@ -652,6 +654,7 @@ final class MerchantController extends Controller
         if (!move_uploaded_file($tmp, BASE_PATH . '/public/uploads/' . $name)) {
             return null;
         }
+        ImageOptimizer::optimize('uploads/' . $name);
         return 'uploads/' . $name;
     }
 
@@ -682,6 +685,7 @@ final class MerchantController extends Controller
         foreach ($images as $img) {
             if (!empty($img['path'])) {
                 @unlink(BASE_PATH . '/public/' . $img['path']);
+                ImageOptimizer::deleteVariants($img['path']);
             }
         }
         flash('success', 'Product deleted.');

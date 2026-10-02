@@ -22,6 +22,12 @@ RewriteRule ^ - [L]
 # /uploads with the correct MIME types.
 RewriteRule ^ index.php [L]
 
+# --- Compress text responses (pages, CSS, JS, sitemap) -----------------------
+# Caching headers for assets are set by public/index.php as it streams them.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/xml application/javascript application/json image/svg+xml
+</IfModule>
+
 # --- Hard-deny the environment file even if rewriting is off -----------------
 <Files ".env">
   Require all denied

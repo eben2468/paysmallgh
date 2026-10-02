@@ -141,7 +141,7 @@ if ($f['freq'] !== '') { $chips[] = ['Pay ' . strtolower(Product::FREQUENCIES[$f
         <?php foreach ($params as $k => $v): ?>
           <?php if ($k !== 'sort'): ?><input type="hidden" name="<?= e($k) ?>" value="<?= e((string) $v) ?>"><?php endif; ?>
         <?php endforeach; ?>
-        <label for="sort" class="shop-count"><b><?= count($products) ?></b> item<?= count($products) === 1 ? '' : 's' ?> · Sort</label>
+        <label for="sort" class="shop-count"><b><?= number_format($total ?? count($products)) ?></b> item<?= ($total ?? count($products)) === 1 ? '' : 's' ?> · Sort</label>
         <select id="sort" name="sort" data-autosubmit>
           <?php foreach (Product::SORTS as $slug => $label): ?>
             <?php if ($slug === 'relevance' && $f['q'] === '') { continue; } ?>
@@ -177,11 +177,39 @@ if ($f['freq'] !== '') { $chips[] = ['Pay ' . strtolower(Product::FREQUENCIES[$f
         <?php endif; ?>
       </div>
     <?php else: ?>
-      <div class="product-grid">
+      <div class="product-grid" data-infinite-grid>
         <?php foreach ($products as $p): ?>
           <?= (new App\Core\View())->partial('partials/product-card', ['p' => $p]) ?>
         <?php endforeach; ?>
       </div>
+
+      <?php if (($pages ?? 1) > 1): ?>
+        <?php
+          // Page links: first, last, and two either side of the current page.
+          $show = array_unique(array_filter(
+              [1, $page - 2, $page - 1, $page, $page + 1, $page + 2, $pages],
+              static fn (int $n): bool => $n >= 1 && $n <= $pages
+          ));
+          sort($show);
+        ?>
+        <nav class="pager" aria-label="Pages" data-pager>
+          <?php if ($page > 1): ?>
+            <a class="pager-step" href="<?= url($pageUrl($page - 1)) ?>" rel="prev"><?= micon('chevron_left', ['size' => 20]) ?> Back</a>
+          <?php endif; ?>
+          <?php $last = 0; foreach ($show as $n): ?>
+            <?php if ($n - $last > 1): ?><span class="pager-gap" aria-hidden="true">…</span><?php endif; ?>
+            <?php if ($n === $page): ?>
+              <span class="pager-num is-current" aria-current="page"><?= $n ?></span>
+            <?php else: ?>
+              <a class="pager-num" href="<?= url($pageUrl($n)) ?>" aria-label="Page <?= $n ?>"><?= $n ?></a>
+            <?php endif; ?>
+          <?php $last = $n; endforeach; ?>
+          <?php if ($page < $pages): ?>
+            <a class="pager-step" href="<?= url($pageUrl($page + 1)) ?>" rel="next" data-next-page>More items <?= micon('chevron_right', ['size' => 20]) ?></a>
+          <?php endif; ?>
+        </nav>
+        <p class="pager-note small" data-infinite-status aria-live="polite">Page <?= $page ?> of <?= $pages ?></p>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>

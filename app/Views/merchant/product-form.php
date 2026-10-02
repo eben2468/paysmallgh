@@ -198,7 +198,7 @@ for ($i = 1; $i <= 3; $i++) {
             <div class="img-manage">
               <?php foreach ($images as $img): ?>
                 <label class="img-manage-item">
-                  <img src="<?= url('/' . $img['path']) ?>" alt="Product photo">
+                  <?= picture($img['path'], 'Product photo') ?>
                   <span class="img-remove">
                     <input type="checkbox" name="remove_images[]" value="<?= (int) $img['id'] ?>">
                     <span><?= micon('delete', ['size' => 15]) ?> Remove</span>

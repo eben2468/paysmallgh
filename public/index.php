@@ -60,7 +60,11 @@ spl_autoload_register(function (string $class): void {
     // Versioned links (asset() adds ?v=<mtime>) change whenever the file does,
     // so they can be cached hard. Anything else must re-check, or browsers keep
     // serving an old stylesheet after an update.
-    header(isset($_GET['v']) ? 'Cache-Control: public, max-age=31536000, immutable' : 'Cache-Control: no-cache');
+    // Uploads get a random name when stored and are never overwritten, so they
+    // can be cached hard as well.
+    $immutable = isset($_GET['v']) || str_starts_with($path, '/uploads/');
+    header($immutable ? 'Cache-Control: public, max-age=31536000, immutable' : 'Cache-Control: no-cache');
+    header('Vary: Accept-Encoding');
     if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
         http_response_code(304);
         exit;

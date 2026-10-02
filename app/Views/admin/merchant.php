@@ -119,7 +119,7 @@ foreach ($plans as $pl) {
             <tbody>
               <?php foreach ($products as $pr): ?>
                 <tr>
-                  <td><a class="cell-main" href="<?= url('/product/' . $pr['id']) ?>" target="_blank" rel="noopener"><?= e($pr['name']) ?></a></td>
+                  <td><a class="cell-main" href="<?= product_url($pr) ?>" target="_blank" rel="noopener"><?= e($pr['name']) ?></a></td>
                   <td class="small muted"><?= e(\App\Models\Product::categoryLabel((string) $pr['category'])) ?></td>
                   <td class="right nowrap"><?= e(ghs((int) $pr['cash_price_pesewas'])) ?></td>
                   <td><?= $pr['active'] ? '<span class="tag tag-active">Visible</span>' : '<span class="tag">Hidden</span>' ?></td>

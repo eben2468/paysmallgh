@@ -400,6 +400,10 @@ h1, h2, h3, h4 { line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; }
   background-image:
     linear-gradient(105deg, rgba(241, 243, 255, .97) 0%, rgba(241, 243, 255, .90) 42%, rgba(241, 243, 255, .58) 100%),
     url("../img/hero-bg.jpg");
+  /* Smaller WebP/AVIF copy where supported (older browsers skip this line). */
+  background-image:
+    linear-gradient(105deg, rgba(241, 243, 255, .97) 0%, rgba(241, 243, 255, .90) 42%, rgba(241, 243, 255, .58) 100%),
+    image-set(url("../img/hero-bg.avif") type("image/avif"), url("../img/hero-bg.webp") type("image/webp"), url("../img/hero-bg.jpg") type("image/jpeg"));
   background-size: cover;
   background-position: center right;
   background-repeat: no-repeat;
@@ -615,6 +619,26 @@ h1, h2, h3, h4 { line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; }
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
 }
+/* Picture wrappers (WebP/AVIF) should size exactly like the bare <img>. */
+picture { display: contents; }
+
+/* Shop pagination (infinite scroll hides the numbers and keeps "More items") */
+.pager {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: .4rem; margin: 2rem 0 .5rem;
+}
+.pager-num, .pager-step {
+  display: inline-flex; align-items: center; justify-content: center; gap: .2rem;
+  min-width: 44px; height: 44px; padding: 0 .8rem;
+  border: var(--line); border-radius: var(--radius);
+  background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none;
+}
+.pager-num:hover, .pager-step:hover { border-color: var(--primary); color: var(--primary); }
+.pager-num.is-current { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.pager-step[data-next-page] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); padding: 0 1.2rem; }
+.pager-step[data-next-page]:hover { background: var(--primary-container); color: var(--on-primary); }
+.pager-gap { color: var(--outline); padding: 0 .2rem; }
+.pager-note { text-align: center; color: var(--ink-variant); margin: 0 0 1rem; }
 .product-card {
   display: flex;
   flex-direction: column;
@@ -1338,6 +1362,9 @@ table.data tbody tr:hover { background: var(--surface-low); }
     background-image:
       linear-gradient(rgba(241, 243, 255, .93), rgba(241, 243, 255, .93)),
       url("../img/hero-bg.jpg");
+    background-image:
+      linear-gradient(rgba(241, 243, 255, .93), rgba(241, 243, 255, .93)),
+      image-set(url("../img/hero-bg.avif") type("image/avif"), url("../img/hero-bg.webp") type("image/webp"), url("../img/hero-bg.jpg") type("image/jpeg"));
   }
   .bento-lg, .bento-sm { grid-column: span 12; }
   .bento-lg { flex-direction: column; }

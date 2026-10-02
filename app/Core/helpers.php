@@ -52,12 +52,158 @@ function absolute_url(string $path = '/'): string
  * URL for a file in /public with a version stamp (?v=<last modified time>), so
  * browsers fetch a fresh copy the moment the file changes instead of reusing
  * a cached old stylesheet or script.
+ *
+ * For app.css / app.js, the minified build (app.min.css, made by
+ * scripts/build-assets.php) is used when it exists and is newer than the
+ * source — so an edit to the source is never hidden by a stale build.
+ * With CDN_URL set, the link points at the CDN instead of this server.
  */
 function asset(string $path): string
 {
-    $file = BASE_PATH . '/public/' . ltrim($path, '/');
+    $path = '/' . ltrim($path, '/');
+    if (preg_match('#^(.+)\.(css|js)$#', $path, $m)) {
+        $src = BASE_PATH . '/public' . $path;
+        $min = BASE_PATH . '/public' . $m[1] . '.min.' . $m[2];
+        if (is_file($min) && (!is_file($src) || filemtime($min) >= filemtime($src))) {
+            $path = $m[1] . '.min.' . $m[2];
+        }
+    }
+    $file = BASE_PATH . '/public' . $path;
     $v = is_file($file) ? (string) filemtime($file) : '';
-    return url($path) . ($v !== '' ? '?v=' . $v : '');
+    return cdn_url($path) . ($v !== '' ? '?v=' . $v : '');
+}
+
+/** A /public path on the CDN when CDN_URL is set, else a normal app URL. */
+function cdn_url(string $path): string
+{
+    $cdn = rtrim((string) Config::get('CDN_URL', ''), '/');
+    return $cdn !== '' ? $cdn . '/' . ltrim($path, '/') : url($path);
+}
+
+/**
+ * URL for an uploaded file ("uploads/abc.jpg" as stored in the database).
+ * Goes through the CDN when one is configured. Uploads get a random name
+ * each time, so they never change and can be cached forever.
+ */
+function media_url(string $path): string
+{
+    return cdn_url('/' . ltrim($path, '/'));
+}
+
+/**
+ * An <img> for an uploaded or bundled image, wrapped in <picture> with AVIF and
+ * WebP versions when they exist next to it (made by Services\ImageOptimizer).
+ * Lazy-loaded and async-decoded unless $attrs says otherwise; pass
+ * ['loading' => 'eager', 'fetchpriority' => 'high'] for the main image above
+ * the fold. $alt is required on purpose — every image says what it shows.
+ */
+function picture(string $path, string $alt, array $attrs = []): string
+{
+    $path = ltrim($path, '/');
+    $attrs += ['loading' => 'lazy', 'decoding' => 'async'];
+    $isAsset = str_starts_with($path, 'assets/');
+    $src = $isAsset ? asset($path) : media_url($path);
+
+    $sources = '';
+    if (preg_match('#^(.+)\.(jpe?g|png)$#i', $path, $m)) {
+        foreach (['avif' => 'image/avif', 'webp' => 'image/webp'] as $ext => $type) {
+            $alt_file = $m[1] . '.' . $ext;
+            if (is_file(BASE_PATH . '/public/' . $alt_file)) {
+                $srcset = $isAsset ? asset($alt_file) : media_url($alt_file);
+                $sources .= '<source type="' . $type . '" srcset="' . e($srcset) . '">';
+            }
+        }
+    }
+
+    $html = '<img src="' . e($src) . '" alt="' . e($alt) . '"';
+    foreach ($attrs as $k => $v) {
+        if ($v === null || $v === false) {
+            continue;
+        }
+        $html .= ' ' . e((string) $k) . ($v === true ? '' : '="' . e((string) $v) . '"');
+    }
+    $html .= '>';
+    return $sources !== '' ? '<picture>' . $sources . $html . '</picture>' : $html;
+}
+
+/** "Samsung Galaxy A16 (128GB)" -> "samsung-galaxy-a16-128gb". */
+function slugify(string $text): string
+{
+    $text = mb_strtolower($text);
+    if (function_exists('iconv')) {
+        $ascii = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $text);
+        if (is_string($ascii) && $ascii !== '') {
+            $text = $ascii;
+        }
+    }
+    $text = preg_replace('/[^a-z0-9]+/', '-', $text) ?? '';
+    $text = trim($text, '-');
+    if (strlen($text) > 70) {
+        $text = rtrim(substr($text, 0, 70), '-');
+    }
+    return $text;
+}
+
+/**
+ * Public URL path for a product: "/product/12-samsung-galaxy-a16". The id leads
+ * so the page still finds the product if it's renamed — old links then 301 to
+ * the new slug (see ShopController::show).
+ */
+function product_path(array $product): string
+{
+    $id = (int) ($product['id'] ?? $product['product_id'] ?? 0);
+    $name = (string) ($product['name'] ?? $product['product_name'] ?? '');
+    $slug = slugify($name);
+    return '/product/' . $id . ($slug !== '' ? '-' . $slug : '');
+}
+
+function product_url(array $product): string
+{
+    return url(product_path($product));
+}
+
+/**
+ * The site's public address for canonical links, sitemaps and share cards.
+ * Uses APP_URL so every page names ONE host and scheme, whichever one the
+ * visitor came in on (www or not, http or https).
+ */
+function canonical_url(string $path = '/'): string
+{
+    $base = rtrim((string) Config::get('APP_URL', ''), '/');
+    if ($base === '') {
+        return absolute_url($path);
+    }
+    $path = '/' . ltrim($path, '/');
+    return $base . ($path === '/' ? '/' : $path);
+}
+
+/** Absolute URL for an image (share cards need full URLs). */
+function absolute_media_url(string $path): string
+{
+    $u = str_starts_with(ltrim($path, '/'), 'assets/') ? asset($path) : media_url($path);
+    if (preg_match('#^https?://#', $u)) {
+        return $u; // already on the CDN
+    }
+    $base = rtrim(url('/'), '/');
+    if ($base !== '' && str_starts_with($u, $base)) {
+        $u = substr($u, strlen($base)); // canonical_url() adds the base back via APP_URL
+    }
+    return canonical_url($u);
+}
+
+/** Plain-text snippet for meta descriptions: tags stripped, spaces squashed, cut at a word. */
+function meta_excerpt(string $text, int $max = 158): string
+{
+    $text = trim(preg_replace('/\s+/u', ' ', strip_tags($text)) ?? '');
+    if (mb_strlen($text) <= $max) {
+        return $text;
+    }
+    $cut = mb_substr($text, 0, $max - 1);
+    $space = mb_strrpos($cut, ' ');
+    if ($space !== false && $space > $max * 0.6) {
+        $cut = mb_substr($cut, 0, $space);
+    }
+    return rtrim($cut, " ,.;:-") . '…';
 }
 
 /** Redirect and stop. */

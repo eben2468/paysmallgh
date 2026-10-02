@@ -74,7 +74,7 @@
             <div class="plan-card-body">
               <div class="plan-card-media">
                 <?php if (!empty($plan['photo'])): ?>
-                  <img src="<?= url('/' . $plan['photo']) ?>" alt="<?= e($plan['product_name']) ?>">
+                  <?= picture($plan['photo'], $plan['product_name']) ?>
                 <?php else: ?>
                   <div class="photo-placeholder"><?= micon(product_micon($plan['category'] ?? 'general'), ['size' => 34]) ?></div>
                 <?php endif; ?>

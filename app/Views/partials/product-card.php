@@ -25,12 +25,13 @@ $placeholder = '<div class="photo-placeholder"' . (!empty($p['photo']) ? ' style
     . '<span class="small">photo coming from the shop</span></div>';
 ?>
 <div class="card-wrap<?= $inStock ? '' : ' is-sold-out' ?>">
-  <a class="product-card" href="<?= url('/product/' . $pid) ?>">
+  <a class="product-card" href="<?= product_url($p) ?>">
     <div class="product-photo">
       <?php if ($discount > 0): ?><span class="card-discount">-<?= $discount ?>%</span><?php endif; ?>
       <?php if (!empty($p['photo'])): ?>
-        <img src="<?= url('/' . $p['photo']) ?>" alt="<?= e($p['name']) ?>" loading="lazy"
-             onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='';">
+        <?= picture((string) $p['photo'], $p['name'] . ' — ' . Product::categoryLabel((string) $cat) . ' from ' . $p['shop_name'], [
+            'onerror' => "this.onerror=null;this.style.display='none';this.closest('.product-photo').querySelector('.photo-placeholder').style.display='';",
+        ]) ?>
       <?php endif; ?>
       <?= $placeholder ?>
       <?php if (!$inStock): ?>

@@ -25,9 +25,9 @@ $freqNames = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
     <?php foreach ($lines as $line): ?>
       <?php $p = $line['product']; ?>
       <article class="cart-line<?= $line['problem'] !== '' ? ' has-problem' : '' ?>">
-        <a class="cart-photo" href="<?= $p ? url('/product/' . (int) $p['id']) : '#' ?>">
+        <a class="cart-photo" href="<?= $p ? product_url($p) : '#' ?>">
           <?php if ($p && $p['photo'] !== ''): ?>
-            <img src="<?= url('/' . $p['photo']) ?>" alt="<?= e($p['name']) ?>" loading="lazy">
+            <?= picture($p['photo'], $p['name']) ?>
           <?php else: ?>
             <?= micon(product_micon((string) ($p['category'] ?? 'general')), ['size' => 32]) ?>
           <?php endif; ?>
@@ -36,7 +36,7 @@ $freqNames = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
         <div class="cart-main">
           <div class="cart-top">
             <div>
-              <h2 class="cart-name"><?= $p ? '<a href="' . url('/product/' . (int) $p['id']) . '">' . e($p['name']) . '</a>' : 'Item no longer available' ?></h2>
+              <h2 class="cart-name"><?= $p ? '<a href="' . product_url($p) . '">' . e($p['name']) . '</a>' : 'Item no longer available' ?></h2>
               <?php if (!empty($line['label'])): ?><p class="cart-variant"><?= e($line['label']) ?></p><?php endif; ?>
               <?php if ($p): ?><p class="cart-shop"><?= e($p['shop_name']) ?> · <?= e($p['merchant_location']) ?></p><?php endif; ?>
             </div>
@@ -68,7 +68,7 @@ $freqNames = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
 
           <?php if ($line['problem'] !== ''): ?>
             <p class="cart-problem"><?= micon('error', ['size' => 18, 'fill' => true]) ?> <?= e($line['problem']) ?>
-              <?php if ($p): ?><a href="<?= url('/product/' . (int) $p['id']) ?>">Open item</a><?php endif; ?></p>
+              <?php if ($p): ?><a href="<?= product_url($p) ?>">Open item</a><?php endif; ?></p>
           <?php else: ?>
             <form class="cart-start" method="post" action="<?= url('/plan/start') ?>">
               <?= Csrf::field() ?>

@@ -44,6 +44,52 @@ if (Auth::isAdmin()) {
 $primary = $accounts[0] ?? null;
 $merchantHref = Auth::merchantId() ? '/merchant/dashboard' : '/merchant';
 
+// --- SEO -------------------------------------------------------------------
+// Controllers can pass: title, metaDescription, canonical, ogType, ogImage,
+// jsonLd (array, or list of arrays) and robots. Sensible defaults otherwise.
+$siteName = (string) Config::get('APP_NAME', 'PaySmallSmall');
+$pageTitle = (string) ($title ?? $siteName);
+$pageDescription = meta_excerpt((string) ($metaDescription ?? "That thing you've been eyeing? Pay small small — weekly or daily MoMo payments — and it's yours. Your money sits in escrow till you finish. Built for Ghana."));
+$pageCanonical = (string) ($canonical ?? canonical_url($currentPath));
+// Account, checkout and login pages are for the person using them, not for Google.
+$privatePrefixes = ['/account', '/plans', '/plan/', '/cart', '/wishlist', '/login', '/logout', '/register', '/verify-phone', '/forgot-pin', '/reset-pin', '/checkout', '/merchant/', '/admin'];
+$isPrivate = false;
+foreach ($privatePrefixes as $pre) {
+    if ($currentPath === rtrim($pre, '/') || str_starts_with($currentPath, $pre)) {
+        $isPrivate = true;
+        break;
+    }
+}
+$pageRobots = (string) ($robots ?? ($isPrivate ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'));
+$pageImage = absolute_media_url((string) ($ogImage ?? 'assets/img/hero-bg.jpg'));
+$schemas = $jsonLd ?? [];
+if ($schemas && !array_is_list($schemas)) {
+    $schemas = [$schemas];
+}
+if ($currentPath === '/') {
+    // Who we are + the site search box Google can show under our result.
+    $schemas[] = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Organization',
+        'name' => $siteName,
+        'url' => canonical_url('/'),
+        'logo' => absolute_media_url('assets/img/logo.png'),
+    ];
+    $schemas[] = [
+        '@context' => 'https://schema.org',
+        '@type' => 'WebSite',
+        'name' => $siteName,
+        'url' => canonical_url('/'),
+        'potentialAction' => [
+            '@type' => 'SearchAction',
+            'target' => ['@type' => 'EntryPoint', 'urlTemplate' => canonical_url('/shop') . '?q={search_term_string}'],
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
+}
+$cdnParts = parse_url((string) Config::get('CDN_URL', ''));
+$cdnOrigin = isset($cdnParts['scheme'], $cdnParts['host']) ? $cdnParts['scheme'] . '://' . $cdnParts['host'] : '';
+
 /** One account's block in the menu: name, links, Log out. */
 $accountBlock = static function (array $a, bool $showHead): string {
     $h = '';
@@ -68,12 +114,36 @@ $accountBlock = static function (array $a, bool $showHead): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= e($title ?? 'PaySmallSmall') ?></title>
-<meta name="description" content="Pay for what you need small small — weekly MoMo payments, money held safe in escrow until you finish. Built for Ghana.">
+<title><?= e($pageTitle) ?></title>
+<meta name="description" content="<?= e($pageDescription) ?>">
+<meta name="robots" content="<?= e($pageRobots) ?>">
+<link rel="canonical" href="<?= e($pageCanonical) ?>">
+<?php if (!empty($prevUrl)): ?><link rel="prev" href="<?= e($prevUrl) ?>"><?php endif; ?>
+<?php if (!empty($nextUrl)): ?><link rel="next" href="<?= e($nextUrl) ?>"><?php endif; ?>
+<?php if ($gsc = (string) Config::get('GOOGLE_SITE_VERIFICATION', '')): ?>
+<meta name="google-site-verification" content="<?= e($gsc) ?>">
+<?php endif; ?>
+<meta property="og:site_name" content="<?= e($siteName) ?>">
+<meta property="og:type" content="<?= e((string) ($ogType ?? 'website')) ?>">
+<meta property="og:title" content="<?= e($pageTitle) ?>">
+<meta property="og:description" content="<?= e($pageDescription) ?>">
+<meta property="og:url" content="<?= e($pageCanonical) ?>">
+<meta property="og:image" content="<?= e($pageImage) ?>">
+<meta property="og:image:alt" content="<?= e($pageTitle) ?>">
+<meta property="og:locale" content="en_GH">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= e($pageTitle) ?>">
+<meta name="twitter:description" content="<?= e($pageDescription) ?>">
+<meta name="twitter:image" content="<?= e($pageImage) ?>">
+<?php foreach ($schemas as $schema): ?>
+<script type="application/ld+json"><?= json_encode($schema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+<?php endforeach; ?>
+<?php if ($cdnOrigin !== ''): ?><link rel="preconnect" href="<?= e($cdnOrigin) ?>" crossorigin><?php endif; ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+<?php /* Only the icon axes the CSS uses (weight 400, grade 0, size 24, filled or not) — a fraction of the full variable font. */ ?>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
 <link rel="icon" href="<?= asset('/assets/img/favicon.ico') ?>" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="<?= asset('/assets/img/favicon-32.png') ?>">
 <link rel="icon" type="image/png" sizes="192x192" href="<?= asset('/assets/img/favicon-192.png') ?>">
@@ -95,7 +165,7 @@ $accountBlock = static function (array $a, bool $showHead): string {
   <div class="wrap header-row">
     <button class="nav-toggle" aria-label="Menu" aria-expanded="false" data-nav-toggle><?= micon('menu', ['size' => 26]) ?></button>
 
-    <a class="logo logo-img" href="<?= url('/') ?>"><img src="<?= asset('/assets/img/logo-header.png') ?>" alt="PaySmallSmall" width="283" height="60"></a>
+    <a class="logo logo-img" href="<?= url('/') ?>"><?= picture('assets/img/logo-header.png', 'PaySmallSmall', ['width' => 283, 'height' => 60, 'loading' => 'eager', 'fetchpriority' => 'high']) ?></a>
 
     <nav class="primary-nav" aria-label="Primary">
       <a class="<?= $is('/shop') ?>" href="<?= url('/shop') ?>">Browse</a>
@@ -172,7 +242,7 @@ $accountBlock = static function (array $a, bool $showHead): string {
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div>
-      <p class="footer-logo"><img src="<?= asset('/assets/img/logo.png') ?>" alt="PaySmallSmall — secure layaway for Ghana" width="224" height="150"></p>
+      <p class="footer-logo"><?= picture('assets/img/logo.png', 'PaySmallSmall — secure layaway for Ghana', ['width' => 224, 'height' => 150]) ?></p>
       <p class="footer-note">Lay-away for the MoMo age. Your money sits safe in escrow until the item is fully yours.</p>
     </div>
     <div>
@@ -206,6 +276,6 @@ $accountBlock = static function (array $a, bool $showHead): string {
   <?php endif; ?>
 </nav>
 
-<script src="<?= asset('/assets/js/app.js') ?>"></script>
+<script src="<?= asset('/assets/js/app.js') ?>" defer></script>
 </body>
 </html>
